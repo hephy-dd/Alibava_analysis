@@ -18,7 +18,7 @@ def create_dictionary(file, filepath):
     '''Creates a dictionary with all values written in the file using yaml'''
 
     file_string = os.path.abspath(os.getcwd() + str(filepath) + "\\" + str(file))
-    print "Loading file: " + str(file)
+    print ("Loading file: " + str(file))
     with open(file_string, "r") as yfile:
         dict = yaml.load(yfile)
         return dict
@@ -31,15 +31,23 @@ def import_h5(*pathes):
     :return: list
     """
 
+    # Check if a list was passed
+    if type(pathes[0]) == list:
+        pathes = pathes[0]
+
     # First check if pathes exist and if so import
     loaded_files = []
-    for path in tqdm(pathes, desc= "Loading files:"):
-        if os.path.exists(os.path.normpath(path)):
-            # Now import all hdf5 files
-            loaded_files.append(h5py.File(os.path.normpath(path), 'r'))
-        else:
-            raise Exception('The path {!s} does not exist.'.format(path))
-    return loaded_files
+    try:
+        for path in tqdm(pathes, desc= "Loading files:"):
+            if os.path.exists(os.path.normpath(path)):
+                # Now import all hdf5 files
+                loaded_files.append(h5py.File(os.path.normpath(path), 'r'))
+            else:
+                raise Exception('The path {!s} does not exist.'.format(path))
+        return loaded_files
+    except OSError as e:
+        print("Enountered an OSerror: {!s}".format(e))
+        return False
 
 if __name__ == "__main__":
     li = import_h5(r"\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5")

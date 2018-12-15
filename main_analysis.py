@@ -2,9 +2,11 @@
 
 
 from utilities import *
-from noise_analysis import *
-import yaml, os
+from calibration_analysis import *
+import os
 from optparse import OptionParser
+import matplotlib.pyplot as plt
+
 
 
 
@@ -13,22 +15,34 @@ def main(args, options):
     if options.configfile and os.path.exists(os.path.normpath(options.configfile)):
         configs = create_dictionary(os.path.normpath(options.configfile), "")
         do_with_config_file(configs)
+        plt.show()
+
 
     elif options.filepath and os.path.exists(os.path.normpath(options.filepath)):
         pass
 
     else:
-        print "No valid path parsed! Exiting"
+        print ("No valid path parsed! Exiting")
         exit(1)
 
 
 def do_with_config_file(config):
     """Starts analysis with a config file"""
 
-    # First look if a pedestal file is specified
+    # Look if a calibration file is specified
+    if "Calibration_file" in config:
+        config_data = calibration(config["Calibration_file"])
+        config_data.plot_data()
+
+    # Look if a pedestal file is specified
     if "Pedestal_file" in config:
-        noise_data = noise_analysis(config["Pedestal_file"].decode('string_escape'))
+        noise_data = noise_analysis(config["Pedestal_file"])
         noise_data.plot_data()
+
+    # Look if a pedestal file is specified
+    if "Measurement_file" in config:
+        event_data = event_analysis(config["Measurement_file"])
+        event_data.plot_data()
 
 
 
@@ -53,9 +67,9 @@ parser.add_option("--file",
 try:
     main(args, options)
 except KeyError:
-    print "ERROR: I need an input file!"
+    print("ERROR: I need an input file!")
 except IndexError:
-    print "ERROR: I need at least one parameter to work properly!"
+    print("ERROR: I need at least one parameter to work properly!")
 
 
 
