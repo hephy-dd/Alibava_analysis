@@ -1,0 +1,10 @@
+# Ignore all .pyc files log files etc
+*.pyc
+*.log
+*.bat
+*Makefile
+
+
+
+# Ignore the content of some folders
+.idea/**
