@@ -95,7 +95,7 @@ def main(fname,options):
 
 
     if not os.path.exists(fname):
-        print "Input file", fname,"does not exist"
+        print ("Input file", fname,"does not exist")
         return
     F = h5py.File(fname, 'r')
         
@@ -118,7 +118,7 @@ def main(fname,options):
     
 
     # Reduce the data sample to those events
-    print "Events in the file. ..................... Nevt=", nevts
+    print ("Events in the file. ..................... Nevt=", nevts)
 
     TT = GTimer() # This is to show the number of events processed
     TG = GTimer() # This is to profile the process
@@ -145,7 +145,7 @@ def main(fname,options):
     if nevents>0:
         nevts=int(nevents)
 
-    print "Events in to analyze. ..................... Nevt=", nevts
+    print ("Events in to analyze. ..................... Nevt=", nevts)
 
     SCOR = [[] for _ in range(nevts)]
     nevtot=0.
@@ -155,7 +155,7 @@ def main(fname,options):
        
 
         if TT() >= 0:
-            print "\r%10d, %10d" % (im, ievt),
+            print ("\r%10d, %10d" % (im, ievt)),
             sys.stdout.flush()
             TT.reset()
         
@@ -175,7 +175,7 @@ def main(fname,options):
             break  
 
     TT.stop()    
-    print "\nTotal time elapsed:", TG()    
+    print ("\nTotal time elapsed:", TG() )
     #########################################
     # End Loop over events to get common noise
     #########################################
@@ -319,6 +319,6 @@ if __name__ == "__main__":
     try:
         main(args[0], options)
     except KeyError:
-        print "I need an input file"
+        print ("I need an input file")
 
 

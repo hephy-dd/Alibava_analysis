@@ -88,33 +88,35 @@ class noise_analysis:
 
             # Noise Calculations
             self.vectnoise_funct()
-            #self.noise_calc()
+            #self.noise_calc(self.score, self.CMnoise, self.CMsig)
             self.noise = np.std(self.score, axis=0)  # Calculate the actual noise for every channel by building the mean of all noise from every event
         else:
             print("No valid file, skipping pedestal run")
 
-    @jit(parallel=True)
+    #@jit(parallel=True)
     def noise_calc(self):
         """Noise calculation, normal noise (NN) and common mode noise (CMN)
         Uses numba and numpy, can be further optimized by reducing memory access to member variables.
         But got 36k events per second.
         So fuck it."""
         events = self.data['/events/signal'][:]
+        pedestal = self.pedestal[:]
 
         for event in tqdm(prange(self.goodevents[0].shape[0]), desc="Events processed:"): # Loop over all good events
 
             # Calculate the common mode noise for every channel
-            cm = np.single(events[event][:]) - self.pedestal  # Get the signal from event and subtract pedestal
+            cm = np.single(events[event][:]) - pedestal  # Get the signal from event and subtract pedestal
             CMNsig = np.std(cm)  # Calculate the standard deviation
             CMN = np.mean(cm)  # Now calculate the mean from the cm to get the actual common mode noise
 
+            # Calculate the noise of channels
+            cn = cm - CMN # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
+
+            self.score[event] = cn
             # Append the common mode values per event into the data arrays
             self.CMnoise[event] = CMN
             self.CMsig[event] = CMNsig
 
-            # Calculate the noise of channels
-            cn = cm - CMN # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
-            self.score[event] = cn
 
 
     def plot_data(self):
