@@ -140,13 +140,13 @@ def process_event(ievt, S, nchan, pedestal, noise):
 #########################################
 def main(fname,options):  
     
-    print "HOLA"
+    print("HOLA")
     ##################################
     # Open data files
     ##################################    
     
     if not os.path.exists(fname):
-        print "Input file", fname,"does not exist"
+        print ("Input file", fname,"does not exist")
         return
     
     F = h5py.File(fname, 'r')
@@ -185,7 +185,7 @@ def main(fname,options):
     nevts = GT[0].shape[0]
    
     # Reduce the data sample to those events
-    print "Loop on Events. ..................... Nevt=", nevts
+    print ("Loop on Events. ..................... Nevt=", nevts)
 
     TT = GTimer() # This is to show the number of events processed
     TG = GTimer() # This is to profile the process
@@ -224,7 +224,7 @@ def main(fname,options):
     ########################
     
     #for im , ievt in enumerate(GT[0]):
-    for  ievt in  range(0,1000):
+    for  ievt in  range(0,10000):
             
         if T[ievt]<=tmin or T[ievt]>tmax :
             continue
@@ -236,7 +236,7 @@ def main(fname,options):
         
         
         if TT() > 1.0:
-            print  "\r%10d, %10d      " % (ievt, nevtot), "Processing .... (event number, total number of events)",
+            print("\r%10d, %10d      " % (ievt, nevtot), "Processing .... (event number, total number of events)"),
             sys.stdout.flush()
             TT.reset()
             
@@ -305,8 +305,8 @@ def main(fname,options):
                 
            
     TT.stop()    
-    print "\nTotal time elapsed:                 ", TG()
-    print "\nTotal events processed in time:     ", nevtot
+    print ("\nTotal time elapsed:                 "), TG()
+    print ("\nTotal events processed in time:     "), nevtot
     
    
     ########################        
@@ -331,17 +331,17 @@ def main(fname,options):
   
 
     # The Hip map
-    X = r_[0:128:1]
+    X = r_[0:256:1]
     subplot(3,1,3)
     plt.title("Hit map (Channel)")  
     plt.ylabel('Number of entries')
     plt.xlabel('Channel number')  
-    plt.bar(X,Hitm,color="mediumseagreen")   
+    plt.bar(X,Hitm,color="mediumseagreen")
  
     figure(2)
 
     # Pedestals
-    X = r_[0:128:1]
+    X = r_[0:256:1]
     subplot(3,1,1)
     plt.title("Pedestal vs Channel")   
     plt.ylabel('Pedestal (ADCs)')
@@ -350,7 +350,7 @@ def main(fname,options):
     
 
     # Noise
-    X = r_[0:128:1]
+    X = r_[0:256:1]
     subplot(2,1,2)
     plt.title("Noise vs Channel") 
     plt.ylabel('Noise (ADCs)')
@@ -442,7 +442,7 @@ def main(fname,options):
     # Draw the fitted curve on top of the histogram
     y = dataFunc(fit_par, X)
     l = plot(X, y, 'r-', linewidth=2, label="hola")
-    legend([p],[r'mean  %.1f sigma %.1f' % (fit_par[1], fit_par[2])],'upper right')
+    #legend([p],[r'mean  %.1f sigma %.1f' % (fit_par[1], fit_par[2])],'upper right')
 
     plt.axvspan(options.fmin, options.fmax, alpha=0.20,facecolor='g')
     
@@ -496,7 +496,7 @@ def main(fname,options):
     # Draw the fitted curve on top of the histogram
     y = dataFunc(fit_par, X)
     l = plot(X, y, 'r-', linewidth=2, label="hola")
-    legend([p],[r'mode  %.1f sigma %.1f' % (fit_par[1], fit_par[2])],'upper right')
+    #legend([p],[r'mode  %.1f sigma %.1f' % (fit_par[1], fit_par[2])],'upper right')
 
     plt.axvspan(Elecmin, Elecmax, alpha=0.20,facecolor='g')
     
@@ -583,7 +583,7 @@ if __name__ == "__main__":
     parser.add_option("--s/n",
                       dest="sncut", action="store", type="float",
                       help="Signal/Noise cut  (default=5)",
-                      default=5.
+                      default=3.
                       )  
     parser.add_option("--PE0",
                       dest="PE0", action="store", type="float",
@@ -622,5 +622,5 @@ if __name__ == "__main__":
     try:
         main(args[0], options)
     except KeyError:
-        print "I need an input file"
+        print("I need an input file")
 

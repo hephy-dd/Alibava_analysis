@@ -30,8 +30,8 @@ def do_with_config_file(config):
     """Starts analysis with a config file"""
 
     # Look if a calibration file is specified
-    if "Calibration_file" in config:
-        config_data = calibration(config["Calibration_file"])
+    if "Delay_scan" in config or "Charge_scan" in config:
+        config_data = calibration(config.get("Delay_scan",""), config.get("Charge_scan",""))
         config_data.plot_data()
 
     # Look if a pedestal file is specified
@@ -41,8 +41,18 @@ def do_with_config_file(config):
 
     # Look if a pedestal file is specified
     if "Measurement_file" in config:
-        event_data = event_analysis(config["Measurement_file"])
-        event_data.plot_data()
+        # TODO: potential call before assignement error !!! with pedestal file
+        event_data = event_analysis(config["Measurement_file"],
+                                    pedestal=noise_data.pedestal,
+                                    CMN=noise_data.CMnoise,
+                                    CMsig=noise_data.CMsig,
+                                    Noise=noise_data.noise,
+                                    SN_ratio=config.get("SN_ratio",0),
+                                    MaxCluster=config.get("max_cluster_size",4),
+                                    sensor_type=config.get("sensor_type","n-in-p"),
+                                    masking=config.get("mask_dead_channels","False"),
+                                    timing=config.get("timing",[0,100]))
+        event_data.plot_data(single_event=50000)
 
 
 
@@ -64,12 +74,12 @@ parser.add_option("--file",
                   )
 (options, args) = parser.parse_args()
 
-try:
-    main(args, options)
-except KeyError:
-    print("ERROR: I need an input file!")
-except IndexError:
-    print("ERROR: I need at least one parameter to work properly!")
+#try:
+main(args, options)
+#except KeyError:
+    #print("ERROR: I need an input file!")
+#except IndexError:
+    #print("ERROR: I need at least one parameter to work properly!")
 
 
 
