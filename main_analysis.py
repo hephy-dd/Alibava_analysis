@@ -47,10 +47,11 @@ def do_with_config_file(config):
                                     CMN=noise_data.CMnoise,
                                     CMsig=noise_data.CMsig,
                                     Noise=noise_data.noise,
-                                    SN_ratio=config.get("SN_ratio",0),
-                                    MaxCluster=config.get("max_cluster_size",4),
+                                    SN_cut=config.get("SN_cut",0),
                                     sensor_type=config.get("sensor_type","n-in-p"),
                                     masking=config.get("mask_dead_channels","False"),
+                                    MaxCluster=config.get("max_cluster_size", 5),
+                                    SN_ratio=config.get("SN_ratio", 0.5),
                                     timing=config.get("timing",[0,100]))
         event_data.plot_data(single_event=50000)
 

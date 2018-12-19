@@ -35,7 +35,6 @@ class event_analysis:
         self.numevents = len(self.data[0]["events/signal"])
         self.pedestal = np.zeros(self.numchan, dtype=np.float64)
         self.noise = np.zeros(self.numchan, dtype=np.float64)
-        self.Hitmap_list = []  # Simply a fill of all channel which fires
         self.SN_cut = 1
         self.hits = 0
         self.tmin = 0
@@ -44,16 +43,21 @@ class event_analysis:
         self.CMN = np.zeros(self.numchan, dtype=np.float64)
         self.CMsig = np.zeros(self.numchan, dtype=np.float64)
         self.outputdata = {}
+        self.automasked_hit = 0
+        self.events = 0
+        self.total_events = self.numevents*len(self.data)
 
         self.material = kwargs.get("sensor_type", "n-in-p")
         self.masking = kwargs.get("masking", False)
+        self.max_clustersize = kwargs.get("MaxCluster", 5)
+        self.SN_ratio = kwargs.get("SN_ratio", 5)
 
 
         if "pedestal" in kwargs:
             self.pedestal = kwargs["pedestal"]
 
         if "SN_ratio" in kwargs:
-            self.SN_cut = kwargs["SN_ratio"] # Cut for the signal to noise ratio
+            self.SN_cut = kwargs["SN_cut"] # Cut for the signal to noise ratio
 
         if "CMN" in kwargs:
             self.CMN = kwargs["CMN"] # CMN for every channel
@@ -63,9 +67,6 @@ class event_analysis:
 
         if "Noise" in kwargs:
             self.noise = kwargs["Noise"] # Common mode sig for every channel
-
-        if "MaxCluster" in kwargs:
-            self.maxcluster = kwargs["MaxCluster"] # Common mode sig for every channel
 
         if "timing" in kwargs:
             self.min = kwargs["timing"][0] # timinig window
@@ -81,6 +82,20 @@ class event_analysis:
 
                 self.outputdata[str(self.data[data]).split('"')[1].split('.')[0]] = results
 
+        print("*************************************************************************\n" 
+                  "            Analysis report:                                             \n"
+                  "            ~~~~~~~~~~~~~~~~                                             \n"
+                  "                                                                         \n"
+                  "            Automasked hits:   {automasked!s}                            \n"
+                  "            Events processed:  {events!s}                                \n"
+                  "            Total events:      {total_events!s}                          \n"
+                  "                                                                         \n"
+                  "*************************************************************************\n".format(
+                                                                                                    automasked=self.automasked_hit,
+                                                                                                    events=self.events,
+                                                                                                    total_events = self.total_events)
+                                                                                                    )
+
 
 
     def do_analysis(self, events, timing):
@@ -88,35 +103,69 @@ class event_analysis:
 
         # get events with good timinig only gtime and only process these events
         gtime = np.nonzero(timing>self.tmin)
+        self.events += int(gtime[0].shape[0])
         meanCMN = np.mean(self.CMN)
         meanCMsig = np.mean(self.CMsig)
         prodata = []  # List of processed data which then can be accessed
-        #Warning: If you have a RS and pulseshape recognition enabled the timing window has to set accordingly
+        hitmap = np.zeros(self.numchan)
+        #Warning: If you have a RS and pulseshape recognition enabled the timing window has to be set accordingly
         for event in tqdm(prange(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
 
             signal, SN, CMN, CMsig = self.process_event(events[event], meanCMN, meanCMsig, self.noise)
+            channels_hit, clusters, numclus = self.clustering(signal, SN)
+            for channel in channels_hit:
+                hitmap[channel] += 1
 
-            self.clustering(signal, SN)
-
-            prodata.append((event, signal, SN, CMN, CMsig))
+            prodata.append({
+                "Signal": signal,
+                "SN": SN,
+                "CMN": CMN,
+                "CMsig": CMsig,
+                "Hitmap": hitmap,
+                "Channels": channels_hit,
+                "Clusters": clusters,
+                "NumClusters": numclus}
+            )
 
         return prodata
 
     def clustering(self, event, SN):
-        """Looks for cluster in the event"""
-
-        numclus = 0
-        channels = np.nonzero(np.abs(SN) > self.SN_cut)# Only channels which have a signal/Noise higher then the signal/Noise cut
+        """Looks for cluster in a event"""
+        channels = np.nonzero(np.abs(SN) > self.SN_cut)[0]# Only channels which have a signal/Noise higher then the signal/Noise cut
 
         if self.masking:
             if self.material == "n-in-p":
                 # Todo: masking of dead channels etc.
-                channels = np.nonzero(np.take(event ,channels) < 0) # So only negative values are considered
+                masked_ind = np.nonzero(np.take(event, channels) > 0)[0] # So only negative values are considered
+                if masked_ind.any():
+                    channels = np.delete(channels, masked_ind)
+                    self.automasked_hit += len(masked_ind)
             else:
-                channels = np.nonzero(np.take(event, channels) > 0) # So only positive values are considered
+                masked_ind = np.nonzero(np.take(event, channels) < 0)[0] # So only positive values are considered
+                if masked_ind.any():
+                    channels = np.delete(channels, masked_ind)
+                    self.automasked_hit += len(masked_ind)
 
+        used_channels = np.zeros(self.numchan) # To keep track which channel have been used already
+        numclus = 0 # The number of found clusters
+        clusters_list = []
+        for ch in channels: # Loop over all left channels which are a hit, here from "left" to "right"
+            if not used_channels[ch]: # Make sure we dont count everything twice
+                used_channels[ch] = 1 # So now the channel is used
+                numclus+=1
+                cluster = [ch] # Keep track of the individual clusters
 
-        used_channels = np.zeros(self.numchan) # To keep track which channel have been used already for clustering and/or masking channels
+                # Now make a loop to find neighbouring hits of cluster, we must go into both directions
+                # TODO huge clusters can be misinterpreted!!!
+                for i in range(ch-self.max_clustersize, ch+self.max_clustersize): # Search plus minus the channel found
+                    if 0 < i < self.numchan: # To exclude overrun
+                        if self.material == "n-in-p":
+                            if SN[ch]>self.SN_cut*self.SN_ratio and not used_channels[ch]:
+                                cluster.append(i)
+                                used_channels[i] = 1
+                clusters_list.append(cluster)
+
+        return channels, clusters_list, numclus
 
 
     def process_event(self, event, CMN, CMsig, noise):
@@ -143,10 +192,30 @@ class event_analysis:
     def plot_data(self, single_event = -1):
         """This function plots all data processed"""
 
-        # Plot a single event from every file
-        if single_event > 0:
-            for name, data in self.outputdata.items():
+        for name, data in self.outputdata.items():
+            # Plot a single event from every file
+            if single_event > 0:
                 self.plot_single_event(single_event, name)
+
+            # Plot Analysis results
+            fig = plt.figure("Analysis file: {!s}".format(name))
+
+            # Plot Hitmap
+            channel_plot = fig.add_subplot(211)
+            channel_plot.bar(np.arange(self.numchan), data[-1]["Hitmap"][:], 1., alpha=0.4, color="b")
+            channel_plot.set_xlabel('channel [#]')
+            channel_plot.set_ylabel('Hits [#]')
+            channel_plot.set_title('Hitmap')
+
+            # Plot Clustering results
+            fig = plt.figure("Clustering Analysis on file: {!s}".format(name))
+
+            # Plot Number of clusters
+            clusters_plot = fig.add_subplot(221)
+            #clusters_plot.hist(np.arange(self.numchan), data[:][5][:], 1., alpha=0.4, color="b")
+            #clusters_plot.set_xlabel('channel [#]')
+            #clusters_plot.set_ylabel('Hits [#]')
+            #clusters_plot.set_title('Hitmap')
 
 
     def plot_single_event(self, eventnum, file):
@@ -158,14 +227,14 @@ class event_analysis:
 
         # Plot signal
         channel_plot = fig.add_subplot(211)
-        channel_plot.bar(np.arange(self.numchan), data[eventnum][1][:], 1., alpha=0.4, color="b")
+        channel_plot.bar(np.arange(self.numchan), data[eventnum]["Signal"][:], 1., alpha=0.4, color="b")
         channel_plot.set_xlabel('channel [#]')
         channel_plot.set_ylabel('Signal [ADC]')
         channel_plot.set_title('Signal')
 
         # Plot signal/Noise
         SN_plot = fig.add_subplot(212)
-        SN_plot.bar(np.arange(self.numchan), data[eventnum][2][:], 1., alpha=0.4, color="b")
+        SN_plot.bar(np.arange(self.numchan), data[eventnum]["SN"][:], 1., alpha=0.4, color="b")
         SN_plot.set_xlabel('channel [#]')
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise')
@@ -197,46 +266,51 @@ class calibration:
         # Delay scan
         print("Loading delay file: {!s}".format(delay_path))
         self.delay_data = read_file(delay_path)
-        self.delay_data = get_xy_data(self.delay_data, 2)
+        if self.delay_data:
+            self.delay_data = get_xy_data(self.delay_data, 2)
 
-        if self.delay_data.any():
-            # Interpolate data with cubic spline interpolation
-            self.delay_cal = CubicSpline(self.delay_data[:,0],self.delay_data[:,1], extrapolate=True)
+            if self.delay_data.any():
+                # Interpolate data with cubic spline interpolation
+                self.delay_cal = CubicSpline(self.delay_data[:,0],self.delay_data[:,1], extrapolate=True)
 
     def charge_calibration_calc(self, charge_path):
         # Charge scan
         print("Loading charge calibration file: {!s}".format(charge_path))
         self.charge_data = read_file(charge_path)
-        self.charge_data = get_xy_data(self.charge_data, 2)
+        if self.charge_data:
+            self.charge_data = get_xy_data(self.charge_data, 2)
 
-        if self.charge_data.any():
-            # Interpolate data with cubic spline interpolation
-            self.charge_cal = CubicSpline(self.charge_data[:,0],self.charge_data[:,1], extrapolate=True)
+            if self.charge_data.any():
+                # Interpolate data with cubic spline interpolation
+                self.charge_cal = CubicSpline(self.charge_data[:,0],self.charge_data[:,1], extrapolate=True)
 
 
     def plot_data(self):
         """Plots the processed data"""
 
-        fig = plt.figure("Calibration")
+        try:
+            fig = plt.figure("Calibration")
 
-        # Plot delay
-        delay_plot = fig.add_subplot(212)
-        delay_plot.bar(self.delay_data[:,0], self.delay_data[:,1], 5., alpha=0.4, color="b")
-        delay_plot.plot(self.delay_data[:, 0], self.delay_cal(self.delay_data[:, 0]), "r--", color="g")
-        delay_plot.set_xlabel('time [ns]')
-        delay_plot.set_ylabel('Signal [ADC]')
-        delay_plot.set_title('Delay plot')
+            # Plot delay
+            delay_plot = fig.add_subplot(212)
+            delay_plot.bar(self.delay_data[:,0], self.delay_data[:,1], 5., alpha=0.4, color="b")
+            delay_plot.plot(self.delay_data[:, 0], self.delay_cal(self.delay_data[:, 0]), "r--", color="g")
+            delay_plot.set_xlabel('time [ns]')
+            delay_plot.set_ylabel('Signal [ADC]')
+            delay_plot.set_title('Delay plot')
 
-        # Plot charge
-        charge_plot = fig.add_subplot(211)
-        charge_plot.bar(self.charge_data[:, 0], self.charge_data[:, 1], 2000., alpha=0.4, color="b")
-        charge_plot.plot(self.charge_data[:, 0], self.charge_cal(self.charge_data[:, 0]), "r--", color="g")
-        charge_plot.set_xlabel('Charge [e-]')
-        charge_plot.set_ylabel('Signal [ADC]')
-        charge_plot.set_title('Charge plot')
+            # Plot charge
+            charge_plot = fig.add_subplot(211)
+            charge_plot.bar(self.charge_data[:, 0], self.charge_data[:, 1], 2000., alpha=0.4, color="b")
+            charge_plot.plot(self.charge_data[:, 0], self.charge_cal(self.charge_data[:, 0]), "r--", color="g")
+            charge_plot.set_xlabel('Charge [e-]')
+            charge_plot.set_ylabel('Signal [ADC]')
+            charge_plot.set_title('Charge plot')
 
-        fig.tight_layout()
-        plt.draw()
+            fig.tight_layout()
+            plt.draw()
+        except Exception as e:
+            print("An error happend while trying to plot clibration data ", e)
 
 class noise_analysis:
     """This class contains all calculations and data concerning pedestals in ALIBAVA files"""

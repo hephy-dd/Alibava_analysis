@@ -1,24 +1,25 @@
 ---
   # Some files to load in, and store data
-  Pedestal_file: '\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5'
+  Pedestal_file: 'D:\Data\VC811929\Pedestal.hdf5'
   Delay_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\delay_scan.txt'
   Charge_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\charge_scan.txt'
   Measurement_file:
-    - '350V.hdf5'
-    - '330V.hdf5'
+    - 'D:\Data\VC811929\330V.hdf5'
+    - 'D:\Data\VC811929\310V.hdf5'
   Output_folder: ' '
   Output_prefix: ' '
 
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
   Plot_single_event: 10
-  SN_ratio: 5
+  SN_cut: 5 # Minimum height of hit
+  SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
   timing:
     - 0 # Minimum timing window
     - 75 # Maximum timing window
   max_cluster_size: 5 # Directly affects runtime!!!
   sensor_type: "n-in-p" # Sensor Material
-  mask_dead_channels: True
+  automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
 
 
 
