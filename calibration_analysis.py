@@ -122,6 +122,8 @@ class noise_analysis:
     def plot_data(self):
         """Plots the data calculated by the framework"""
 
+        print("Plotting Pedestal and Noise...")
+
         fig = plt.figure()
 
         #Plot noisedata
