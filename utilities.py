@@ -11,6 +11,7 @@ import os
 from tqdm import tqdm
 import h5py
 import yaml
+import numpy as np
 import matplotlib as plt
 
 
@@ -48,6 +49,30 @@ def import_h5(*pathes):
     except OSError as e:
         print("Enountered an OSerror: {!s}".format(e))
         return False
+
+def get_xy_data(data, header=0):
+    """This functions takes a list of strings, containing a header and xy data, return values are 2D np.array of the data and the header lines"""
+
+    np2Darray = np.zeros((len(data)-int(header),2), dtype=np.float32)
+    for i, item in enumerate(data):
+        if i > header-1:
+            list_data = list(map(float,item.split()))
+            np2Darray[i-header] = np.array(list_data)
+    return np2Darray
+
+def read_file(filepath):
+    """Just reads a file and returns the content line by line"""
+    if os.path.exists(os.path.normpath(filepath)):
+        with open(os.path.normpath(filepath), 'r') as f:
+            read_data = f.readlines()
+        return read_data
+    else:
+        print("No valid path passed: {!s}".format(filepath))
+        return None
+
+def clustering(self, estimator):
+    """Does the clustering up to the max cluster number, you just need the estimator and its config parameters"""
+    return estimator
 
 if __name__ == "__main__":
     li = import_h5(r"\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5")
