@@ -1,11 +1,10 @@
 ---
   # Some files to load in, and store data
   Pedestal_file: 'D:\Data\VC811929\Pedestal.hdf5'
-  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\delay_scan.txt'
-  Charge_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\charge_scan.txt'
+  Delay_scan: 'D:\Data\VC811929\delay_scan.txt'
+  Charge_scan: 'D:\Data\VC811929\charge_scan.txt'
   Measurement_file:
     - 'D:\Data\VC811929\330V.hdf5'
-    - 'D:\Data\VC811929\310V.hdf5'
   Output_folder: ' '
   Output_prefix: ' '
 

@@ -13,6 +13,7 @@ import h5py
 import yaml
 import numpy as np
 import matplotlib as plt
+from numba import jit
 
 
 def create_dictionary(file, filepath):
@@ -73,6 +74,16 @@ def read_file(filepath):
 def clustering(self, estimator):
     """Does the clustering up to the max cluster number, you just need the estimator and its config parameters"""
     return estimator
+
+def count_sub_length(ndarray):
+    """This function count the length of sub elements (depth 1) in the ndarray and returns an array with the lengthes
+    with the same dimension as ndarray"""
+    results = np.zeros(len(ndarray))
+    for i in range(len(ndarray)):
+        if len(ndarray[i]) == 1:
+            results[i] = len(ndarray[i][0])
+    return results
+
 
 if __name__ == "__main__":
     li = import_h5(r"\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5")

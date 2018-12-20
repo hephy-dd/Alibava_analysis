@@ -48,6 +48,11 @@ class event_analysis:
         self.total_events = self.numevents*len(self.data)
 
         self.material = kwargs.get("sensor_type", "n-in-p")
+        if self.material == "n-in-p":
+            self.material = 1
+        else:
+            self.material = 0
+
         self.masking = kwargs.get("masking", False)
         self.max_clustersize = kwargs.get("MaxCluster", 5)
         self.SN_ratio = kwargs.get("SN_ratio", 5)
@@ -78,9 +83,20 @@ class event_analysis:
         for data in tqdm(prange(len(self.data)), desc="Data files processed:"):
                 events = self.data[data]["events/signal"][:]
                 timing = self.data[data]["events/time"][:]
-                results = self.do_analysis(events, timing)
+                results = np.array(self.do_analysis(events, timing)) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
 
-                self.outputdata[str(self.data[data]).split('"')[1].split('.')[0]] = results
+                # No make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
+                # So now order the data Dictionary --> Filename:Type of data: List of all events for specific data type ---> results[: (take all events), 0 (give me data from signal]
+                # Resulting is an array containing all singal data etc.
+                self.outputdata[str(self.data[data]).split('"')[1].split('.')[0]] = {"Signal": results[:,0],
+                                                                                     "SN": results[:, 1],
+                                                                                     "CMN": results[:, 2],
+                                                                                     "CMsig": results[:, 3],
+                                                                                     "Hitmap": results[:, 4],
+                                                                                     "Channel_hit": results[:, 5],
+                                                                                     "Clusters": results[:, 6],
+                                                                                     "Clustersize": results[:, 8],
+                                                                                     "Numclus": results[:, 7]}
 
         print("*************************************************************************\n" 
                   "            Analysis report:                                             \n"
@@ -112,19 +128,20 @@ class event_analysis:
         for event in tqdm(prange(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
 
             signal, SN, CMN, CMsig = self.process_event(events[event], meanCMN, meanCMsig, self.noise)
-            channels_hit, clusters, numclus = self.clustering(signal, SN)
+            channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN)
             for channel in channels_hit:
                 hitmap[channel] += 1
 
-            prodata.append({
-                "Signal": signal,
-                "SN": SN,
-                "CMN": CMN,
-                "CMsig": CMsig,
-                "Hitmap": hitmap,
-                "Channels": channels_hit,
-                "Clusters": clusters,
-                "NumClusters": numclus}
+            prodata.append([
+                signal,
+                SN,
+                CMN,
+                CMsig,
+                hitmap,
+                channels_hit,
+                clusters,
+                numclus,
+                clustersize]
             )
 
         return prodata
@@ -134,7 +151,7 @@ class event_analysis:
         channels = np.nonzero(np.abs(SN) > self.SN_cut)[0]# Only channels which have a signal/Noise higher then the signal/Noise cut
 
         if self.masking:
-            if self.material == "n-in-p":
+            if self.material:
                 # Todo: masking of dead channels etc.
                 masked_ind = np.nonzero(np.take(event, channels) > 0)[0] # So only negative values are considered
                 if masked_ind.any():
@@ -149,23 +166,26 @@ class event_analysis:
         used_channels = np.zeros(self.numchan) # To keep track which channel have been used already
         numclus = 0 # The number of found clusters
         clusters_list = []
+        clustersize = np.array([])
         for ch in channels: # Loop over all left channels which are a hit, here from "left" to "right"
             if not used_channels[ch]: # Make sure we dont count everything twice
                 used_channels[ch] = 1 # So now the channel is used
-                numclus+=1
+                numclus += 1
                 cluster = [ch] # Keep track of the individual clusters
+                size = 1
 
                 # Now make a loop to find neighbouring hits of cluster, we must go into both directions
-                # TODO huge clusters can be misinterpreted!!!
-                for i in range(ch-self.max_clustersize, ch+self.max_clustersize): # Search plus minus the channel found
+                # TODO huge clusters can be misinterpreted!!! Takes huge amount of cpu, vectorize
+                offset = int(self.max_clustersize / 2)
+                for i in range(ch-offset, ch+offset): # Search plus minus the channel found
                     if 0 < i < self.numchan: # To exclude overrun
-                        if self.material == "n-in-p":
-                            if SN[ch]>self.SN_cut*self.SN_ratio and not used_channels[ch]:
+                            if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i]:
                                 cluster.append(i)
                                 used_channels[i] = 1
+                                size += 1
                 clusters_list.append(cluster)
-
-        return channels, clusters_list, numclus
+                clustersize = np.append(clustersize, size) #TODO: This cost maybe to much calculation power for to less gain
+        return channels, clusters_list, numclus, clustersize
 
 
     def process_event(self, event, CMN, CMsig, noise):
@@ -202,20 +222,35 @@ class event_analysis:
 
             # Plot Hitmap
             channel_plot = fig.add_subplot(211)
-            channel_plot.bar(np.arange(self.numchan), data[-1]["Hitmap"][:], 1., alpha=0.4, color="b")
+            channel_plot.bar(np.arange(self.numchan), data["Hitmap"][-1], 1., alpha=0.4, color="b")
             channel_plot.set_xlabel('channel [#]')
             channel_plot.set_ylabel('Hits [#]')
             channel_plot.set_title('Hitmap')
+
+            fig.tight_layout()
+
 
             # Plot Clustering results
             fig = plt.figure("Clustering Analysis on file: {!s}".format(name))
 
             # Plot Number of clusters
-            clusters_plot = fig.add_subplot(221)
-            #clusters_plot.hist(np.arange(self.numchan), data[:][5][:], 1., alpha=0.4, color="b")
-            #clusters_plot.set_xlabel('channel [#]')
-            #clusters_plot.set_ylabel('Hits [#]')
-            #clusters_plot.set_title('Hitmap')
+            numclusters_plot = fig.add_subplot(221)
+            bin, counts = np.unique(data["Numclus"], return_counts=True)
+            numclusters_plot.bar(bin , counts, alpha=0.4, color="b")
+            numclusters_plot.set_xlabel('Number of clusters [#]')
+            numclusters_plot.set_ylabel('Occurance [#]')
+            numclusters_plot.set_title('Number of clusters')
+
+            # Plot clustersizes
+            clusters_plot = fig.add_subplot(222)
+            # Todo: make it possible to count clusters in multihit scenarios
+            bin, counts = np.unique(np.concatenate(data["Clustersize"]), return_counts=True)
+            clusters_plot.bar(bin, counts, alpha=0.4, color="b")
+            clusters_plot.set_xlabel('Clustersize [#]')
+            clusters_plot.set_ylabel('Occurance [#]')
+            clusters_plot.set_title('Clustersizes')
+
+            fig.tight_layout()
 
 
     def plot_single_event(self, eventnum, file):
@@ -227,14 +262,14 @@ class event_analysis:
 
         # Plot signal
         channel_plot = fig.add_subplot(211)
-        channel_plot.bar(np.arange(self.numchan), data[eventnum]["Signal"][:], 1., alpha=0.4, color="b")
+        channel_plot.bar(np.arange(self.numchan), data["Signal"][eventnum], 1., alpha=0.4, color="b")
         channel_plot.set_xlabel('channel [#]')
         channel_plot.set_ylabel('Signal [ADC]')
         channel_plot.set_title('Signal')
 
         # Plot signal/Noise
         SN_plot = fig.add_subplot(212)
-        SN_plot.bar(np.arange(self.numchan), data[eventnum]["SN"][:], 1., alpha=0.4, color="b")
+        SN_plot.bar(np.arange(self.numchan), data["SN"][eventnum], 1., alpha=0.4, color="b")
         SN_plot.set_xlabel('channel [#]')
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise')

@@ -49,7 +49,7 @@ def do_with_config_file(config):
                                     Noise=noise_data.noise,
                                     SN_cut=config.get("SN_cut",0),
                                     sensor_type=config.get("sensor_type","n-in-p"),
-                                    masking=config.get("mask_dead_channels","False"),
+                                    masking=config.get("automasking",False),
                                     MaxCluster=config.get("max_cluster_size", 5),
                                     SN_ratio=config.get("SN_ratio", 0.5),
                                     timing=config.get("timing",[0,100]))
