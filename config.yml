@@ -19,6 +19,7 @@
   max_cluster_size: 5 # Directly affects runtime!!!
   sensor_type: "n-in-p" # Sensor Material
   automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
+  optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true
 
 
 

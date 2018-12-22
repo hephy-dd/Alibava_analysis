@@ -36,7 +36,7 @@ def do_with_config_file(config):
 
     # Look if a pedestal file is specified
     if "Pedestal_file" in config:
-        noise_data = noise_analysis(config["Pedestal_file"])
+        noise_data = noise_analysis(config["Pedestal_file"], usejit=config.get("optimize", False))
         noise_data.plot_data()
 
     # Look if a pedestal file is specified
@@ -52,7 +52,8 @@ def do_with_config_file(config):
                                     masking=config.get("automasking",False),
                                     MaxCluster=config.get("max_cluster_size", 5),
                                     SN_ratio=config.get("SN_ratio", 0.5),
-                                    timing=config.get("timing",[0,100]))
+                                    timing=config.get("timing",[0,100]),
+                                    usejit=config.get("optimize", False))
         event_data.plot_data(single_event=50000)
 
 

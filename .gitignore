@@ -10,3 +10,5 @@
 .idea/**
 *.hdf5
 test.py
+*.nbi
+*.nbc

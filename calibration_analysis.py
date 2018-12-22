@@ -11,10 +11,10 @@ from tqdm import tqdm
 import numpy as np
 from scipy.stats import norm, stats
 import matplotlib.pyplot as plt
-from numba import jit, prange
+from numba import jit, njit, jitclass, prange
 from scipy.interpolate import CubicSpline
-from sklearn import metrics
-from sklearn.cluster import KMeans
+from nb_analysisFunction import *
+from time import time
 
 
 class event_analysis:
@@ -56,6 +56,7 @@ class event_analysis:
         self.masking = kwargs.get("masking", False)
         self.max_clustersize = kwargs.get("MaxCluster", 5)
         self.SN_ratio = kwargs.get("SN_ratio", 5)
+        self.usejit = kwargs.get("usejit", False)
 
 
         if "pedestal" in kwargs:
@@ -65,13 +66,13 @@ class event_analysis:
             self.SN_cut = kwargs["SN_cut"] # Cut for the signal to noise ratio
 
         if "CMN" in kwargs:
-            self.CMN = kwargs["CMN"] # CMN for every channel
+            self.CMN = kwargs["CMN"] # CMN for every channel and event
 
         if "CMsig" in kwargs:
             self.CMsig = kwargs["CMsig"] # Common mode sig for every channel
 
         if "Noise" in kwargs:
-            self.noise = kwargs["Noise"] # Common mode sig for every channel
+            self.noise = kwargs["Noise"] # Noise for every channel and event
 
         if "timing" in kwargs:
             self.min = kwargs["timing"][0] # timinig window
@@ -125,10 +126,20 @@ class event_analysis:
         prodata = []  # List of processed data which then can be accessed
         hitmap = np.zeros(self.numchan)
         #Warning: If you have a RS and pulseshape recognition enabled the timing window has to be set accordingly
-        for event in tqdm(prange(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
+        start = time()
+        for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
 
-            signal, SN, CMN, CMsig = self.process_event(events[event], meanCMN, meanCMsig, self.noise)
-            channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN)
+            # Event and Cluster Calculations
+            if not self.usejit:
+                signal, SN, CMN, CMsig = self.process_event(events[event], self.pedestal, meanCMN, meanCMsig,self.noise, self.numchan)
+                channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN)
+            else:
+                # Bug in process event, takes actually a bit longer then the not jitted version
+                signal, SN, CMN, CMsig = nb_process_event(events[event], self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan)
+                channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, self.SN_cut, self.SN_ratio, self.numchan, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
+                self.automasked_hit += automasked_hits
+
+
             for channel in channels_hit:
                 hitmap[channel] += 1
 
@@ -143,7 +154,8 @@ class event_analysis:
                 numclus,
                 clustersize]
             )
-
+        end = time()
+        print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
         return prodata
 
     def clustering(self, event, SN):
@@ -154,12 +166,12 @@ class event_analysis:
             if self.material:
                 # Todo: masking of dead channels etc.
                 masked_ind = np.nonzero(np.take(event, channels) > 0)[0] # So only negative values are considered
-                if masked_ind.any():
+                if len(masked_ind):
                     channels = np.delete(channels, masked_ind)
                     self.automasked_hit += len(masked_ind)
             else:
                 masked_ind = np.nonzero(np.take(event, channels) < 0)[0] # So only positive values are considered
-                if masked_ind.any():
+                if len(masked_ind):
                     channels = np.delete(channels, masked_ind)
                     self.automasked_hit += len(masked_ind)
 
@@ -188,14 +200,14 @@ class event_analysis:
         return channels, clusters_list, numclus, clustersize
 
 
-    def process_event(self, event, CMN, CMsig, noise):
+    def process_event(self, event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
         """Processes single events"""
 
         # Calculate the common mode noise for every channel
-        signal = np.single(event) - self.pedestal  # Get the signal from event and subtract pedestal
+        signal = event - pedestal  # Get the signal from event and subtract pedestal
 
         # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
-        prosignal = np.take(signal,np.nonzero(signal<(5*CMsig+CMN))) # Processed signal
+        prosignal = np.take(signal, np.nonzero(signal<(5*meanCMsig+meanCMN))) # Processed signal
 
         if prosignal.any():
             cmpro = np.mean(prosignal)
@@ -206,7 +218,7 @@ class event_analysis:
 
             return corrsignal, SN, cmpro, sigpro
         else:
-            return np.zeros(self.numchan), np.zeros(self.numchan), 0, 0 # A default value return if everything fails
+            return np.zeros(numchan), np.zeros(numchan), 0, 0 # A default value return if everything fails
 
 
     def plot_data(self, single_event = -1):
@@ -345,12 +357,12 @@ class calibration:
             fig.tight_layout()
             plt.draw()
         except Exception as e:
-            print("An error happend while trying to plot clibration data ", e)
+            print("An error happened while trying to plot calibration data ", e)
 
 class noise_analysis:
     """This class contains all calculations and data concerning pedestals in ALIBAVA files"""
 
-    def __init__(self, path = ""):
+    def __init__(self, path = "", usejit=False):
         """
         :param path: Path to pedestal file
         """
@@ -360,6 +372,7 @@ class noise_analysis:
         self.data = import_h5(path)
 
         if self.data:
+            # Some of the declaration may seem unecessary but it clears things up when you need to know how big some arrays are
             self.data=self.data[0]# Since I always get back a list
             self.numchan = len(self.data["header/pedestal"][0])
             self.numevents = len(self.data["events/signal"])
@@ -368,7 +381,6 @@ class noise_analysis:
             self.goodevents = np.nonzero(self.data['/events/time'][:] >= 0)  # Only use events with good timing, here always the case
             self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float64)
             self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float64)
-            self.vectnoise_funct = np.vectorize(self.noise_calc, otypes=[np.float], cache=False)
             self.score = np.zeros((len(self.goodevents[0]), self.numchan), dtype=np.float64)  # Variable needed for noise calculations
 
             # Calculate pedestal
@@ -376,35 +388,48 @@ class noise_analysis:
             self.pedestal = np.mean(self.data['/events/signal'][0:], axis=0)
 
             # Noise Calculations
-            self.vectnoise_funct()
-            #self.noise_calc(self.score, self.CMnoise, self.CMsig)
+            if not usejit:
+                start = time()
+                self.score, self.CMnoise, self.CMsig = self.noise_calc(self.data['/events/signal'][:], self.pedestal[:], self.numevents, self.numchan)
+                end = time()
+                print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
+            else:
+                print("Jit version used!!! No progress bar can be shown")
+                start = time()
+                self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.data['/events/signal'][:], self.pedestal[:], self.numevents, self.numchan)
+                end = time()
+                print("Time taken: {!s} seconds".format(round(abs(end-start), 2)))
             self.noise = np.std(self.score, axis=0)  # Calculate the actual noise for every channel by building the mean of all noise from every event
         else:
             print("No valid file, skipping pedestal run")
 
-    #@jit(parallel=True)
-    def noise_calc(self):
-        """Noise calculation, normal noise (NN) and common mode noise (CMN)
-        Uses numba and numpy, can be further optimized by reducing memory access to member variables.
-        But got 36k events per second.
-        So fuck it."""
-        events = self.data['/events/signal'][:]
-        pedestal = self.pedestal[:]
 
-        for event in tqdm(prange(self.goodevents[0].shape[0]), desc="Events processed:"): # Loop over all good events
+    def noise_calc(self, events, pedestal, numevents, numchannels):
+        """Noise calculation, normal noise (NN) and common mode noise (CMN)
+        Uses numpy, can be further optimized by reducing memory access to member variables.
+        But got 36k events per second.
+        So fuck it.
+        This function is not numba optimized!!!"""
+        score = np.zeros((numevents, numchannels), dtype=np.float64)  # Variable needed for noise calculations
+        CMnoise = np.zeros(numevents, dtype=np.float64)
+        CMsig = np.zeros(numevents, dtype=np.float64)
+
+        for event in tqdm(range(self.goodevents[0].shape[0]), desc="Events processed:"): # Loop over all good events
 
             # Calculate the common mode noise for every channel
-            cm = np.single(events[event][:]) - pedestal  # Get the signal from event and subtract pedestal
+            cm = events[event][:] - pedestal  # Get the signal from event and subtract pedestal
             CMNsig = np.std(cm)  # Calculate the standard deviation
             CMN = np.mean(cm)  # Now calculate the mean from the cm to get the actual common mode noise
 
             # Calculate the noise of channels
             cn = cm - CMN # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
 
-            self.score[event] = cn
+            score[event] = cn
             # Append the common mode values per event into the data arrays
-            self.CMnoise[event] = CMN
-            self.CMsig[event] = CMNsig
+            CMnoise[event] = CMN
+            CMsig[event] = CMNsig
+
+        return score, CMnoise, CMsig # Return everything
 
     def plot_data(self):
         """Plots the data calculated by the framework"""
