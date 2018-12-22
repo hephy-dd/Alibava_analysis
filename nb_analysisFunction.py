@@ -1,9 +1,43 @@
 # This files contains analysis function optimizes by numba jit capabilities
 
 import numpy as np
-from numba import jit, njit, prange, vectorize
+from numba import jit, prange
 from tqdm import tqdm
 import scipy
+
+
+@jit(parallel = True, nopython = False, cache=True, nogil=True)
+def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, max_clustersize = 5, masking=True, material=1):
+    """Parallel processing of events.
+     Did not show any performance improvements. Maybe a bug?"""
+    goodevents = goodtiming[0].shape[0]
+    prodata = np.zeros(goodevents, dtype=object)
+    hitmap = np.zeros(numchan)
+    automasked = 0
+    for i in tqdm(prange(goodevents), desc="Events processed:"):
+        signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
+        channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, SN_cut,
+                                                                                      SN_ratio, numchan,
+                                                                                      max_clustersize=max_clustersize,
+                                                                                      masking=masking,
+                                                                                      material=material)
+        automasked += automasked_hits
+        for channel in channels_hit:
+            hitmap[channel] += 1
+
+        prodata[i]=[
+            signal,
+            SN,
+            CMN,
+            CMsig,
+            hitmap,
+            channels_hit,
+            clusters,
+            numclus,
+            clustersize]
+
+    return prodata, automasked
+
 
 
 @jit(parallel = False, nopython = True, cache=True, nogil=True)

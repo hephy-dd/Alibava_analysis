@@ -85,7 +85,6 @@ class event_analysis:
                 events = self.data[data]["events/signal"][:]
                 timing = self.data[data]["events/time"][:]
                 results = np.array(self.do_analysis(events, timing)) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
-
                 # No make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
                 # So now order the data Dictionary --> Filename:Type of data: List of all events for specific data type ---> results[: (take all events), 0 (give me data from signal]
                 # Resulting is an array containing all singal data etc.
@@ -113,8 +112,6 @@ class event_analysis:
                                                                                                     total_events = self.total_events)
                                                                                                     )
 
-
-
     def do_analysis(self, events, timing):
         """Does the actual event analysis"""
 
@@ -126,36 +123,59 @@ class event_analysis:
         prodata = []  # List of processed data which then can be accessed
         hitmap = np.zeros(self.numchan)
         #Warning: If you have a RS and pulseshape recognition enabled the timing window has to be set accordingly
-        start = time()
-        for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
 
+        if not self.usejit:
+            # Non jitted version
+            start = time()
+            for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
             # Event and Cluster Calculations
-            if not self.usejit:
                 signal, SN, CMN, CMsig = self.process_event(events[event], self.pedestal, meanCMN, meanCMsig,self.noise, self.numchan)
                 channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN)
+                for channel in channels_hit:
+                    hitmap[channel] += 1
+
+                prodata.append([
+                    signal,
+                    SN,
+                    CMN,
+                    CMsig,
+                    hitmap,
+                    channels_hit,
+                    clusters,
+                    numclus,
+                    clustersize]
+                )
+
+        else:
+            start = time()
+            # Use lightspeed fast calculation, FUCK YEAH
+            if True: # The parallel version does basically the same what is here unreachable
+                for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"):  # Loop over all good events
+                    signal, SN, CMN, CMsig = nb_process_event(events[event], self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan)
+                    channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, self.SN_cut, self.SN_ratio, self.numchan, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
+                    self.automasked_hit += automasked_hits
+                    for channel in channels_hit:
+                        hitmap[channel] += 1
+
+                    prodata.append([
+                        signal,
+                        SN,
+                        CMN,
+                        CMsig,
+                        hitmap,
+                        channels_hit,
+                        clusters,
+                        numclus,
+                        clustersize]
+                    )
             else:
-                # Bug in process event, takes actually a bit longer then the not jitted version
-                signal, SN, CMN, CMsig = nb_process_event(events[event], self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan)
-                channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, self.SN_cut, self.SN_ratio, self.numchan, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
-                self.automasked_hit += automasked_hits
+                # This should, in theory, use parallelization of the loop over event but i did not see any performance boost, maybe you can find the bug =)?
+                data, automasked_hits= parallel_event_processing(gtime, events, self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan, self.SN_cut, self.SN_ratio, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
+                prodata = list(data)
+                self.automasked_hit = automasked_hits
 
-
-            for channel in channels_hit:
-                hitmap[channel] += 1
-
-            prodata.append([
-                signal,
-                SN,
-                CMN,
-                CMsig,
-                hitmap,
-                channels_hit,
-                clusters,
-                numclus,
-                clustersize]
-            )
         end = time()
-        print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
+        #print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
         return prodata
 
     def clustering(self, event, SN):
@@ -234,7 +254,7 @@ class event_analysis:
 
             # Plot Hitmap
             channel_plot = fig.add_subplot(211)
-            channel_plot.bar(np.arange(self.numchan), data["Hitmap"][-1], 1., alpha=0.4, color="b")
+            channel_plot.bar(np.arange(self.numchan), data["Hitmap"][len(data["Hitmap"])-1], 1., alpha=0.4, color="b")
             channel_plot.set_xlabel('channel [#]')
             channel_plot.set_ylabel('Hits [#]')
             channel_plot.set_title('Hitmap')
