@@ -81,9 +81,10 @@ class event_analysis:
 
         print("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
-        for data in tqdm(prange(len(self.data)), desc="Data files processed:"):
+        for data in tqdm(range(len(self.data)), desc="Data files processed:"):
                 events = self.data[data]["events/signal"][:]
                 timing = self.data[data]["events/time"][:]
+                # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 results = np.array(self.do_analysis(events, timing)) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
                 # No make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
                 # So now order the data Dictionary --> Filename:Type of data: List of all events for specific data type ---> results[: (take all events), 0 (give me data from signal]
@@ -98,6 +99,10 @@ class event_analysis:
                                                                                      "Clustersize": results[:, 8],
                                                                                      "Numclus": results[:, 7]}
 
+
+        # Now process additional analysis statet in the config file
+
+        # In the end give a round up of all you have done
         print("*************************************************************************\n" 
                   "            Analysis report:                                             \n"
                   "            ~~~~~~~~~~~~~~~~                                             \n"
@@ -149,7 +154,7 @@ class event_analysis:
         else:
             start = time()
             # Use lightspeed fast calculation, FUCK YEAH
-            if True: # The parallel version does basically the same what is here unreachable
+            if False: # The parallel version does basically the same what is here unreachable
                 for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"):  # Loop over all good events
                     signal, SN, CMN, CMsig = nb_process_event(events[event], self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan)
                     channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, self.SN_cut, self.SN_ratio, self.numchan, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
@@ -175,7 +180,7 @@ class event_analysis:
                 self.automasked_hit = automasked_hits
 
         end = time()
-        #print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
+        print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
         return prodata
 
     def clustering(self, event, SN):

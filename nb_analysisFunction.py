@@ -6,7 +6,7 @@ from tqdm import tqdm
 import scipy
 
 
-@jit(parallel = True, nopython = False, cache=True, nogil=True)
+@jit(parallel = True, cache=True)
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, max_clustersize = 5, masking=True, material=1):
     """Parallel processing of events.
      Did not show any performance improvements. Maybe a bug?"""
@@ -40,7 +40,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
 
 
 
-@jit(parallel = False, nopython = True, cache=True, nogil=True)
+@jit(parallel = False, nopython = True, cache=True)
 def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, masking=True, material=1):
     """Looks for cluster in a event"""
     channels = np.nonzero(np.abs(SN) > SN_cut)[0]  # Only channels which have a signal/Noise higher then the signal/Noise cut
@@ -84,7 +84,7 @@ def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, mas
                 clustersize.append(size)  # TODO: This cost maybe to much calculation power for to less gain
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
-@jit(parallel=True, nopython = True, cache=True, nogil=True)
+@jit(parallel=True, nopython = True, cache=True)
 def nb_noise_calc(events, pedestal, numevents, numchannels):
     """Noise calculation, normal noise (NN) and common mode noise (CMN)
     Uses numba and numpy, this function uses jit for optimization"""
@@ -109,7 +109,7 @@ def nb_noise_calc(events, pedestal, numevents, numchannels):
 
     return score, CMnoise, CMsig  # Return everything
 
-@jit(parallel=False, nopython = False, cache=True, nogil=True)
+@jit(parallel=False, nopython = False, cache=True)
 def nb_process_event(event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
     """Processes single events"""
 

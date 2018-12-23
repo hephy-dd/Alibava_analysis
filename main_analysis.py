@@ -53,7 +53,8 @@ def do_with_config_file(config):
                                     MaxCluster=config.get("max_cluster_size", 5),
                                     SN_ratio=config.get("SN_ratio", 0.5),
                                     timing=config.get("timing",[0,100]),
-                                    usejit=config.get("optimize", False))
+                                    usejit=config.get("optimize", False),
+                                    add_analysis = config.get("additional_analysis", []))
         event_data.plot_data(single_event=50000)
 
 
