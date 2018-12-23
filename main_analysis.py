@@ -42,20 +42,15 @@ def do_with_config_file(config):
     # Look if a pedestal file is specified
     if "Measurement_file" in config:
         # TODO: potential call before assignement error !!! with pedestal file
+
+        config.update({"pedestal": noise_data.pedestal,
+                        "CMN": noise_data.CMnoise,
+                        "CMsig": noise_data.CMsig,
+                        "Noise": noise_data.noise})
+
         event_data = event_analysis(config["Measurement_file"],
-                                    pedestal=noise_data.pedestal,
-                                    CMN=noise_data.CMnoise,
-                                    CMsig=noise_data.CMsig,
-                                    Noise=noise_data.noise,
-                                    SN_cut=config.get("SN_cut",0),
-                                    sensor_type=config.get("sensor_type","n-in-p"),
-                                    masking=config.get("automasking",False),
-                                    MaxCluster=config.get("max_cluster_size", 5),
-                                    SN_ratio=config.get("SN_ratio", 0.5),
-                                    timing=config.get("timing",[0,100]),
-                                    usejit=config.get("optimize", False),
-                                    add_analysis = config.get("additional_analysis", []))
-        event_data.plot_data(single_event=50000)
+                                    configs = config) # Is adictionary containing all keys and values for configuration
+        event_data.plot_data(single_event=config.get("Plot_single_event", 15))
 
 
 

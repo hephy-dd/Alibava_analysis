@@ -46,23 +46,34 @@ class event_analysis:
         self.automasked_hit = 0
         self.events = 0
         self.total_events = self.numevents*len(self.data)
+        self.additional_analysis = []
 
+
+
+
+        if "configs" in kwargs:
+            kwargs = kwargs["configs"] # If a config was passeds it has to be a dict containig all settings therefore kwargs rewritten
+
+        # For additional analysis
+        self.add_analysis = kwargs.get("additional_analysis", [])
+
+        # Material decision
         self.material = kwargs.get("sensor_type", "n-in-p")
         if self.material == "n-in-p":
             self.material = 1
         else:
             self.material = 0
 
-        self.masking = kwargs.get("masking", False)
-        self.max_clustersize = kwargs.get("MaxCluster", 5)
-        self.SN_ratio = kwargs.get("SN_ratio", 5)
-        self.usejit = kwargs.get("usejit", False)
+        self.masking = kwargs.get("automasking", False)
+        self.max_clustersize = kwargs.get("max_cluster_size", 5)
+        self.SN_ratio = kwargs.get("SN_ratio", 0.5)
+        self.usejit = kwargs.get("optimize", False)
 
 
         if "pedestal" in kwargs:
             self.pedestal = kwargs["pedestal"]
 
-        if "SN_ratio" in kwargs:
+        if "SN_cut" in kwargs:
             self.SN_cut = kwargs["SN_cut"] # Cut for the signal to noise ratio
 
         if "CMN" in kwargs:
@@ -101,6 +112,8 @@ class event_analysis:
 
 
         # Now process additional analysis statet in the config file
+        for analysis in self.add_analysis:
+            getattr()
 
         # In the end give a round up of all you have done
         print("*************************************************************************\n" 
