@@ -8,9 +8,10 @@
 
 import os
 import sys
-from   pylab import *
-from   scipy.stats import norm as gaus
-from   scipy import optimize
+#import PyQt5
+from pylab import *
+from scipy.stats import norm as gaus
+from scipy import optimize
 import h5py
 import time
 import math

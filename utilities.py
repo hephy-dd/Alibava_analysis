@@ -13,7 +13,7 @@ import h5py
 import yaml
 import numpy as np
 import matplotlib as plt
-from numba import jit
+from numba import jit, njit, prange
 
 
 def create_dictionary(file, filepath):
@@ -83,6 +83,22 @@ def count_sub_length(ndarray):
         if len(ndarray[i]) == 1:
             results[i] = len(ndarray[i][0])
     return results
+
+#@jit
+def convert_ADC_to_e(signal, interpolation_function):
+    """
+    Gets the signal in ADC and the interpolatrion function and returns an array with the interpolated singal in electorns
+    :param signal: Singnal array which should be converted, basically the singal from every strip
+    :param interpolation_function: the interpolation function
+    :return: Returns array with the electron count
+    """
+    length = len(signal)
+    eSignal = np.zeros(length)
+
+    for i in prange(length):
+        eSignal[i] = interpolation_function(np.abs(signal[i]))
+
+    return eSignal
 
 
 if __name__ == "__main__":

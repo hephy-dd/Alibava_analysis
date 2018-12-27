@@ -46,7 +46,8 @@ def do_with_config_file(config):
         config.update({"pedestal": noise_data.pedestal,
                         "CMN": noise_data.CMnoise,
                         "CMsig": noise_data.CMsig,
-                        "Noise": noise_data.noise})
+                        "Noise": noise_data.noise,
+                       "calibration": config_data})
 
         event_data = event_analysis(config["Measurement_file"],
                                     configs = config) # Is adictionary containing all keys and values for configuration

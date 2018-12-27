@@ -5,13 +5,13 @@
   Charge_scan: 'D:\Data\VC811929\charge_scan.txt'
   Measurement_file:
     - 'D:\Data\VC811929\330V.hdf5'
-  Output_folder: ' '
-  Output_prefix: ' '
+  Output_folder: ''
+  Output_prefix: ''
 
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
-  Plot_single_event: 10
-  SN_cut: 5 # Minimum height of hit
+  Plot_single_event: 1000
+  SN_cut: 15 # Minimum height of hit
   SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
   timing:
     - 0 # Minimum timing window

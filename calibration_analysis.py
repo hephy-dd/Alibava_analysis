@@ -9,12 +9,14 @@ __email__ = "dominic.bloech@oeaw.ac.at"
 from utilities import *
 from tqdm import tqdm
 import numpy as np
-from scipy.stats import norm, stats
+from scipy.stats import norm
 import matplotlib.pyplot as plt
-from numba import jit, njit, jitclass, prange
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, PchipInterpolator
+from scipy.optimize import curve_fit
+import pylandau
 from nb_analysisFunction import *
 from time import time
+import iminuit
 
 
 class event_analysis:
@@ -68,6 +70,7 @@ class event_analysis:
         self.max_clustersize = kwargs.get("max_cluster_size", 5)
         self.SN_ratio = kwargs.get("SN_ratio", 0.5)
         self.usejit = kwargs.get("optimize", False)
+        self.calibration = kwargs.get("calibration", None)
 
 
         if "pedestal" in kwargs:
@@ -113,7 +116,10 @@ class event_analysis:
 
         # Now process additional analysis statet in the config file
         for analysis in self.add_analysis:
-            getattr()
+            print("Starting analysis: {!s}".format(analysis))
+            add_analysis = eval(analysis)(self) # Gets the total analysis class, so be aware of changes inside!!!
+            result = add_analysis.run()
+            add_analysis.plot()
 
         # In the end give a round up of all you have done
         print("*************************************************************************\n" 
@@ -237,7 +243,6 @@ class event_analysis:
                 clustersize = np.append(clustersize, size) #TODO: This cost maybe to much calculation power for to less gain
         return channels, clusters_list, numclus, clustersize
 
-
     def process_event(self, event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
         """Processes single events"""
 
@@ -257,7 +262,6 @@ class event_analysis:
             return corrsignal, SN, cmpro, sigpro
         else:
             return np.zeros(numchan), np.zeros(numchan), 0, 0 # A default value return if everything fails
-
 
     def plot_data(self, single_event = -1):
         """This function plots all data processed"""
@@ -302,7 +306,6 @@ class event_analysis:
 
             fig.tight_layout()
 
-
     def plot_single_event(self, eventnum, file):
         """ Plots a single event and its data"""
 
@@ -326,8 +329,6 @@ class event_analysis:
 
         fig.tight_layout()
         plt.draw()
-
-
 
 class calibration:
     """This class handles all concerning the calibration"""
@@ -367,7 +368,7 @@ class calibration:
 
             if self.charge_data.any():
                 # Interpolate data with cubic spline interpolation
-                self.charge_cal = CubicSpline(self.charge_data[:,0],self.charge_data[:,1], extrapolate=True)
+                self.charge_cal = PchipInterpolator(self.charge_data[:,1],self.charge_data[:,0], extrapolate=True)
 
 
     def plot_data(self):
@@ -387,7 +388,9 @@ class calibration:
             # Plot charge
             charge_plot = fig.add_subplot(211)
             charge_plot.bar(self.charge_data[:, 0], self.charge_data[:, 1], 2000., alpha=0.4, color="b")
-            charge_plot.plot(self.charge_data[:, 0], self.charge_cal(self.charge_data[:, 0]), "r--", color="g")
+            cal_range = np.array(np.arange(1., 700., 10.))
+            charge_plot.plot(self.charge_cal(cal_range), cal_range, "r--", color="g")
+            #charge_plot.plot(self.charge_cal(self.charge_data[:, 1]), self.charge_data[:, 1], "r--", color="g")
             charge_plot.set_xlabel('Charge [e-]')
             charge_plot.set_ylabel('Signal [ADC]')
             charge_plot.set_title('Charge plot')
@@ -508,6 +511,169 @@ class noise_analysis:
 
         fig.tight_layout()
         plt.draw()
+
+class langau:
+    """This class calculates the langau distribution and returns the best values for landau and Gauss fit to the data
+    """
+
+    def __init__(self, main_analysis):
+        """Gets the main analysis class and imports all things needed for its calculations"""
+
+        import pylandau # imports the necessary class for its calculations
+        from scipy.optimize import curve_fit
+
+        self.main = main_analysis
+        self.data = self.main.outputdata.copy()
+        self.results_dict = {} # Containing all data processed
+        self.pedestal = self.main.pedestal
+
+    def run(self):
+        """Calculates the langau for the specified data"""
+
+        # Go over all datafiles
+        for data in tqdm(self.data, desc="(langau) Processing file:"):
+            self.results_dict[data] = {}
+            indizes = self.get_clusters(self.data[data], 1)[0] # Todo: make it accessible from the config
+            totalE = np.zeros(len(indizes))
+
+            # Loop over the clustersize to get total deposited energy
+            incrementor = 0
+            for ind in tqdm(indizes, desc="(langau) Processing event:"):
+                # TODO: make this work for multiple cluster in one event
+                signal_clst_event = np.take(self.data[data]["Signal"][ind], self.data[data]["Clusters"][ind][0]) # Get the signal of an event
+                pedestal_clst_event = np.take(self.pedestal, self.data[data]["Clusters"][ind][0]) # Get the signal of the pedestal
+                totalSignal = signal_clst_event + pedestal_clst_event # For the actual adc signal
+                eSignal = convert_ADC_to_e(totalSignal, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
+                ePedestal = convert_ADC_to_e(pedestal_clst_event, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
+                finalSignal = np.abs(eSignal-ePedestal) # Subtract the actual signal with the offset of the pedestal
+                totalE[incrementor] = np.sum(finalSignal)
+                incrementor += 1
+
+            # TODO: error estimation over noise is missing
+            self.results_dict[data]["signal"] = totalE
+
+            # Fit the langau to it
+            coeff, pcov, hist = self.fit_langau(totalE)
+
+            self.results_dict[data]["langau_coeff"] = coeff # mpv, eta, sigma, A
+            self.results_dict[data]["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
+
+
+    def fit_landau_migrad(x, y, p0, limit_mpv, limit_eta, limit_sigma, limit_A):
+        #TODO make it possible with error calculation
+
+        def minimizeMe(mpv, eta, sigma, A):
+            chi2 = np.sum(np.square(y - langau(x, mpv, eta, sigma, A).astype(float)) / np.square(yerr.astype(float)))
+            return chi2 / (x.shape[0] - 5)  # devide by NDF
+
+        # Prefit to get correct errors
+        yerr = np.sqrt(y)  # Assume error from measured data
+        yerr[y < 1] = 1
+        m = iminuit.Minuit(minimizeMe,
+                           mpv=p0[0],
+                           limit_mpv=limit_mpv,
+                           error_mpv=1,
+                           eta=p0[1],
+                           error_eta=0.1,
+                           limit_eta=limit_eta,
+                           sigma=p0[2],
+                           error_sigma=0.1,
+                           limit_sigma=limit_sigma,
+                           A=p0[3],
+                           error_A=1,
+                           limit_A=limit_A,
+                           errordef=1,
+                           print_level=2)
+        m.migrad()
+
+        if not m.get_fmin().is_valid:
+            raise RuntimeError('Fit did not converge')
+
+        # Main fit with model errors
+        yerr = np.sqrt(langau(x,
+                              mpv=m.values['mpv'],
+                              eta=m.values['eta'],
+                              sigma=m.values['sigma'],
+                              A=m.values['A']))  # Assume error from measured data
+        yerr[y < 1] = 1
+
+        m = iminuit.Minuit(minimizeMe,
+                           mpv=m.values['mpv'],
+                           limit_mpv=limit_mpv,
+                           error_mpv=1,
+                           eta=m.values['eta'],
+                           error_eta=0.1,
+                           limit_eta=limit_eta,
+                           sigma=m.values['sigma'],
+                           error_sigma=0.1,
+                           limit_sigma=limit_sigma,
+                           A=m.values['A'],
+                           error_A=1,
+                           limit_A=limit_A,
+                           errordef=1,
+                           print_level=2)
+        m.migrad()
+
+        fit_values = m.values
+
+        values = np.array([fit_values['mpv'],
+                           fit_values['eta'],
+                           fit_values['sigma'],
+                           fit_values['A']])
+
+        m.hesse()
+
+        m.minos()
+        minos_errors = m.get_merrors()
+
+        if not minos_errors['mpv'].is_valid:
+            print('Warning: MPV error determination with Minos failed! You can still use Hesse errors.')
+
+        errors = np.array([(minos_errors['mpv'].lower, minos_errors['mpv'].upper),
+                           (minos_errors['eta'].lower, minos_errors['eta'].upper),
+                           (minos_errors['sigma'].lower, minos_errors['sigma'].upper),
+                           (minos_errors['A'].lower, minos_errors['A'].upper)])
+
+        return values, errors, m
+
+
+    def fit_langau(self, x, ind_xmin = 0, bins = 500):
+        """Fits the langau to data"""
+        hist, edges = np.histogram(x, bins=bins)
+        mpv, eta, sigma, A = 50000, 5, 4, 800
+
+        # Fit with constrains
+        coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 70000))
+
+        return coeff, pcov, hist
+
+    def get_clusters(self, data, num_cluster=1):
+        """
+        Get all clusters which seem important
+        :param max_cluster: number of cluster which should be considered 1 is default and minimum. 0 makes no sense
+        :return: list of data indizes after cluster consideration (so basically eventnumbers which are good)
+        """
+        return np.nonzero(data["Numclus"] == num_cluster) # Indizes of events with the desired clustersize
+
+    def plot(self):
+        """Plots the data calculated so the energy data and the langau"""
+
+        for file, data in self.results_dict.items():
+            fig = plt.figure("Langau from file: {!s}".format(file))
+
+            # Plot delay
+            plot = fig.add_subplot(111)
+            n, bins, patches = plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b")
+            plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g")
+            plot.set_xlabel('electrons [#]')
+            plot.set_ylabel('Count [#]')
+            plot.set_title('Energy deposition SR-90')
+
+            fig.tight_layout()
+            plt.draw()
+
+
+
 
 if __name__ == "__main__":
     noise = noise_analysis(path = r"\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5")
