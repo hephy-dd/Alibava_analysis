@@ -10,6 +10,7 @@ from utilities import *
 from tqdm import tqdm
 import numpy as np
 from scipy.stats import norm
+from scipy import histogram
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline, PchipInterpolator
 from scipy.optimize import curve_fit
@@ -535,11 +536,13 @@ class langau:
             self.results_dict[data] = {}
             indizes = self.get_clusters(self.data[data], 1)[0] # Todo: make it accessible from the config
             totalE = np.zeros(len(indizes))
+            totalNoise = np.zeros(len(indizes))
 
             # Loop over the clustersize to get total deposited energy
             incrementor = 0
             for ind in tqdm(indizes, desc="(langau) Processing event:"):
                 # TODO: make this work for multiple cluster in one event
+                # Signal calculations
                 signal_clst_event = np.take(self.data[data]["Signal"][ind], self.data[data]["Clusters"][ind][0]) # Get the signal of an event
                 pedestal_clst_event = np.take(self.pedestal, self.data[data]["Clusters"][ind][0]) # Get the signal of the pedestal
                 totalSignal = signal_clst_event + pedestal_clst_event # For the actual adc signal
@@ -547,16 +550,23 @@ class langau:
                 ePedestal = convert_ADC_to_e(pedestal_clst_event, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
                 finalSignal = np.abs(eSignal-ePedestal) # Subtract the actual signal with the offset of the pedestal
                 totalE[incrementor] = np.sum(finalSignal)
+
+                # Noise Calculations
+                noise_clst_event = np.take(self.main.noise, self.data[data]["Clusters"][ind][0])  # Get the Noise of an event
+                eNoise = convert_ADC_to_e(noise_clst_event, self.main.calibration.charge_cal)  # eError is a list containing electron signal noise
+                totalNoise[incrementor] = np.sum(eNoise) #Todo check if noise is correct here
+
                 incrementor += 1
 
-            # TODO: error estimation over noise is missing
             self.results_dict[data]["signal"] = totalE
+            self.results_dict[data]["noise"] = totalNoise
 
             # Fit the langau to it
-            coeff, pcov, hist = self.fit_langau(totalE)
+            coeff, pcov, hist, error_bins = self.fit_langau(totalE, totalNoise)
 
             self.results_dict[data]["langau_coeff"] = coeff # mpv, eta, sigma, A
             self.results_dict[data]["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
+            self.results_dict[data]["data_error"] = error_bins
 
 
     def fit_landau_migrad(x, y, p0, limit_mpv, limit_eta, limit_sigma, limit_A):
@@ -637,15 +647,18 @@ class langau:
         return values, errors, m
 
 
-    def fit_langau(self, x, ind_xmin = 0, bins = 500):
+
+    def fit_langau(self, x, errors, ind_xmin = 0, bins = 500):
         """Fits the langau to data"""
         hist, edges = np.histogram(x, bins=bins)
+        binerror = self.calc_hist_errors(x, errors, edges)
+
         mpv, eta, sigma, A = 50000, 5, 4, 800
 
         # Fit with constrains
-        coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 70000))
+        coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=False, p0=(mpv, eta, sigma, A), bounds=(1, 70000))
 
-        return coeff, pcov, hist
+        return coeff, pcov, hist, binerror
 
     def get_clusters(self, data, num_cluster=1):
         """
@@ -655,6 +668,23 @@ class langau:
         """
         return np.nonzero(data["Numclus"] == num_cluster) # Indizes of events with the desired clustersize
 
+    def calc_hist_errors(self, x, errors, bins):
+        """Calculates the errors for the bins in a histogram if error of simple point is known"""
+        errorBins = np.zeros(len(bins)-1)
+        binsize = bins[1]-bins[0]
+
+        iter = 0
+        for ind in bins:
+            if ind != bins[-1]:
+                ind_where_bin = np.where((x >= ind) & (x < (binsize+ind)))[0]
+                #mu, std = norm.fit(self.CMnoise)
+                if ind_where_bin.any():
+                    errorBins[iter] = np.mean(np.take(errors, ind_where_bin))
+                iter+=1
+
+        return errorBins
+
+
     def plot(self):
         """Plots the data calculated so the energy data and the langau"""
 
@@ -663,7 +693,9 @@ class langau:
 
             # Plot delay
             plot = fig.add_subplot(111)
-            n, bins, patches = plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b")
+            hist, edges = np.histogram(data["signal"], bins=500)
+            plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b")
+            plot.errorbar(edges[:-1], hist, xerr=data["data_error"]*3, fmt='o', markersize=1, color="red")
             plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g")
             plot.set_xlabel('electrons [#]')
             plot.set_ylabel('Count [#]')
