@@ -21,7 +21,10 @@
   automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
   optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true
   additional_analysis:
-      - langau
+      - chargesharing
+
+  # If you name a parameter like the additional analysis entry, you can easily access this data in the analysis
+  chargesharing: "sdf"
 
 
 

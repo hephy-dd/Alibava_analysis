@@ -157,7 +157,7 @@ class event_analysis:
                 signal, SN, CMN, CMsig = self.process_event(events[event], self.pedestal, meanCMN, meanCMsig,self.noise, self.numchan)
                 channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN)
                 for channel in channels_hit:
-                    hitmap[channel] += 1
+                    hitmap[int(channel)] += 1
 
                 prodata.append([
                     signal,
@@ -178,6 +178,7 @@ class event_analysis:
                 for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"):  # Loop over all good events
                     signal, SN, CMN, CMsig = nb_process_event(events[event], self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan)
                     channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, self.SN_cut, self.SN_ratio, self.numchan, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
+                    # Warning channels hit only contains hits above SN_cut not the ones with the cluistering
                     self.automasked_hit += automasked_hits
                     for channel in channels_hit:
                         hitmap[channel] += 1
@@ -239,6 +240,7 @@ class event_analysis:
                             if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i]:
                                 cluster.append(i)
                                 used_channels[i] = 1
+                                # Append the channel which is also hit after this estimation
                                 size += 1
                 clusters_list.append(cluster)
                 clustersize = np.append(clustersize, size) #TODO: This cost maybe to much calculation power for to less gain
@@ -534,6 +536,7 @@ class langau:
         # Go over all datafiles
         for data in tqdm(self.data, desc="(langau) Processing file:"):
             self.results_dict[data] = {}
+            # Get only events which show only one cluster in its data
             indizes = self.get_clusters(self.data[data], 1)[0] # Todo: make it accessible from the config
             totalE = np.zeros(len(indizes))
             totalNoise = np.zeros(len(indizes))
@@ -567,7 +570,6 @@ class langau:
             self.results_dict[data]["langau_coeff"] = coeff # mpv, eta, sigma, A
             self.results_dict[data]["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
             self.results_dict[data]["data_error"] = error_bins
-
 
     def fit_landau_migrad(x, y, p0, limit_mpv, limit_eta, limit_sigma, limit_A):
         #TODO make it possible with error calculation
@@ -646,8 +648,6 @@ class langau:
 
         return values, errors, m
 
-
-
     def fit_langau(self, x, errors, ind_xmin = 0, bins = 500):
         """Fits the langau to data"""
         hist, edges = np.histogram(x, bins=bins)
@@ -663,10 +663,11 @@ class langau:
     def get_clusters(self, data, num_cluster=1):
         """
         Get all clusters which seem important
-        :param max_cluster: number of cluster which should be considered 1 is default and minimum. 0 makes no sense
+        :param data: data file which should be searched
+        :param num_cluster: number of cluster which should be considered 1 is default and minimum. 0 makes no sense
         :return: list of data indizes after cluster consideration (so basically eventnumbers which are good)
         """
-        return np.nonzero(data["Numclus"] == num_cluster) # Indizes of events with the desired clustersize
+        return np.nonzero(data["Numclus"] == num_cluster) # Indizes of events with the desired clusternumbers
 
     def calc_hist_errors(self, x, errors, bins):
         """Calculates the errors for the bins in a histogram if error of simple point is known"""
@@ -700,6 +701,59 @@ class langau:
             plot.set_xlabel('electrons [#]')
             plot.set_ylabel('Count [#]')
             plot.set_title('Energy deposition SR-90')
+
+            fig.tight_layout()
+            plt.draw()
+
+class chargesharing:
+    """ A class calculating the charge sharing between two strip clusters and plotting it into a histogram and a eta plot"""
+
+    def __init__(self, main_analysis):
+        """Initialize some important parameters"""
+        self.main = main_analysis
+        self.clustersize = 2 # Other thing would not make sense for interstrip analysis
+        self.data = self.main.outputdata.copy()
+        self.results_dict = {}  # Containing all data processed
+
+    def run(self):
+        """Runs the analysis"""
+        for data in tqdm(self.data, desc="(chargesharing) Processing file:"):
+            self.results_dict[data] = {}
+            # Get clustersizes of 2 and only events which show only one cluster in its data (just to be sure
+            indizes_clusters = np.nonzero(self.data[data]["Numclus"] == 1) # Indizes of events with the desired clusternumbers
+            clusters_raw = np.take(self.data[data]["Clustersize"], indizes_clusters)
+            clusters_flattend = np.concatenate(clusters_raw).ravel() # so that they are easy accessible
+            indizes_clustersize = np.nonzero(clusters_flattend == 2) # Indizes of events with the desired clusternumbers
+            indizes = np.take(indizes_clusters, indizes_clustersize)[0]
+
+
+            # Data containing the al and ar values as list entries data[0] --> al
+            raw = np.take(self.data[data]["Signal"], indizes)
+            hits = np.take(self.data[data]["Clusters"], indizes)
+            al = np.zeros(len(indizes)) # Amplitude left and right
+            ar = np.zeros(len(indizes))
+            final_data = np.zeros((len(indizes), 2))
+
+            for event in range(len(raw)):
+                al[event] = raw[event][hits[event][0][0]]
+                ar[event] = raw[event][hits[event][0][1]]
+            final_data = np.array([al,ar])
+
+            self.results_dict[data]["data"] = final_data
+
+    def plot(self):
+        """Plots all results"""
+
+        for file, data in self.results_dict.items():
+            fig = plt.figure("Charge sharing from file: {!s}".format(file))
+
+            # Plot delay
+            plot = fig.add_subplot(111)
+            counts, xedges, yedges, im = plot.hist2d(data["data"][0,:], data["data"][1,:], bins=130, range=[[-125,-70],[-125,-30]])
+            plot.set_xlabel('a_left (ADC)')
+            plot.set_ylabel('a_right (ADC)')
+            fig.colorbar(im)
+            plot.set_title('Charge distribution interstrip for al^2+ar^2>={!s}')
 
             fig.tight_layout()
             plt.draw()
