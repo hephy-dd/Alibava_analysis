@@ -10,7 +10,7 @@ from utilities import *
 from tqdm import tqdm
 import numpy as np
 from scipy.stats import norm
-from scipy import histogram
+from scipy import histogram, stats
 import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline, PchipInterpolator
 from scipy.optimize import curve_fit
@@ -50,6 +50,7 @@ class event_analysis:
         self.events = 0
         self.total_events = self.numevents*len(self.data)
         self.additional_analysis = []
+        self.start = time()
 
 
 
@@ -99,12 +100,13 @@ class event_analysis:
         for data in tqdm(range(len(self.data)), desc="Data files processed:"):
                 events = self.data[data]["events/signal"][:]
                 timing = self.data[data]["events/time"][:]
+                file = str(self.data[data]).split('"')[1].split('.')[0]
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 results = np.array(self.do_analysis(events, timing)) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
                 # No make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
                 # So now order the data Dictionary --> Filename:Type of data: List of all events for specific data type ---> results[: (take all events), 0 (give me data from signal]
                 # Resulting is an array containing all singal data etc.
-                self.outputdata[str(self.data[data]).split('"')[1].split('.')[0]] = {"Signal": results[:,0],
+                self.outputdata[file] =                                             {"Signal": results[:,0],
                                                                                      "SN": results[:, 1],
                                                                                      "CMN": results[:, 2],
                                                                                      "CMsig": results[:, 3],
@@ -120,6 +122,7 @@ class event_analysis:
             print("Starting analysis: {!s}".format(analysis))
             add_analysis = eval(analysis)(self) # Gets the total analysis class, so be aware of changes inside!!!
             result = add_analysis.run()
+            self.outputdata[file][str(analysis)] = results
             add_analysis.plot()
 
         # In the end give a round up of all you have done
@@ -130,11 +133,13 @@ class event_analysis:
                   "            Automasked hits:   {automasked!s}                            \n"
                   "            Events processed:  {events!s}                                \n"
                   "            Total events:      {total_events!s}                          \n"
+                  "            Time taken:        {time!s}                                  \n"
                   "                                                                         \n"
                   "*************************************************************************\n".format(
                                                                                                     automasked=self.automasked_hit,
                                                                                                     events=self.events,
-                                                                                                    total_events = self.total_events)
+                                                                                                    total_events = self.total_events,
+                                                                                                    time = round((time()-self.start), 1))
                                                                                                     )
 
     def do_analysis(self, events, timing):
@@ -207,16 +212,19 @@ class event_analysis:
     def clustering(self, event, SN):
         """Looks for cluster in a event"""
         channels = np.nonzero(np.abs(SN) > self.SN_cut)[0]# Only channels which have a signal/Noise higher then the signal/Noise cut
+        valid_ind = np.arange(len(event))
 
         if self.masking:
             if self.material:
                 # Todo: masking of dead channels etc.
                 masked_ind = np.nonzero(np.take(event, channels) > 0)[0] # So only negative values are considered
+                valid_ind = np.nonzero(event < 0)[0]  # Find out which index are negative so we dont count them accidently
                 if len(masked_ind):
                     channels = np.delete(channels, masked_ind)
                     self.automasked_hit += len(masked_ind)
             else:
                 masked_ind = np.nonzero(np.take(event, channels) < 0)[0] # So only positive values are considered
+                valid_ind = np.nonzero(event > 0)[0]
                 if len(masked_ind):
                     channels = np.delete(channels, masked_ind)
                     self.automasked_hit += len(masked_ind)
@@ -237,7 +245,7 @@ class event_analysis:
                 offset = int(self.max_clustersize / 2)
                 for i in range(ch-offset, ch+offset): # Search plus minus the channel found
                     if 0 < i < self.numchan: # To exclude overrun
-                            if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i]:
+                            if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i] and i in valid_ind: # TODO this will currently not work for n type sensors
                                 cluster.append(i)
                                 used_channels[i] = 1
                                 # Append the channel which is also hit after this estimation
@@ -653,7 +661,7 @@ class langau:
         hist, edges = np.histogram(x, bins=bins)
         binerror = self.calc_hist_errors(x, errors, edges)
 
-        mpv, eta, sigma, A = 50000, 5, 4, 800
+        mpv, eta, sigma, A = 45000, 5, 4, 800
 
         # Fit with constrains
         coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=False, p0=(mpv, eta, sigma, A), bounds=(1, 70000))
@@ -735,11 +743,32 @@ class chargesharing:
             final_data = np.zeros((len(indizes), 2))
 
             for event in range(len(raw)):
-                al[event] = raw[event][hits[event][0][0]]
-                ar[event] = raw[event][hits[event][0][1]]
+                al[event] = raw[event][np.min(hits[event][0])] # So always the left strip is choosen
+                ar[event] = raw[event][np.max(hits[event][0])] # Same with the right strip
+                # al[event] = np.max(np.abs(raw[event][hits[event][0]]))
+                # ar[event] = np.min(np.abs(raw[event][hits[event][0]]))
+
+
             final_data = np.array([al,ar])
+            eta = ar/(al+ar)
+
+            # TODO: Claculate the eta distribution over the arctan(al/ar)
+
+            # Calculate the gauss distributions
+
+            # Cut the eta in two halves and fit gaussian to it
+            bins = 200
+            etahist, edges = np.histogram(eta, bins=bins)
+            length = len(etahist)
+            mul, stdl = norm.fit(etahist[:int(length/2)])
+            mur, stdr = norm.fit(etahist[int(length/2):])
 
             self.results_dict[data]["data"] = final_data
+            self.results_dict[data]["eta"] = eta
+            self.results_dict[data]["fits"] = ((mul,stdl), (mur, stdr), edges, bins)
+
+        return self.results_dict
+
 
     def plot(self):
         """Plots all results"""
@@ -748,12 +777,22 @@ class chargesharing:
             fig = plt.figure("Charge sharing from file: {!s}".format(file))
 
             # Plot delay
-            plot = fig.add_subplot(111)
-            counts, xedges, yedges, im = plot.hist2d(data["data"][0,:], data["data"][1,:], bins=130, range=[[-125,-70],[-125,-30]])
+            plot = fig.add_subplot(211)
+            counts, xedges, yedges, im = plot.hist2d(data["data"][0,:], data["data"][1,:], bins=400, range=[[-200,0],[-200,0]])
             plot.set_xlabel('a_left (ADC)')
             plot.set_ylabel('a_right (ADC)')
             fig.colorbar(im)
             plot.set_title('Charge distribution interstrip for al^2+ar^2>={!s}')
+
+            plot = fig.add_subplot(212)
+            counts, edges, im = plot.hist(data["eta"], bins=300, range=(0,1))
+            #left = stats.norm.pdf(data["fits"][2][:100], loc=data["fits"][0][0], scale=data["fits"][0][1])
+            #right = stats.norm.pdf(data["fits"][2], loc=data["fits"][1][0], scale=data["fits"][1][1])
+            #plot.plot(data["fits"][2][:100], left,"r--", color="r")
+            #plot.plot(data["fits"][2], right,"r--", color="r")
+            plot.set_xlabel('eta')
+            plot.set_ylabel('entries')
+            plot.set_title('Eta distribution')
 
             fig.tight_layout()
             plt.draw()

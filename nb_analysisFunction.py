@@ -45,23 +45,30 @@ def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, mas
     """Looks for cluster in a event"""
     channels = np.nonzero(np.abs(SN) > SN_cut)[0]  # Only channels which have a signal/Noise higher then the signal/Noise cut
     automasked_hit = 0
-    used_channels = np.zeros(numchan)  # To keep track which channel have been used already
+    used_channels = np.ones(numchan)  # To keep track which channel have been used already here ones due to valid channel calculations
     numclus = 0  # The number of found clusters
     clusters_list = []
     clustersize = []
+    strips = len(event)
 
     if masking:
         if material:
             # Todo: masking of dead channels etc.
             masked_ind = np.nonzero(np.take(event, channels) > 0)[0]  # So only negative values are considered
+            valid_ind = np.nonzero(event < 0)[0]
             automasked_hit += len(masked_ind)
         else:
             masked_ind = np.nonzero(np.take(event, channels) < 0)[0]  # So only positive values are considered
+            valid_ind = np.nonzero(event > 0)[0]
             automasked_hit += len(masked_ind)
     else:
         masked_ind = np.array([-1])
+        valid_ind = np.arange(strips)
 
     masked_list = list(masked_ind)
+    for i in valid_ind:
+        used_channels[i] = 0
+
 
 
     for ch in channels:  # Loop over all left channels which are a hit, here from "left" to "right"
@@ -76,7 +83,7 @@ def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, mas
                 offset = int(max_clustersize * 0.5)
                 for i in range(ch - offset, ch + offset):  # Search plus minus the channel found
                     if 0 < i < numchan:  # To exclude overrun
-                        if np.abs(SN[i]) > SN_cut * SN_ratio and not used_channels[i]:
+                        if np.abs(SN[i]) > SN_cut * SN_ratio and not used_channels[i] and valid_ind[i]:
                             cluster.append(i)
                             used_channels[i] = 1
                             size += 1
