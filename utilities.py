@@ -95,8 +95,9 @@ def convert_ADC_to_e(signal, interpolation_function):
     length = len(signal)
     eSignal = np.zeros(length)
 
-    for i in prange(length):
-        eSignal[i] = interpolation_function(np.abs(signal[i]))
+    #for i in prange(length):
+    #    eSignal[i] = interpolation_function(np.abs(signal[i]))
+    eSignal = interpolation_function(np.abs(signal))
 
     return eSignal
 

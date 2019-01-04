@@ -38,8 +38,6 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
 
     return prodata, automasked
 
-
-
 @jit(parallel = False, nopython = True, cache=True)
 def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, masking=True, material=1):
     """Looks for cluster in a event"""
@@ -88,7 +86,7 @@ def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, mas
                             used_channels[i] = 1
                             size += 1
                 clusters_list.append(cluster)
-                clustersize.append(size)  # TODO: This cost maybe to much calculation power for to less gain
+                clustersize.append(size)
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
 @jit(parallel=True, nopython = True, cache=True)
@@ -125,7 +123,6 @@ def nb_process_event(event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
 
     # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
     removed = np.nonzero(signal < (5 * meanCMsig + meanCMN))
-    # TODO: np.ndarray.take wont work with nopython mode --> performance buff compared to no jit function
     prosignal = np.take(signal, removed)  # Processed signal
 
     if prosignal.any():

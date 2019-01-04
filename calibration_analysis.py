@@ -245,13 +245,13 @@ class event_analysis:
                 offset = int(self.max_clustersize / 2)
                 for i in range(ch-offset, ch+offset): # Search plus minus the channel found
                     if 0 < i < self.numchan: # To exclude overrun
-                            if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i] and i in valid_ind: # TODO this will currently not work for n type sensors
+                            if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i] and i in valid_ind:
                                 cluster.append(i)
                                 used_channels[i] = 1
                                 # Append the channel which is also hit after this estimation
                                 size += 1
                 clusters_list.append(cluster)
-                clustersize = np.append(clustersize, size) #TODO: This cost maybe to much calculation power for to less gain
+                clustersize = np.append(clustersize, size)
         return channels, clusters_list, numclus, clustersize
 
     def process_event(self, event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
@@ -350,7 +350,7 @@ class calibration:
         :param charge_path: Path to calibration file
         """
 
-        self.charge_cal = None
+        #self.charge_cal = None
         self.delay_cal = None
         self.delay_data = None
         self.charge_data = None
@@ -378,9 +378,15 @@ class calibration:
             self.charge_data = get_xy_data(self.charge_data, 2)
 
             if self.charge_data.any():
-                # Interpolate data with cubic spline interpolation
-                self.charge_cal = PchipInterpolator(self.charge_data[:,1],self.charge_data[:,0], extrapolate=True)
+                # Interpolate and get some extrapolation data from polynomial fit (from alibava)
+                #self.charge_cal = PchipInterpolator(self.charge_data[:,1],self.charge_data[:,0], extrapolate=True) # Test with another fit type
+                self.chargecoeff = np.polyfit(self.charge_data[:,1],self.charge_data[:,0], deg=4, full=False)
+                print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
+                #Todo: make it possible to define these parameters in the config file so everytime the same parameters are used
 
+
+    def charge_cal(self, x):
+        return np.polyval(self.chargecoeff, x)
 
     def plot_data(self):
         """Plots the processed data"""
@@ -661,10 +667,10 @@ class langau:
         hist, edges = np.histogram(x, bins=bins)
         binerror = self.calc_hist_errors(x, errors, edges)
 
-        mpv, eta, sigma, A = 45000, 5, 4, 800
+        mpv, eta, sigma, A = 55000, 6, 2, 800
 
         # Fit with constrains
-        coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=False, p0=(mpv, eta, sigma, A), bounds=(1, 70000))
+        coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 60000))
 
         return coeff, pcov, hist, binerror
 
@@ -751,8 +757,7 @@ class chargesharing:
 
             final_data = np.array([al,ar])
             eta = ar/(al+ar)
-
-            # TODO: Claculate the eta distribution over the arctan(al/ar)
+            theta = np.arctan(ar/al)
 
             # Calculate the gauss distributions
 
@@ -763,8 +768,10 @@ class chargesharing:
             mul, stdl = norm.fit(etahist[:int(length/2)])
             mur, stdr = norm.fit(etahist[int(length/2):])
 
+
             self.results_dict[data]["data"] = final_data
             self.results_dict[data]["eta"] = eta
+            self.results_dict[data]["theta"] = theta
             self.results_dict[data]["fits"] = ((mul,stdl), (mur, stdr), edges, bins)
 
         return self.results_dict
@@ -777,15 +784,15 @@ class chargesharing:
             fig = plt.figure("Charge sharing from file: {!s}".format(file))
 
             # Plot delay
-            plot = fig.add_subplot(211)
+            plot = fig.add_subplot(221)
             counts, xedges, yedges, im = plot.hist2d(data["data"][0,:], data["data"][1,:], bins=400, range=[[-200,0],[-200,0]])
             plot.set_xlabel('a_left (ADC)')
             plot.set_ylabel('a_right (ADC)')
             fig.colorbar(im)
             plot.set_title('Charge distribution interstrip for al^2+ar^2>={!s}')
 
-            plot = fig.add_subplot(212)
-            counts, edges, im = plot.hist(data["eta"], bins=300, range=(0,1))
+            plot = fig.add_subplot(222)
+            counts, edges, im = plot.hist(data["eta"], bins=300, range=(0,1), alpha=0.4, color="b")
             #left = stats.norm.pdf(data["fits"][2][:100], loc=data["fits"][0][0], scale=data["fits"][0][1])
             #right = stats.norm.pdf(data["fits"][2], loc=data["fits"][1][0], scale=data["fits"][1][1])
             #plot.plot(data["fits"][2][:100], left,"r--", color="r")
@@ -793,6 +800,12 @@ class chargesharing:
             plot.set_xlabel('eta')
             plot.set_ylabel('entries')
             plot.set_title('Eta distribution')
+
+            plot = fig.add_subplot(223)
+            counts, edges, im = plot.hist(data["theta"]/np.pi, bins=300, alpha=0.4, color="b", range=(0, 0.5))
+            plot.set_xlabel('theta/Pi')
+            plot.set_ylabel('entries')
+            plot.set_title('Theta distribution')
 
             fig.tight_layout()
             plt.draw()

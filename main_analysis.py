@@ -41,7 +41,7 @@ def do_with_config_file(config):
 
     # Look if a pedestal file is specified
     if "Measurement_file" in config:
-        # TODO: potential call before assignement error !!! with pedestal file
+        # TODO: potential call before assignment error !!! with pedestal file
 
         config.update({"pedestal": noise_data.pedestal,
                         "CMN": noise_data.CMnoise,
