@@ -6,7 +6,7 @@ from tqdm import tqdm
 import scipy
 
 
-@jit(parallel = True, cache=True)
+@jit(parallel = True, cache=False)
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, max_clustersize = 5, masking=True, material=1):
     """Parallel processing of events.
      Did not show any performance improvements. Maybe a bug?"""
@@ -89,7 +89,7 @@ def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, mas
                 clustersize.append(size)
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
-@jit(parallel=True, nopython = True, cache=True)
+@jit(parallel=True, nopython = True, cache=False)
 def nb_noise_calc(events, pedestal, numevents, numchannels):
     """Noise calculation, normal noise (NN) and common mode noise (CMN)
     Uses numba and numpy, this function uses jit for optimization"""
