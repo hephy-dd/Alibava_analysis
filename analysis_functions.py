@@ -51,6 +51,7 @@ class event_analysis:
         self.total_events = self.numevents*len(self.data)
         self.additional_analysis = []
         self.start = time()
+        self.pathes = path_list
 
 
 
@@ -121,9 +122,11 @@ class event_analysis:
         for analysis in self.add_analysis:
             print("Starting analysis: {!s}".format(analysis))
             add_analysis = eval(analysis)(self) # Gets the total analysis class, so be aware of changes inside!!!
-            result = add_analysis.run()
-            self.outputdata[file][str(analysis)] = results
+            results = add_analysis.run()
             add_analysis.plot()
+            if results: # Only if results have been returned
+                for file in results:
+                    self.outputdata[file][str(analysis)] = results[file]
 
         # In the end give a round up of all you have done
         print("*************************************************************************\n" 
@@ -585,6 +588,8 @@ class langau:
             self.results_dict[data]["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
             self.results_dict[data]["data_error"] = error_bins
 
+        return self.results_dict.copy()
+
     def fit_landau_migrad(x, y, p0, limit_mpv, limit_eta, limit_sigma, limit_A):
         #TODO make it possible with error calculation
 
@@ -774,8 +779,7 @@ class chargesharing:
             self.results_dict[data]["theta"] = theta
             self.results_dict[data]["fits"] = ((mul,stdl), (mur, stdr), edges, bins)
 
-        return self.results_dict
-
+        return self.results_dict.copy()
 
     def plot(self):
         """Plots all results"""
@@ -811,7 +815,40 @@ class chargesharing:
             plt.draw()
 
 
+class CCE:
+    """This function has actually plots the the CCE plot"""
 
+    def __init__(self, main_analysis):
+        """Initialize some important parameters"""
+        self.main = main_analysis
+        self.data = self.main.outputdata.copy()
 
-if __name__ == "__main__":
-    noise = noise_analysis(path = r"\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5")
+    def run(self):
+        pass
+
+    def plot(self):
+        """Plots the CCE"""
+
+        ypos = [0] # x and y positions for the plot
+        xpos = [0]
+        y0 = 0
+
+        fig = plt.figure("Charge collection efficiency (CCE)")
+
+        # Check if the langau has been calculated
+        # Loop over all processed data files
+        for path in self.main.pathes:
+            file = str(path.split("\\")[-1].split('.')[0])  # Find the filename, warning these files must have been processed
+            if self.data[file]["langau"]:
+                ypos.append(self.data[file]["langau"]["langau_coeff"][0]) # First value is the mpv
+                if not y0:
+                    y0 = ypos[-1]
+                ypos[-1] = ypos[-1]/y0
+                xpos.append(xpos[-1]+1) # Todo: make a good x axis here from the file name (regex)
+            else:
+                import warnings
+                warnings.warn("For the CCE plot to work correctly the langau analysis has to be done prior. Suppression of output")
+
+        plot = fig.add_subplot(111)
+        plot.plot(xpos, ypos, "r--", color="b")
+

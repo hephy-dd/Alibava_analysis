@@ -5,15 +5,15 @@
   Charge_scan: 'D:\Data\VC811929\charge_scan.txt'
   Measurement_file:
     - 'D:\Data\VC811929\330V.hdf5'
-    #- 'D:\Data\VC811929\310V.hdf5'
-    #- 'D:\Data\VC811929\290V.hdf5'
-    #- 'D:\Data\VC811929\270V.hdf5'
+    - 'D:\Data\VC811929\310V.hdf5'
+    - 'D:\Data\VC811929\290V.hdf5'
+    - 'D:\Data\VC811929\270V.hdf5'
   Output_folder: ''
   Output_prefix: ''
 
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
-  Plot_single_event: 1000
+  Plot_single_event: -1
   SN_cut: 10 # Minimum height of hit
   SN_ratio: 0.15 # Ratio at which the program searches for nearby hits below the SN cut
   timing:
@@ -24,8 +24,9 @@
   automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
   optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true
   additional_analysis:
-      - chargesharing
       - langau
+      - CCE
+      #- chargesharing
 
   # If you name a parameter like the additional analysis entry, you can easily access this data in the analysis
   chargesharing: "sdf"
