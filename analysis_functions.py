@@ -7,6 +7,7 @@ __email__ = "dominic.bloech@oeaw.ac.at"
 
 # Import statements
 from utilities import *
+import warnings
 from tqdm import tqdm
 import numpy as np
 from scipy.stats import norm
@@ -17,7 +18,10 @@ from scipy.optimize import curve_fit
 import pylandau
 from nb_analysisFunction import *
 from time import time
-import iminuit
+try:
+    import iminuit
+except:
+    print("Iminuit module cannot be loaded")
 
 
 class event_analysis:
@@ -74,6 +78,7 @@ class event_analysis:
         self.SN_ratio = kwargs.get("SN_ratio", 0.5)
         self.usejit = kwargs.get("optimize", False)
         self.calibration = kwargs.get("calibration", None)
+        self.SN_cluster = kwargs.get("SN_cluster", 6)
 
 
         if "pedestal" in kwargs:
@@ -185,7 +190,7 @@ class event_analysis:
             if False: # The parallel version does basically the same what is here unreachable
                 for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"):  # Loop over all good events
                     signal, SN, CMN, CMsig = nb_process_event(events[event], self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan)
-                    channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, self.SN_cut, self.SN_ratio, self.numchan, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
+                    channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, self.SN_cut, self.SN_ratio , self.SN_cluster, self.numchan, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
                     # Warning channels hit only contains hits above SN_cut not the ones with the cluistering
                     self.automasked_hit += automasked_hits
                     for channel in channels_hit:
@@ -204,12 +209,12 @@ class event_analysis:
                     )
             else:
                 # This should, in theory, use parallelization of the loop over event but i did not see any performance boost, maybe you can find the bug =)?
-                data, automasked_hits= parallel_event_processing(gtime, events, self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan, self.SN_cut, self.SN_ratio, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
+                data, automasked_hits= parallel_event_processing(gtime, events, self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan, self.SN_cut, self.SN_ratio, self.SN_cluster, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
                 prodata = list(data)
                 self.automasked_hit = automasked_hits
 
         end = time()
-        print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
+        #print("\nTime taken: {!s} seconds".format(round(abs(end - start), 2)))
         return prodata
 
     def clustering(self, event, SN):
@@ -239,22 +244,49 @@ class event_analysis:
         for ch in channels: # Loop over all left channels which are a hit, here from "left" to "right"
             if not used_channels[ch]: # Make sure we dont count everything twice
                 used_channels[ch] = 1 # So now the channel is used
-                numclus += 1
                 cluster = [ch] # Keep track of the individual clusters
                 size = 1
 
+                right_stop = False
+                left_stop = False
+                # Now make a loop to find neighbouring hits of cluster, we must go into both directions
+                offset = int(self.max_clustersize * 0.5)
+                for i in range(1, offset+1):  # Search plus minus the channel found Todo: first entry useless
+                    if 0 < ch-i and ch+i < self.numchan:  # To exclude overrun
+                        if np.abs(SN[ch+i]) > self.SN_cut * self.SN_ratio and not used_channels[ch+i] and ch+i in valid_ind and not right_stop:
+                            cluster.append(ch+i)
+                            used_channels[ch+i] = 1
+                            size += 1
+                        elif np.abs(SN[ch+i]) < self.SN_cut * self.SN_ratio:
+                            right_stop = True # Prohibits search for to long clusters
+
+                        if np.abs(SN[ch-i]) > self.SN_cut * self.SN_ratio and not used_channels[ch-i] and ch-i in valid_ind and not left_stop:
+                            cluster.append(ch-i)
+                            used_channels[ch-i] = 1
+                            size += 1
+                        elif np.abs(SN[ch-i]) < self.SN_cut * self.SN_ratio:
+                            left_stop = True # Prohibits search for to long clusters
+
+
                 # Now make a loop to find neighbouring hits of cluster, we must go into both directions
                 # TODO huge clusters can be misinterpreted!!! Takes huge amount of cpu, vectorize
-                offset = int(self.max_clustersize / 2)
-                for i in range(ch-offset, ch+offset): # Search plus minus the channel found
-                    if 0 < i < self.numchan: # To exclude overrun
-                            if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i] and i in valid_ind:
-                                cluster.append(i)
-                                used_channels[i] = 1
-                                # Append the channel which is also hit after this estimation
-                                size += 1
-                clusters_list.append(cluster)
-                clustersize = np.append(clustersize, size)
+                #offset = int(self.max_clustersize / 2)
+                #for i in range(ch-offset, ch+offset): # Search plus minus the channel found
+                #    if 0 < i < self.numchan: # To exclude overrun
+                #            if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i] and i in valid_ind:
+                #                cluster.append(i)
+                #                used_channels[i] = 1
+                #                # Append the channel which is also hit after this estimation
+                #                size += 1
+
+                # Look if the cluster SN is big enough to be counted as clusters
+                SNcluster = np.sqrt(np.abs(np.sum(np.take(event, cluster))))
+                if SNcluster > self.SN_cluster:
+                    numclus += 1
+                    clusters_list.append(cluster)
+                    clustersize = np.append(clustersize, size)
+
+        # warning channels are only the channels which are above SN
         return channels, clusters_list, numclus, clustersize
 
     def process_event(self, event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
@@ -564,12 +596,13 @@ class langau:
                 # TODO: make this work for multiple cluster in one event
                 # Signal calculations
                 signal_clst_event = np.take(self.data[data]["Signal"][ind], self.data[data]["Clusters"][ind][0]) # Get the signal of an event
-                pedestal_clst_event = np.take(self.pedestal, self.data[data]["Clusters"][ind][0]) # Get the signal of the pedestal
-                totalSignal = signal_clst_event + pedestal_clst_event # For the actual adc signal
-                eSignal = convert_ADC_to_e(totalSignal, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
-                ePedestal = convert_ADC_to_e(pedestal_clst_event, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
-                finalSignal = np.abs(eSignal-ePedestal) # Subtract the actual signal with the offset of the pedestal
-                totalE[incrementor] = np.sum(finalSignal)
+                #pedestal_clst_event = np.take(self.pedestal, self.data[data]["Clusters"][ind][0]) # Get the signal of the pedestal
+                #totalSignal = signal_clst_event + pedestal_clst_event # For the actual adc signal
+                #eSignal = convert_ADC_to_e(totalSignal, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
+                #ePedestal = convert_ADC_to_e(pedestal_clst_event, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
+                #finalSignal = np.abs(eSignal-ePedestal) # Subtract the actual signal with the offset of the pedestal
+                #totalE[incrementor] = np.sum(finalSignal)
+                totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event, self.main.calibration.charge_cal))
 
                 # Noise Calculations
                 noise_clst_event = np.take(self.main.noise, self.data[data]["Clusters"][ind][0])  # Get the Noise of an event
@@ -585,7 +618,7 @@ class langau:
             coeff, pcov, hist, error_bins = self.fit_langau(totalE, totalNoise)
 
             self.results_dict[data]["langau_coeff"] = coeff # mpv, eta, sigma, A
-            self.results_dict[data]["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
+            self.results_dict[data]["langau_data"] = [np.arange(1.,200000., 1000.), pylandau.langau(np.arange(1.,200000., 1000.), *coeff)] # aka x and y data
             self.results_dict[data]["data_error"] = error_bins
 
         return self.results_dict.copy()
@@ -672,10 +705,28 @@ class langau:
         hist, edges = np.histogram(x, bins=bins)
         binerror = self.calc_hist_errors(x, errors, edges)
 
-        mpv, eta, sigma, A = 55000, 6, 2, 800
+        mpv, eta, sigma, A = 17000, 6, 2, 800
 
         # Fit with constrains
-        coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 60000))
+        converged = False
+        iter = 0
+        oldmpv = 0
+        diff = 100
+        while not converged:
+            iter += 1
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 60000))
+            if abs(coeff[0]-oldmpv) > diff:
+                mpv, eta, sigma, A = coeff
+                oldmpv = mpv
+            else:
+                converged = True
+            if iter > 50:
+                converged = True
+                warnings.warn("Langau is not converged after 50 attempts!")
+        #print("Langau iterations: {!s}".format(iter))
+
 
         return coeff, pcov, hist, binerror
 
@@ -704,7 +755,6 @@ class langau:
 
         return errorBins
 
-
     def plot(self):
         """Plots the data calculated so the energy data and the langau"""
 
@@ -720,6 +770,7 @@ class langau:
             plot.set_xlabel('electrons [#]')
             plot.set_ylabel('Count [#]')
             plot.set_title('Energy deposition SR-90')
+            plot.legend(["Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3])])
 
             fig.tight_layout()
             plt.draw()

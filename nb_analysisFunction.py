@@ -7,7 +7,7 @@ import scipy
 
 
 @jit(parallel = True, cache=False)
-def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, max_clustersize = 5, masking=True, material=1):
+def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1):
     """Parallel processing of events.
      Did not show any performance improvements. Maybe a bug?"""
     goodevents = goodtiming[0].shape[0]
@@ -15,9 +15,10 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
     hitmap = np.zeros(numchan)
     automasked = 0
     for i in tqdm(prange(goodevents), desc="Events processed:"):
+        #print(i)
         signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, SN_cut,
-                                                                                      SN_ratio, numchan,
+                                                                                      SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
                                                                                       masking=masking,
                                                                                       material=material)
@@ -38,9 +39,10 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
 
     return prodata, automasked
 
-@jit(parallel = False, nopython = True, cache=True)
-def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, masking=True, material=1):
+@jit(parallel = False, nopython = False)
+def nb_clustering(event_obj, SN, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
     """Looks for cluster in a event"""
+    event = event_obj
     channels = np.nonzero(np.abs(SN) > SN_cut)[0]  # Only channels which have a signal/Noise higher then the signal/Noise cut
     automasked_hit = 0
     used_channels = np.ones(numchan)  # To keep track which channel have been used already here ones due to valid channel calculations
@@ -60,33 +62,54 @@ def nb_clustering(event, SN, SN_cut, SN_ratio, numchan, max_clustersize = 5, mas
             valid_ind = np.nonzero(event > 0)[0]
             automasked_hit += len(masked_ind)
     else:
-        masked_ind = np.array([-1])
         valid_ind = np.arange(strips)
+        #masked_ind = np.zeros([-1])
 
-    masked_list = list(masked_ind)
-    for i in valid_ind:
+    #masked_list = list(masked_ind)
+    for i in valid_ind: # Define valid index to search for
         used_channels[i] = 0
 
-
-
+    #Todo: race condition somewhere which leads to different results
+    # Todo: misinterpretation of two very close clusters
     for ch in channels:  # Loop over all left channels which are a hit, here from "left" to "right"
-            if not used_channels[ch] and ch not in masked_list:  # Make sure we dont count everything twice
+            if not used_channels[ch]:# and ch not in masked_list:# and not masked_ind[ch]:  # Make sure we dont count everything twice
                 used_channels[ch] = 1  # So now the channel is used
-                numclus += 1
                 cluster = [ch]  # Keep track of the individual clusters
                 size = 1
 
                 # Now make a loop to find neighbouring hits of cluster, we must go into both directions
-                # TODO huge clusters can be misinterpreted!!! Takes huge amount of cpu, vectorize
+                right_stop = 0
+                left_stop = 0
+                absSN = np.abs(SN)
+                SNval = SN_cut * SN_ratio
                 offset = int(max_clustersize * 0.5)
-                for i in range(ch - offset, ch + offset):  # Search plus minus the channel found
-                    if 0 < i < numchan:  # To exclude overrun
-                        if np.abs(SN[i]) > SN_cut * SN_ratio and not used_channels[i] and valid_ind[i]:
-                            cluster.append(i)
-                            used_channels[i] = 1
+                for i in range(1, offset+1):  # Search plus minus the channel found Todo: first entry useless
+                    if 0 < ch-i and ch+i < numchan:  # To exclude overrun
+                        chp = ch+i
+                        chm = ch-i
+                        if absSN[chp] > SNval and not used_channels[chp] and not right_stop:
+                            cluster.append(chp)
+                            used_channels[chp] = 1
                             size += 1
-                clusters_list.append(cluster)
-                clustersize.append(size)
+                        elif absSN[chp] < SNval or used_channels[chp]:
+                            right_stop = 1 # Prohibits search for to long clusters or already used channels
+
+                        if absSN[chm] > SNval and not used_channels[chm] and not left_stop:
+                            cluster.append(chm)
+                            used_channels[chm] = 1
+                            size += 1
+                        elif absSN[chm] < SNval or used_channels[chm]:
+                            left_stop = 1 # Prohibits search for to long clusters or already used channels
+                # Look if the cluster SN is big enough to be counted as clusters
+                SNcluster = np.sqrt(np.abs(np.sum(np.take(event, cluster))))
+                if SNcluster > SN_cluster:
+                    numclus = numclus+1
+                    clusters_list.append(cluster)
+                    clustersize.append(size)
+                    #if numclus > 7:
+                    #    print(event)
+                    #    print(clusters_list)
+
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
 @jit(parallel=True, nopython = True, cache=False)
