@@ -9,14 +9,14 @@
     #- '310V.hdf5'
     #- '290V.hdf5'
     #- '270V.hdf5'
-  Output_folder: ''
-  Output_prefix: ''
+  Output_folder: 'C:\Users\dbloech\Desktop\Alibava_Plots'
+  Output_name: 'Testrun'
 
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
   Plot_single_event: 29895
   SN_cut: 7 # Minimum height of hit
-  SN_ratio: 0.4 # Ratio at which the program searches for nearby hits below the SN cut
+  SN_ratio: 0.3 # Ratio at which the program searches for nearby hits below the SN cut
   SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
   timing:
     - 0 # Minimum timing window
@@ -29,9 +29,6 @@
       - langau
       - CCE
       - chargesharing
-
-  # If you name a parameter like the additional analysis entry, you can easily access this data in the analysis
-  chargesharing: "sdf"
 
 
 

@@ -12,8 +12,8 @@ from tqdm import tqdm
 import h5py
 import yaml
 import numpy as np
-import matplotlib as plt
-from numba import jit, njit, prange
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
 
 
 def create_dictionary(file, filepath):
@@ -100,6 +100,26 @@ def convert_ADC_to_e(signal, interpolation_function):
     eSignal = interpolation_function(np.abs(signal))
 
     return eSignal
+
+def save_all_plots(name, folder, figs=None, dpi=200):
+    """
+    This function saves all generated plots to a specific folder with the defined name in one pdf
+    :param name: Name of output
+    :param folder: Output folder
+    :param figs: Figures which you want to save to one pdf (leaf empty for all plots) (list)
+    :param dpi: image dpi
+    :return: None
+    """
+    try:
+        pp = PdfPages(os.path.normpath(folder) + "\\" + name + ".pdf")
+    except PermissionError:
+        print("While overwriting the file {!s} a permission error occured, please close file if opened!".format(name + ".pdf"))
+        return
+    if figs is None:
+        figs = [plt.figure(n) for n in plt.get_fignums()]
+    for fig in tqdm(figs, desc="Saving plots"):
+        fig.savefig(pp, format='pdf')
+    pp.close()
 
 
 if __name__ == "__main__":

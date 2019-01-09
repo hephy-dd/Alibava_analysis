@@ -25,7 +25,7 @@ except:
 
 
 class event_analysis:
-    """This class analyses measurement files per event"""
+    """This class analyses measurement files per event and conducts additional defined analysis"""
 
     def __init__(self, path_list = None, **kwargs):
         """
@@ -149,6 +149,7 @@ class event_analysis:
                                                                                                     total_events = self.total_events,
                                                                                                     time = round((time()-self.start), 1))
                                                                                                     )
+
 
     def do_analysis(self, events, timing):
         """Does the actual event analysis"""
@@ -325,10 +326,9 @@ class event_analysis:
             channel_plot.bar(np.arange(self.numchan), data["Hitmap"][len(data["Hitmap"])-1], 1., alpha=0.4, color="b")
             channel_plot.set_xlabel('channel [#]')
             channel_plot.set_ylabel('Hits [#]')
-            channel_plot.set_title('Hitmap')
+            channel_plot.set_title('Hitmap from file: {!s}'.format(name))
 
             fig.tight_layout()
-
 
             # Plot Clustering results
             fig = plt.figure("Clustering Analysis on file: {!s}".format(name))
@@ -350,7 +350,10 @@ class event_analysis:
             clusters_plot.set_ylabel('Occurance [#]')
             clusters_plot.set_title('Clustersizes')
 
+            fig.suptitle('Cluster analysis from file {!s}'.format(name))
             fig.tight_layout()
+            fig.subplots_adjust(top=0.88)
+            #plt.draw()
 
     def plot_single_event(self, eventnum, file):
         """ Plots a single event and its data"""
@@ -373,8 +376,10 @@ class event_analysis:
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise')
 
+        fig.suptitle('Single event analysis from file {!s}'.format(file))
         fig.tight_layout()
-        plt.draw()
+        fig.subplots_adjust(top=0.88)
+        #plt.draw()
 
 class calibration:
     """This class handles all concerning the calibration"""
@@ -448,7 +453,7 @@ class calibration:
             charge_plot.set_title('Charge plot')
 
             fig.tight_layout()
-            plt.draw()
+            #plt.draw()
         except Exception as e:
             print("An error happened while trying to plot calibration data ", e)
 
@@ -562,7 +567,7 @@ class noise_analysis:
         #CM_plot.legend()
 
         fig.tight_layout()
-        plt.draw()
+        #plt.draw()
 
 class langau:
     """This class calculates the langau distribution and returns the best values for landau and Gauss fit to the data
@@ -618,7 +623,7 @@ class langau:
             coeff, pcov, hist, error_bins = self.fit_langau(totalE, totalNoise)
 
             self.results_dict[data]["langau_coeff"] = coeff # mpv, eta, sigma, A
-            self.results_dict[data]["langau_data"] = [np.arange(1.,200000., 1000.), pylandau.langau(np.arange(1.,200000., 1000.), *coeff)] # aka x and y data
+            self.results_dict[data]["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
             self.results_dict[data]["data_error"] = error_bins
 
         return self.results_dict.copy()
@@ -765,15 +770,15 @@ class langau:
             plot = fig.add_subplot(111)
             hist, edges = np.histogram(data["signal"], bins=500)
             plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b")
-            plot.errorbar(edges[:-1], hist, xerr=data["data_error"]*3, fmt='o', markersize=1, color="red")
+            plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
             plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g")
             plot.set_xlabel('electrons [#]')
             plot.set_ylabel('Count [#]')
-            plot.set_title('Energy deposition SR-90')
+            plot.set_title('Energy deposition SR-90 from file: {!s}'.format(file))
             plot.legend(["Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3])])
 
             fig.tight_layout()
-            plt.draw()
+            #plt.draw()
 
 class chargesharing:
     """ A class calculating the charge sharing between two strip clusters and plotting it into a histogram and a eta plot"""
@@ -810,6 +815,9 @@ class chargesharing:
                 # al[event] = np.max(np.abs(raw[event][hits[event][0]]))
                 # ar[event] = np.min(np.abs(raw[event][hits[event][0]]))
 
+            # Convert ADC to actual energy
+            al = convert_ADC_to_e(al, self.main.calibration.charge_cal)
+            ar = convert_ADC_to_e(ar, self.main.calibration.charge_cal)
 
             final_data = np.array([al,ar])
             eta = ar/(al+ar)
@@ -840,11 +848,11 @@ class chargesharing:
 
             # Plot delay
             plot = fig.add_subplot(221)
-            counts, xedges, yedges, im = plot.hist2d(data["data"][0,:], data["data"][1,:], bins=400, range=[[-200,0],[-200,0]])
-            plot.set_xlabel('a_left (ADC)')
-            plot.set_ylabel('a_right (ADC)')
+            counts, xedges, yedges, im = plot.hist2d(data["data"][0,:], data["data"][1,:], bins=400, range=[[0,50000],[0,50000]])
+            plot.set_xlabel('A_left (electrons)')
+            plot.set_ylabel('A_right (electrons)')
             fig.colorbar(im)
-            plot.set_title('Charge distribution interstrip for al^2+ar^2>={!s}')
+            plot.set_title('Charge distribution interstrip')
 
             plot = fig.add_subplot(222)
             counts, edges, im = plot.hist(data["eta"], bins=300, range=(0,1), alpha=0.4, color="b")
@@ -862,8 +870,10 @@ class chargesharing:
             plot.set_ylabel('entries')
             plot.set_title('Theta distribution')
 
+            fig.suptitle('Charge sharing analysis from file {!s}'.format(file))
             fig.tight_layout()
-            plt.draw()
+            fig.subplots_adjust(top=0.88)
+            #plt.draw()
 
 
 class CCE:
@@ -901,5 +911,7 @@ class CCE:
                 warnings.warn("For the CCE plot to work correctly the langau analysis has to be done prior. Suppression of output")
 
         plot = fig.add_subplot(111)
+        plot.set_title('Charge collection efficiency from file: {!s}'.format(file))
         plot.plot(xpos, ypos, "r--", color="b")
+
 
