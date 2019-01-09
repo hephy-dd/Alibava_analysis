@@ -8,6 +8,7 @@ __email__ = "dominic.bloech@oeaw.ac.at"
 
 # Import statements
 import os
+import sys
 from tqdm import tqdm
 import h5py
 import yaml
@@ -93,7 +94,7 @@ def convert_ADC_to_e(signal, interpolation_function):
     :return: Returns array with the electron count
     """
     length = len(signal)
-    eSignal = np.zeros(length)
+    #eSignal = np.zeros(length)
 
     #for i in prange(length):
     #    eSignal[i] = interpolation_function(np.abs(signal[i]))
@@ -120,6 +121,24 @@ def save_all_plots(name, folder, figs=None, dpi=200):
     for fig in tqdm(figs, desc="Saving plots"):
         fig.savefig(pp, format='pdf')
     pp.close()
+
+class NoStdStreams(object):
+    """Surpresses all output of a function when called with with """
+    def __init__(self,stdout = None, stderr = None):
+        self.devnull = open(os.devnull,'w')
+        self._stdout = stdout or self.devnull or sys.stdout
+        self._stderr = stderr or self.devnull or sys.stderr
+
+    def __enter__(self):
+        self.old_stdout, self.old_stderr = sys.stdout, sys.stderr
+        self.old_stdout.flush(); self.old_stderr.flush()
+        sys.stdout, sys.stderr = self._stdout, self._stderr
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._stdout.flush(); self._stderr.flush()
+        sys.stdout = self.old_stdout
+        sys.stderr = self.old_stderr
+        self.devnull.close()
 
 
 if __name__ == "__main__":

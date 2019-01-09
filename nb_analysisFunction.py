@@ -15,9 +15,8 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
     hitmap = np.zeros(numchan)
     automasked = 0
     for i in tqdm(prange(goodevents), desc="Events processed:"):
-        #print(i)
         signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
-        channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, SN_cut,
+        channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
                                                                                       masking=masking,
@@ -40,7 +39,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
     return prodata, automasked
 
 @jit(parallel = False, nopython = False)
-def nb_clustering(event_obj, SN, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
+def nb_clustering(event_obj, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
     """Looks for cluster in a event"""
     event = event_obj
     channels = np.nonzero(np.abs(SN) > SN_cut)[0]  # Only channels which have a signal/Noise higher then the signal/Noise cut
@@ -101,7 +100,9 @@ def nb_clustering(event_obj, SN, SN_cut, SN_ratio, SN_cluster, numchan, max_clus
                         elif absSN[chm] < SNval or used_channels[chm]:
                             left_stop = 1 # Prohibits search for to long clusters or already used channels
                 # Look if the cluster SN is big enough to be counted as clusters
-                SNcluster = np.sqrt(np.abs(np.sum(np.take(event, cluster))))
+                Scluster = np.abs(np.sum(np.take(event, cluster)))
+                Ncluster = np.sqrt(np.abs(np.sum(np.take(noise, cluster))))
+                SNcluster = Scluster / Ncluster  # Actual signal to noise of cluster
                 if SNcluster > SN_cluster:
                     numclus = numclus+1
                     clusters_list.append(cluster)

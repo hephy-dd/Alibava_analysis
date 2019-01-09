@@ -15,7 +15,7 @@
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
   Plot_single_event: 29895
-  SN_cut: 7 # Minimum height of hit
+  SN_cut: 6 # Minimum height of hit
   SN_ratio: 0.3 # Ratio at which the program searches for nearby hits below the SN cut
   SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
   timing:
@@ -27,8 +27,11 @@
   optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true
   additional_analysis:
       - langau
-      - CCE
-      - chargesharing
+      #- CCE
+      #- chargesharing
+
+  langau:
+    clustersize: [1,2,3] # Defines which cluster sizes should be fitted with a langau, list of values defines only these, negative values are for all clustersizes
 
 
 

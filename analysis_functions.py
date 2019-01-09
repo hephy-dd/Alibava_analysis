@@ -8,6 +8,7 @@ __email__ = "dominic.bloech@oeaw.ac.at"
 # Import statements
 from utilities import *
 import warnings
+import io, sys
 from tqdm import tqdm
 import numpy as np
 from scipy.stats import norm
@@ -56,6 +57,7 @@ class event_analysis:
         self.additional_analysis = []
         self.start = time()
         self.pathes = path_list
+        self.kwargs = kwargs
 
 
 
@@ -169,7 +171,7 @@ class event_analysis:
             for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
             # Event and Cluster Calculations
                 signal, SN, CMN, CMsig = self.process_event(events[event], self.pedestal, meanCMN, meanCMsig,self.noise, self.numchan)
-                channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN)
+                channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN, self.noise)
                 for channel in channels_hit:
                     hitmap[int(channel)] += 1
 
@@ -210,7 +212,7 @@ class event_analysis:
                     )
             else:
                 # This should, in theory, use parallelization of the loop over event but i did not see any performance boost, maybe you can find the bug =)?
-                data, automasked_hits= parallel_event_processing(gtime, events, self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan, self.SN_cut, self.SN_ratio, self.SN_cluster, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
+                data, automasked_hits = parallel_event_processing(gtime, events, self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan, self.SN_cut, self.SN_ratio, self.SN_cluster, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
                 prodata = list(data)
                 self.automasked_hit = automasked_hits
 
@@ -218,7 +220,7 @@ class event_analysis:
         #print("\nTime taken: {!s} seconds".format(round(abs(end - start), 2)))
         return prodata
 
-    def clustering(self, event, SN):
+    def clustering(self, event, SN, Noise):
         """Looks for cluster in a event"""
         channels = np.nonzero(np.abs(SN) > self.SN_cut)[0]# Only channels which have a signal/Noise higher then the signal/Noise cut
         valid_ind = np.arange(len(event))
@@ -281,7 +283,9 @@ class event_analysis:
                 #                size += 1
 
                 # Look if the cluster SN is big enough to be counted as clusters
-                SNcluster = np.sqrt(np.abs(np.sum(np.take(event, cluster))))
+                Scluster = np.abs(np.sum(np.take(event, cluster)))
+                Ncluster = np.sqrt(np.abs(np.sum(np.take(Noise, cluster))))
+                SNcluster = Scluster/Ncluster #Actual signal to noise of cluster
                 if SNcluster > self.SN_cluster:
                     numclus += 1
                     clusters_list.append(cluster)
@@ -376,7 +380,7 @@ class event_analysis:
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise')
 
-        fig.suptitle('Single event analysis from file {!s}'.format(file))
+        fig.suptitle('Single event analysis from file {!s}, with event: {!s}'.format(file, eventnum))
         fig.tight_layout()
         fig.subplots_adjust(top=0.88)
         #plt.draw()
@@ -587,44 +591,57 @@ class langau:
     def run(self):
         """Calculates the langau for the specified data"""
 
+        # Which clusters need to be considered
+        clustersize_list = self.main.kwargs["configs"].get("langau",{}).get("clustersize",[-1])
+        if type(clustersize_list) != list:
+            clustersize_list = list(clustersize_list)
+
+        if clustersize_list[0] == -1:
+            clustersize_list = list(range(1, self.main.kwargs["configs"]("max_cluster_size"))) # If nothing is specified
+
+
         # Go over all datafiles
         for data in tqdm(self.data, desc="(langau) Processing file:"):
             self.results_dict[data] = {}
-            # Get only events which show only one cluster in its data
-            indizes = self.get_clusters(self.data[data], 1)[0] # Todo: make it accessible from the config
-            totalE = np.zeros(len(indizes))
-            totalNoise = np.zeros(len(indizes))
+            indizes = self.get_num_clusters(self.data[data], 1)[0] # Here events with only one cluster are choosen
+            valid_events_clustersize = np.take(self.data[data]["Clustersize"], indizes) # Get the clustersizes of valid events
+            valid_events_clusters = np.take(self.data[data]["Clusters"], indizes)
+            valid_events_Signal = np.take(self.data[data]["Signal"], indizes)  # Get the clustersizes of valid events
+            # Get events which show only cluster in its data
+            size = 0 # Dummy variable for first loop
+            for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
+                self.results_dict[data]["Clustersize"] = []
+                # get the events with the different clustersizes
+                cls_ind = np.nonzero(valid_events_clustersize == size)[0]
+                #indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
+                totalE = np.zeros(len(indizes))
+                totalNoise = np.zeros(len(indizes))
+                # Loop over the clustersize to get total deposited energy
+                incrementor = 0
+                for ind in tqdm(cls_ind, desc="(langau) Processing event"):
+                    # TODO: make this work for multiple cluster in one event
+                    # Signal calculations
+                    signal_clst_event = np.take(valid_events_Signal[ind], valid_events_clusters[ind][0])
+                    totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event, self.main.calibration.charge_cal))
 
-            # Loop over the clustersize to get total deposited energy
-            incrementor = 0
-            for ind in tqdm(indizes, desc="(langau) Processing event:"):
-                # TODO: make this work for multiple cluster in one event
-                # Signal calculations
-                signal_clst_event = np.take(self.data[data]["Signal"][ind], self.data[data]["Clusters"][ind][0]) # Get the signal of an event
-                #pedestal_clst_event = np.take(self.pedestal, self.data[data]["Clusters"][ind][0]) # Get the signal of the pedestal
-                #totalSignal = signal_clst_event + pedestal_clst_event # For the actual adc signal
-                #eSignal = convert_ADC_to_e(totalSignal, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
-                #ePedestal = convert_ADC_to_e(pedestal_clst_event, self.main.calibration.charge_cal) # eSingal is a list containing electron signal for everypassed list element
-                #finalSignal = np.abs(eSignal-ePedestal) # Subtract the actual signal with the offset of the pedestal
-                #totalE[incrementor] = np.sum(finalSignal)
-                totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event, self.main.calibration.charge_cal))
+                    # Noise Calculations
+                    noise_clst_event = np.take(self.main.noise, valid_events_clusters[ind][0])  # Get the Noise of an event
+                    totalNoise[incrementor] = np.sum(convert_ADC_to_e(noise_clst_event, self.main.calibration.charge_cal))  # eError is a list containing electron signal noise
 
-                # Noise Calculations
-                noise_clst_event = np.take(self.main.noise, self.data[data]["Clusters"][ind][0])  # Get the Noise of an event
-                eNoise = convert_ADC_to_e(noise_clst_event, self.main.calibration.charge_cal)  # eError is a list containing electron signal noise
-                totalNoise[incrementor] = np.sum(eNoise) #Todo check if noise is correct here
+                    incrementor += 1
 
-                incrementor += 1
+                preresults = {}
+                preresults["signal"] = totalE
+                preresults["noise"] = totalNoise
 
-            self.results_dict[data]["signal"] = totalE
-            self.results_dict[data]["noise"] = totalNoise
+                # Fit the langau to it
+                coeff, pcov, hist, error_bins = self.fit_langau(totalE, totalNoise)
 
-            # Fit the langau to it
-            coeff, pcov, hist, error_bins = self.fit_langau(totalE, totalNoise)
+                preresults["langau_coeff"] = coeff # mpv, eta, sigma, A
+                preresults["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
+                preresults["data_error"] = error_bins
 
-            self.results_dict[data]["langau_coeff"] = coeff # mpv, eta, sigma, A
-            self.results_dict[data]["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
-            self.results_dict[data]["data_error"] = error_bins
+                self.results_dict[data]["Clustersize"].append(preresults)
 
         return self.results_dict.copy()
 
@@ -710,7 +727,7 @@ class langau:
         hist, edges = np.histogram(x, bins=bins)
         binerror = self.calc_hist_errors(x, errors, edges)
 
-        mpv, eta, sigma, A = 17000, 6, 2, 800
+        mpv, eta, sigma, A = 18000, 1500, 4600, 2500
 
         # Fit with constrains
         converged = False
@@ -721,7 +738,12 @@ class langau:
             iter += 1
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
+                # create a text trap and redirect stdout
+                #text_trap = io.StringIO()
+                #sys.stdout = text_trap
                 coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 60000))
+                # now restore stdout function
+                #sys.stdout = sys.__stdout__
             if abs(coeff[0]-oldmpv) > diff:
                 mpv, eta, sigma, A = coeff
                 oldmpv = mpv
@@ -735,9 +757,9 @@ class langau:
 
         return coeff, pcov, hist, binerror
 
-    def get_clusters(self, data, num_cluster=1):
+    def get_num_clusters(self, data, num_cluster=1):
         """
-        Get all clusters which seem important
+        Get all clusters which seem important- Here custers with numclus will be returned
         :param data: data file which should be searched
         :param num_cluster: number of cluster which should be considered 1 is default and minimum. 0 makes no sense
         :return: list of data indizes after cluster consideration (so basically eventnumbers which are good)
@@ -767,15 +789,15 @@ class langau:
             fig = plt.figure("Langau from file: {!s}".format(file))
 
             # Plot delay
-            plot = fig.add_subplot(111)
-            hist, edges = np.histogram(data["signal"], bins=500)
-            plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b")
-            plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
-            plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g")
-            plot.set_xlabel('electrons [#]')
-            plot.set_ylabel('Count [#]')
-            plot.set_title('Energy deposition SR-90 from file: {!s}'.format(file))
-            plot.legend(["Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3])])
+            #plot = fig.add_subplot(111)
+            #hist, edges = np.histogram(data["signal"], bins=500)
+            #plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b")
+            #plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
+            #plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g")
+            #plot.set_xlabel('electrons [#]')
+            #plot.set_ylabel('Count [#]')
+            #plot.set_title('Energy deposition SR-90 from file: {!s}'.format(file))
+            #plot.legend(["Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3])])
 
             fig.tight_layout()
             #plt.draw()
