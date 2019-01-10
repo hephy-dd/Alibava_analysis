@@ -8,6 +8,7 @@ __email__ = "dominic.bloech@oeaw.ac.at"
 # Import statements
 from utilities import *
 import warnings
+import copy
 import io, sys
 from tqdm import tqdm
 import numpy as np
@@ -597,7 +598,7 @@ class langau:
             clustersize_list = list(clustersize_list)
 
         if clustersize_list[0] == -1:
-            clustersize_list = list(range(1, self.main.kwargs["configs"]("max_cluster_size"))) # If nothing is specified
+            clustersize_list = list(range(1, self.main.kwargs["configs"]["max_cluster_size"]+1)) # If nothing is specified
 
 
         # Go over all datafiles
@@ -609,13 +610,13 @@ class langau:
             valid_events_Signal = np.take(self.data[data]["Signal"], indizes)  # Get the clustersizes of valid events
             # Get events which show only cluster in its data
             size = 0 # Dummy variable for first loop
+            self.results_dict[data]["Clustersize"] = []
             for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
-                self.results_dict[data]["Clustersize"] = []
                 # get the events with the different clustersizes
                 cls_ind = np.nonzero(valid_events_clustersize == size)[0]
                 #indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
-                totalE = np.zeros(len(indizes))
-                totalNoise = np.zeros(len(indizes))
+                totalE = np.zeros(len(cls_ind))
+                totalNoise = np.zeros(len(cls_ind))
                 # Loop over the clustersize to get total deposited energy
                 incrementor = 0
                 for ind in tqdm(cls_ind, desc="(langau) Processing event"):
@@ -626,7 +627,7 @@ class langau:
 
                     # Noise Calculations
                     noise_clst_event = np.take(self.main.noise, valid_events_clusters[ind][0])  # Get the Noise of an event
-                    totalNoise[incrementor] = np.sum(convert_ADC_to_e(noise_clst_event, self.main.calibration.charge_cal))  # eError is a list containing electron signal noise
+                    totalNoise[incrementor] = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, self.main.calibration.charge_cal)))  # eError is a list containing electron signal noise
 
                     incrementor += 1
 
@@ -634,14 +635,23 @@ class langau:
                 preresults["signal"] = totalE
                 preresults["noise"] = totalNoise
 
-                # Fit the langau to it
-                coeff, pcov, hist, error_bins = self.fit_langau(totalE, totalNoise)
+                self.results_dict[data]["Clustersize"].append(preresults.copy()) # The copy prevents overwriting old data!!!
 
-                preresults["langau_coeff"] = coeff # mpv, eta, sigma, A
-                preresults["langau_data"] = [np.arange(1.,100000., 1000.), pylandau.langau(np.arange(1.,100000., 1000.), *coeff)] # aka x and y data
-                preresults["data_error"] = error_bins
+            # With all the data from every clustersize add all together and fit the langau to it
 
-                self.results_dict[data]["Clustersize"].append(preresults)
+            finalE = np.zeros(0)
+            finalNoise = np.zeros(0)
+            for cluster in self.results_dict[data]["Clustersize"]:
+                finalE = np.append(finalE, cluster["signal"])
+                finalNoise = np.append(finalNoise, cluster["noise"])
+
+            # Fit the langau to it
+            coeff, pcov, hist, error_bins = self.fit_langau(finalE, finalNoise)
+            self.results_dict[data]["signal"] = finalE  # mpv, eta, sigma, A
+            self.results_dict[data]["noise"] = finalNoise  # mpv, eta, sigma, A
+            self.results_dict[data]["langau_coeff"] = coeff  # mpv, eta, sigma, A
+            self.results_dict[data]["langau_data"] = [np.arange(1., 100000., 1000.), pylandau.langau(np.arange(1., 100000., 1000.), *coeff)]  # aka x and y data
+            self.results_dict[data]["data_error"] = error_bins
 
         return self.results_dict.copy()
 
@@ -789,16 +799,26 @@ class langau:
             fig = plt.figure("Langau from file: {!s}".format(file))
 
             # Plot delay
-            #plot = fig.add_subplot(111)
-            #hist, edges = np.histogram(data["signal"], bins=500)
-            #plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b")
-            #plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
-            #plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g")
-            #plot.set_xlabel('electrons [#]')
-            #plot.set_ylabel('Count [#]')
-            #plot.set_title('Energy deposition SR-90 from file: {!s}'.format(file))
+            plot = fig.add_subplot(111)
+            hist, edges = np.histogram(data["signal"], bins=500)
+            plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b", label= "All clusters")
+            plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
+            plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g", label = "Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3]))
+            plot.set_xlabel('electrons [#]')
+            plot.set_ylabel('Count [#]')
+            plot.set_title('Energy deposition SR-90 from file: {!s}'.format(file))
             #plot.legend(["Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3])])
 
+
+            # Plot the different clustersizes as well into the langau plot
+            colour = ['green', 'red', 'orange', 'cyan', 'black', 'pink', 'magenta']
+            for i, cls in enumerate(data["Clustersize"]):
+                if i<7:
+                    plot.hist(cls["signal"], bins=500, density=False, alpha=0.3, color=colour[i], label="Clustersize: {!s}".format(i+1))
+                else:
+                    warnings.warn("To many histograms for this plot. Colorsheme only supports seven different histograms. Extend if need be!")
+                    continue
+            plot.legend()
             fig.tight_layout()
             #plt.draw()
 
