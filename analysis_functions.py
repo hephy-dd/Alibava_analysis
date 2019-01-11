@@ -20,13 +20,14 @@ from scipy.optimize import curve_fit
 import pylandau
 from nb_analysisFunction import *
 from time import time
+from multiprocessing import Pool
 try:
     import iminuit
 except:
     print("Iminuit module cannot be loaded")
 
 
-class event_analysis:
+class main_loops:
     """This class analyses measurement files per event and conducts additional defined analysis"""
 
     def __init__(self, path_list = None, **kwargs):
@@ -53,7 +54,7 @@ class event_analysis:
         self.CMsig = np.zeros(self.numchan, dtype=np.float64)
         self.outputdata = {}
         self.automasked_hit = 0
-        self.events = 0
+        self.numgoodevents = 0
         self.total_events = self.numevents*len(self.data)
         self.additional_analysis = []
         self.start = time()
@@ -82,6 +83,8 @@ class event_analysis:
         self.usejit = kwargs.get("optimize", False)
         self.calibration = kwargs.get("calibration", None)
         self.SN_cluster = kwargs.get("SN_cluster", 6)
+        self.process_pool = kwargs.get("Processes", 1)
+        #self.pool = Pool(processes=self.process_pool)
 
 
         if "pedestal" in kwargs:
@@ -106,13 +109,14 @@ class event_analysis:
 
         print("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
-        for data in tqdm(range(len(self.data)), desc="Data files processed:"):
+        for data in tqdm(prange(len(self.data)), desc="Data files processed:"):
                 events = self.data[data]["events/signal"][:]
                 timing = self.data[data]["events/time"][:]
                 file = str(self.data[data]).split('"')[1].split('.')[0]
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
-                results = np.array(self.do_analysis(events, timing)) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
-                # No make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
+                object = base_analysis(self, events, timing) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
+                results = np.array(object.run())
+                # make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
                 # So now order the data Dictionary --> Filename:Type of data: List of all events for specific data type ---> results[: (take all events), 0 (give me data from signal]
                 # Resulting is an array containing all singal data etc.
                 self.outputdata[file] =                                             {"Signal": results[:,0],
@@ -125,7 +129,7 @@ class event_analysis:
                                                                                      "Clustersize": results[:, 8],
                                                                                      "Numclus": results[:, 7]}
 
-
+        object.plot_data(single_event=kwargs.get("Plot_single_event", 15)) # Not very pythonic, loop inside analysis (legacy)
         # Now process additional analysis statet in the config file
         for analysis in self.add_analysis:
             print("Starting analysis: {!s}".format(analysis))
@@ -148,31 +152,38 @@ class event_analysis:
                   "                                                                         \n"
                   "*************************************************************************\n".format(
                                                                                                     automasked=self.automasked_hit,
-                                                                                                    events=self.events,
+                                                                                                    events=self.numgoodevents,
                                                                                                     total_events = self.total_events,
                                                                                                     time = round((time()-self.start), 1))
                                                                                                     )
 
+class base_analysis:
 
-    def do_analysis(self, events, timing):
+    def __init__(self, main, events, timing):
+        self.main = main
+        self.events = events
+        self.timing = timing
+
+
+    def run(self):
         """Does the actual event analysis"""
 
         # get events with good timinig only gtime and only process these events
-        gtime = np.nonzero(timing>self.tmin)
-        self.events += int(gtime[0].shape[0])
-        meanCMN = np.mean(self.CMN)
-        meanCMsig = np.mean(self.CMsig)
+        gtime = np.nonzero(self.timing>self.main.tmin)
+        self.main.numgoodevents += int(gtime[0].shape[0])
+        meanCMN = np.mean(self.main.CMN)
+        meanCMsig = np.mean(self.main.CMsig)
         prodata = []  # List of processed data which then can be accessed
-        hitmap = np.zeros(self.numchan)
+        hitmap = np.zeros(self.main.numchan)
         #Warning: If you have a RS and pulseshape recognition enabled the timing window has to be set accordingly
 
-        if not self.usejit:
+        if not self.main.usejit:
             # Non jitted version
             start = time()
             for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
             # Event and Cluster Calculations
-                signal, SN, CMN, CMsig = self.process_event(events[event], self.pedestal, meanCMN, meanCMsig,self.noise, self.numchan)
-                channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN, self.noise)
+                signal, SN, CMN, CMsig = self.process_event(self.events[event], self.main.pedestal, meanCMN, meanCMsig,self.main.noise, self.main.numchan)
+                channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN, self.main.noise)
                 for channel in channels_hit:
                     hitmap[int(channel)] += 1
 
@@ -190,32 +201,10 @@ class event_analysis:
 
         else:
             start = time()
-            # Use lightspeed fast calculation, FUCK YEAH
-            if False: # The parallel version does basically the same what is here unreachable
-                for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"):  # Loop over all good events
-                    signal, SN, CMN, CMsig = nb_process_event(events[event], self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan)
-                    channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, self.SN_cut, self.SN_ratio , self.SN_cluster, self.numchan, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
-                    # Warning channels hit only contains hits above SN_cut not the ones with the cluistering
-                    self.automasked_hit += automasked_hits
-                    for channel in channels_hit:
-                        hitmap[channel] += 1
-
-                    prodata.append([
-                        signal,
-                        SN,
-                        CMN,
-                        CMsig,
-                        hitmap,
-                        channels_hit,
-                        clusters,
-                        numclus,
-                        clustersize]
-                    )
-            else:
-                # This should, in theory, use parallelization of the loop over event but i did not see any performance boost, maybe you can find the bug =)?
-                data, automasked_hits = parallel_event_processing(gtime, events, self.pedestal, meanCMN, meanCMsig, self.noise, self.numchan, self.SN_cut, self.SN_ratio, self.SN_cluster, max_clustersize = self.max_clustersize, masking=self.masking, material=self.material)
-                prodata = list(data)
-                self.automasked_hit = automasked_hits
+            # This should, in theory, use parallelization of the loop over event but i did not see any performance boost, maybe you can find the bug =)?
+            data, automasked_hits = parallel_event_processing(gtime, self.events, self.main.pedestal, meanCMN, meanCMsig, self.main.noise, self.main.numchan, self.main.SN_cut, self.main.SN_ratio, self.main.SN_cluster, max_clustersize = self.main.max_clustersize, masking=self.main.masking, material=self.main.material, poolsize=self.main.process_pool)
+            prodata = list(data)
+            self.main.automasked_hit = automasked_hits
 
         end = time()
         #print("\nTime taken: {!s} seconds".format(round(abs(end - start), 2)))
@@ -223,25 +212,25 @@ class event_analysis:
 
     def clustering(self, event, SN, Noise):
         """Looks for cluster in a event"""
-        channels = np.nonzero(np.abs(SN) > self.SN_cut)[0]# Only channels which have a signal/Noise higher then the signal/Noise cut
+        channels = np.nonzero(np.abs(SN) > self.main.SN_cut)[0]# Only channels which have a signal/Noise higher then the signal/Noise cut
         valid_ind = np.arange(len(event))
 
-        if self.masking:
-            if self.material:
+        if self.main.masking:
+            if self.main.material:
                 # Todo: masking of dead channels etc.
                 masked_ind = np.nonzero(np.take(event, channels) > 0)[0] # So only negative values are considered
                 valid_ind = np.nonzero(event < 0)[0]  # Find out which index are negative so we dont count them accidently
                 if len(masked_ind):
                     channels = np.delete(channels, masked_ind)
-                    self.automasked_hit += len(masked_ind)
+                    self.main.automasked_hit += len(masked_ind)
             else:
                 masked_ind = np.nonzero(np.take(event, channels) < 0)[0] # So only positive values are considered
                 valid_ind = np.nonzero(event > 0)[0]
                 if len(masked_ind):
                     channels = np.delete(channels, masked_ind)
-                    self.automasked_hit += len(masked_ind)
+                    self.main.automasked_hit += len(masked_ind)
 
-        used_channels = np.zeros(self.numchan) # To keep track which channel have been used already
+        used_channels = np.zeros(self.main.numchan) # To keep track which channel have been used already
         numclus = 0 # The number of found clusters
         clusters_list = []
         clustersize = np.array([])
@@ -254,21 +243,21 @@ class event_analysis:
                 right_stop = False
                 left_stop = False
                 # Now make a loop to find neighbouring hits of cluster, we must go into both directions
-                offset = int(self.max_clustersize * 0.5)
+                offset = int(self.main.max_clustersize * 0.5)
                 for i in range(1, offset+1):  # Search plus minus the channel found Todo: first entry useless
-                    if 0 < ch-i and ch+i < self.numchan:  # To exclude overrun
-                        if np.abs(SN[ch+i]) > self.SN_cut * self.SN_ratio and not used_channels[ch+i] and ch+i in valid_ind and not right_stop:
+                    if 0 < ch-i and ch+i < self.main.numchan:  # To exclude overrun
+                        if np.abs(SN[ch+i]) > self.main.SN_cut * self.main.SN_ratio and not used_channels[ch+i] and ch+i in valid_ind and not right_stop:
                             cluster.append(ch+i)
                             used_channels[ch+i] = 1
                             size += 1
-                        elif np.abs(SN[ch+i]) < self.SN_cut * self.SN_ratio:
+                        elif np.abs(SN[ch+i]) < self.main.SN_cut * self.main.SN_ratio:
                             right_stop = True # Prohibits search for to long clusters
 
-                        if np.abs(SN[ch-i]) > self.SN_cut * self.SN_ratio and not used_channels[ch-i] and ch-i in valid_ind and not left_stop:
+                        if np.abs(SN[ch-i]) > self.main.SN_cut * self.main.SN_ratio and not used_channels[ch-i] and ch-i in valid_ind and not left_stop:
                             cluster.append(ch-i)
                             used_channels[ch-i] = 1
                             size += 1
-                        elif np.abs(SN[ch-i]) < self.SN_cut * self.SN_ratio:
+                        elif np.abs(SN[ch-i]) < self.main.SN_cut * self.main.SN_ratio:
                             left_stop = True # Prohibits search for to long clusters
 
 
@@ -287,7 +276,7 @@ class event_analysis:
                 Scluster = np.abs(np.sum(np.take(event, cluster)))
                 Ncluster = np.sqrt(np.abs(np.sum(np.take(Noise, cluster))))
                 SNcluster = Scluster/Ncluster #Actual signal to noise of cluster
-                if SNcluster > self.SN_cluster:
+                if SNcluster > self.main.SN_cluster:
                     numclus += 1
                     clusters_list.append(cluster)
                     clustersize = np.append(clustersize, size)
@@ -318,7 +307,7 @@ class event_analysis:
     def plot_data(self, single_event = -1):
         """This function plots all data processed"""
 
-        for name, data in self.outputdata.items():
+        for name, data in self.main.outputdata.items():
             # Plot a single event from every file
             if single_event > 0:
                 self.plot_single_event(single_event, name)
@@ -328,7 +317,7 @@ class event_analysis:
 
             # Plot Hitmap
             channel_plot = fig.add_subplot(211)
-            channel_plot.bar(np.arange(self.numchan), data["Hitmap"][len(data["Hitmap"])-1], 1., alpha=0.4, color="b")
+            channel_plot.bar(np.arange(self.main.numchan), data["Hitmap"][len(data["Hitmap"])-1], 1., alpha=0.4, color="b")
             channel_plot.set_xlabel('channel [#]')
             channel_plot.set_ylabel('Hits [#]')
             channel_plot.set_title('Hitmap from file: {!s}'.format(name))
@@ -363,20 +352,20 @@ class event_analysis:
     def plot_single_event(self, eventnum, file):
         """ Plots a single event and its data"""
 
-        data = self.outputdata[file]
+        data = self.main.outputdata[file]
 
         fig = plt.figure("Event number {!s}, from file: {!s}".format(eventnum, file))
 
         # Plot signal
         channel_plot = fig.add_subplot(211)
-        channel_plot.bar(np.arange(self.numchan), data["Signal"][eventnum], 1., alpha=0.4, color="b")
+        channel_plot.bar(np.arange(self.main.numchan), data["Signal"][eventnum], 1., alpha=0.4, color="b")
         channel_plot.set_xlabel('channel [#]')
         channel_plot.set_ylabel('Signal [ADC]')
         channel_plot.set_title('Signal')
 
         # Plot signal/Noise
         SN_plot = fig.add_subplot(212)
-        SN_plot.bar(np.arange(self.numchan), data["SN"][eventnum], 1., alpha=0.4, color="b")
+        SN_plot.bar(np.arange(self.main.numchan), data["SN"][eventnum], 1., alpha=0.4, color="b")
         SN_plot.set_xlabel('channel [#]')
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise')
@@ -922,7 +911,6 @@ class chargesharing:
             fig.tight_layout()
             fig.subplots_adjust(top=0.88)
             #plt.draw()
-
 
 class CCE:
     """This function has actually plots the the CCE plot"""

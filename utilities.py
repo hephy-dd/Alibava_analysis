@@ -15,7 +15,7 @@ import yaml
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
-
+from numba import jit, guvectorize, int64, float64
 
 def create_dictionary(file, filepath):
     '''Creates a dictionary with all values written in the file using yaml'''
@@ -93,14 +93,7 @@ def convert_ADC_to_e(signal, interpolation_function):
     :param interpolation_function: the interpolation function
     :return: Returns array with the electron count
     """
-    length = len(signal)
-    #eSignal = np.zeros(length)
-
-    #for i in prange(length):
-    #    eSignal[i] = interpolation_function(np.abs(signal[i]))
-    eSignal = interpolation_function(np.abs(signal))
-
-    return eSignal
+    return interpolation_function(np.abs(signal))
 
 def save_all_plots(name, folder, figs=None, dpi=200):
     """
@@ -139,8 +132,3 @@ class NoStdStreams(object):
         sys.stdout = self.old_stdout
         sys.stderr = self.old_stderr
         self.devnull.close()
-
-
-if __name__ == "__main__":
-    li = import_h5(r"\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5")
-

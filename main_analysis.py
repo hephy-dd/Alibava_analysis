@@ -49,9 +49,8 @@ def do_with_config_file(config):
                         "Noise": noise_data.noise,
                        "calibration": config_data})
 
-        event_data = event_analysis(config["Measurement_file"],
-                                    configs = config) # Is adictionary containing all keys and values for configuration
-        event_data.plot_data(single_event=config.get("Plot_single_event", 15))
+        event_data = main_loops(config["Measurement_file"], configs = config) # Is adictionary containing all keys and values for configuration
+        #event_data.plot_data(single_event=config.get("Plot_single_event", 15))
         # Save the plots if specified
         if config.get("Output_folder", "") and config.get("Output_name", ""):
             save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
@@ -78,7 +77,8 @@ parser.add_option("--file",
 (options, args) = parser.parse_args()
 
 #try:
-main(args, options)
+if __name__ == "__main__":
+    main(args, options)
 #except KeyError:
     #print("ERROR: I need an input file!")
 #except IndexError:

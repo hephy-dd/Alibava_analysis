@@ -2,30 +2,27 @@
 
 import numpy as np
 from numba import jit, prange
+
 from tqdm import tqdm
-import scipy
+from multiprocessing import Pool
+#from threading import Thread
+from functools import partial
 
 
-@jit(parallel = True, cache=False)
-def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1):
-    """Parallel processing of events.
-     Did not show any performance improvements. Maybe a bug?"""
-    goodevents = goodtiming[0].shape[0]
-    prodata = np.zeros(goodevents, dtype=object)
-    hitmap = np.zeros(numchan)
-    automasked = 0
-    for i in tqdm(prange(goodevents), desc="Events processed:"):
+def f(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
+      masking, material):
+    for i in tqdm(range(start, end), desc="Events processed:"):
+        hitmap = np.zeros(numchan)
         signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
                                                                                       masking=masking,
                                                                                       material=material)
-        automasked += automasked_hits
         for channel in channels_hit:
             hitmap[channel] += 1
 
-        prodata[i]=[
+        prodata = [
             signal,
             SN,
             CMN,
@@ -35,13 +32,45 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
             clusters,
             numclus,
             clustersize]
+        return (prodata, automasked_hits)
+
+#@jit(parallel = False, cache=False)
+def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1):
+    """Parallel processing of events."""
+    goodevents = goodtiming[0].shape[0]
+    prodata = np.zeros(goodevents, dtype=object)
+    automasked = 0
+    global results
+    pool = Pool(processes=poolsize)
+
+    # Split data for the pools
+    splits = int(goodevents/poolsize) # you may loose the last event!!!
+    paramslist = []
+    start = 0
+    for i in range(poolsize):
+        end = splits*(i+1)
+        paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material))
+        start=end+1
+
+    #threads = []
+    #for data in paramslist:
+    #    threads.append(Thread(target=f, args=data))
+    #    threads[-1].start()
+
+    #for thread in threads:
+    #    thread.join()
+
+
+
+    results = pool.starmap(f, paramslist)
+    pool.close()
+    pool.join()
 
     return prodata, automasked
 
 @jit(parallel = False, nopython = False)
-def nb_clustering(event_obj, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
+def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
     """Looks for cluster in a event"""
-    event = event_obj
     channels = np.nonzero(np.abs(SN) > SN_cut)[0]  # Only channels which have a signal/Noise higher then the signal/Noise cut
     automasked_hit = 0
     used_channels = np.ones(numchan)  # To keep track which channel have been used already here ones due to valid channel calculations
@@ -49,6 +78,9 @@ def nb_clustering(event_obj, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, m
     clusters_list = []
     clustersize = []
     strips = len(event)
+    absSN = np.abs(SN)
+    SNval = SN_cut * SN_ratio
+    offset = int(max_clustersize * 0.5)
 
     if masking:
         if material:
@@ -68,8 +100,7 @@ def nb_clustering(event_obj, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, m
     for i in valid_ind: # Define valid index to search for
         used_channels[i] = 0
 
-    #Todo: race condition somewhere which leads to different results
-    # Todo: misinterpretation of two very close clusters
+    #Todo: misinterpretation of two very close clusters
     for ch in channels:  # Loop over all left channels which are a hit, here from "left" to "right"
             if not used_channels[ch]:# and ch not in masked_list:# and not masked_ind[ch]:  # Make sure we dont count everything twice
                 used_channels[ch] = 1  # So now the channel is used
@@ -79,37 +110,39 @@ def nb_clustering(event_obj, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, m
                 # Now make a loop to find neighbouring hits of cluster, we must go into both directions
                 right_stop = 0
                 left_stop = 0
-                absSN = np.abs(SN)
-                SNval = SN_cut * SN_ratio
-                offset = int(max_clustersize * 0.5)
                 for i in range(1, offset+1):  # Search plus minus the channel found Todo: first entry useless
                     if 0 < ch-i and ch+i < numchan:  # To exclude overrun
                         chp = ch+i
                         chm = ch-i
-                        if absSN[chp] > SNval and not used_channels[chp] and not right_stop:
-                            cluster.append(chp)
-                            used_channels[chp] = 1
-                            size += 1
-                        elif absSN[chp] < SNval or used_channels[chp]:
-                            right_stop = 1 # Prohibits search for to long clusters or already used channels
+                        if not right_stop: # right side
+                            if absSN[chp] > SNval:
+                                if not used_channels[chp]:
+                                    cluster.append(chp)
+                                    used_channels[chp] = 1
+                                    size += 1
+                                else:
+                                    right_stop = 1
+                            else:
+                                right_stop = 1 # Prohibits search for to long clusters or already used channels
 
-                        if absSN[chm] > SNval and not used_channels[chm] and not left_stop:
-                            cluster.append(chm)
-                            used_channels[chm] = 1
-                            size += 1
-                        elif absSN[chm] < SNval or used_channels[chm]:
-                            left_stop = 1 # Prohibits search for to long clusters or already used channels
+                        if not left_stop: #left side
+                            if absSN[chm] > SNval:
+                                if not used_channels[chm]:
+                                    cluster.append(chm)
+                                    used_channels[chm] = 1
+                                    size += 1
+                                else:
+                                    left_stop = 1
+                            else:
+                                left_stop = 1 # Prohibits search for to long clusters or already used channels
                 # Look if the cluster SN is big enough to be counted as clusters
                 Scluster = np.abs(np.sum(np.take(event, cluster)))
                 Ncluster = np.sqrt(np.abs(np.sum(np.take(noise, cluster))))
-                SNcluster = Scluster / Ncluster  # Actual signal to noise of cluster
+                SNcluster = np.divide(Scluster,Ncluster)  # Actual signal to noise of cluster
                 if SNcluster > SN_cluster:
                     numclus = numclus+1
                     clusters_list.append(cluster)
                     clustersize.append(size)
-                    #if numclus > 7:
-                    #    print(event)
-                    #    print(clusters_list)
 
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
@@ -130,7 +163,6 @@ def nb_noise_calc(events, pedestal, numevents, numchannels):
 
         # Calculate the noise of channels
         cn = cm - CMN  # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
-
         score[event] = cn
         # Append the common mode values per event into the data arrays
         CMnoise[event] = CMN

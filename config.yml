@@ -5,11 +5,13 @@
   Charge_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\charge_scan.txt'
   Measurement_file:
     - '350V.hdf5'
+    #- '330V.hdf5'
   Output_folder: 'C:\Users\dbloech\Desktop\Alibava_Plots'
   Output_name: '100V'
 
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
+  Processes: 2
   Plot_single_event: 1000
   SN_cut: 6 # Minimum height of hit
   SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
