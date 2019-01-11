@@ -134,8 +134,8 @@ class NoStdStreams(object):
         self.devnull.close()
 
 
-def langau_cluster(size, valid_events_Signal, valid_events_clusters,valid_events_clustersize, charge_cal, noise):
-    # for size in tqdm(cluster_list, desc="(langau) Processing clustersize"):
+def langau_cluster(size, valid_events_Signal, valid_events_clusters, valid_events_clustersize, charge_cal, noise):
+    # for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
     # get the events with the different clustersizes
     cls_ind = np.nonzero(valid_events_clustersize == size)[0]
     # indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
