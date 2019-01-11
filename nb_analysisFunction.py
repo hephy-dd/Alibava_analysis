@@ -2,17 +2,18 @@
 
 import numpy as np
 from numba import jit, prange
+import functools
+import operator
 
 from tqdm import tqdm
 from multiprocessing import Pool
-#from threading import Thread
-from functools import partial
 
 
-def f(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
-      masking, material):
+def f(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material):
+    prodata = []
+    automasked = 0
+    hitmap = np.zeros(numchan)
     for i in tqdm(range(start, end), desc="Events processed:"):
-        hitmap = np.zeros(numchan)
         signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
@@ -21,8 +22,8 @@ def f(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, 
                                                                                       material=material)
         for channel in channels_hit:
             hitmap[channel] += 1
-
-        prodata = [
+        automasked += automasked_hits
+        prodata.append([
             signal,
             SN,
             CMN,
@@ -31,16 +32,16 @@ def f(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, 
             channels_hit,
             clusters,
             numclus,
-            clustersize]
-        return (prodata, automasked_hits)
+            clustersize])
+
+    return prodata
 
 #@jit(parallel = False, cache=False)
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1):
     """Parallel processing of events."""
     goodevents = goodtiming[0].shape[0]
-    prodata = np.zeros(goodevents, dtype=object)
+    #prodata = np.zeros(goodevents, dtype=object)
     automasked = 0
-    global results
     pool = Pool(processes=poolsize)
 
     # Split data for the pools
@@ -52,19 +53,17 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material))
         start=end+1
 
-    #threads = []
-    #for data in paramslist:
-    #    threads.append(Thread(target=f, args=data))
-    #    threads[-1].start()
-
-    #for thread in threads:
-    #    thread.join()
-
-
-
     results = pool.starmap(f, paramslist)
     pool.close()
     pool.join()
+
+
+    prodata = functools.reduce(operator.concat, results)
+    #prodata = []
+    #for i in range(poolsize):
+    #    prodata.append(results[i])
+
+
 
     return prodata, automasked
 

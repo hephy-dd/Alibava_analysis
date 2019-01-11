@@ -132,3 +132,30 @@ class NoStdStreams(object):
         sys.stdout = self.old_stdout
         sys.stderr = self.old_stderr
         self.devnull.close()
+
+
+def langau_cluster(size, valid_events_Signal, valid_events_clusters,valid_events_clustersize, charge_cal, noise):
+    # for size in tqdm(cluster_list, desc="(langau) Processing clustersize"):
+    # get the events with the different clustersizes
+    cls_ind = np.nonzero(valid_events_clustersize == size)[0]
+    # indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
+    totalE = np.zeros(len(cls_ind))
+    totalNoise = np.zeros(len(cls_ind))
+    # Loop over the clustersize to get total deposited energy
+    incrementor = 0
+    for ind in tqdm(cls_ind, desc="(langau) Processing event"):
+        # TODO: make this work for multiple cluster in one event
+        # Signal calculations
+        signal_clst_event = np.take(valid_events_Signal[ind], valid_events_clusters[ind][0])
+        totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal))
+
+        # Noise Calculations
+        noise_clst_event = np.take(noise, valid_events_clusters[ind][0])  # Get the Noise of an event
+        totalNoise[incrementor] = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal)))  # eError is a list containing electron signal noise
+
+        incrementor += 1
+
+    preresults = {}
+    preresults["signal"] = totalE
+    preresults["noise"] = totalNoise
+    return preresults

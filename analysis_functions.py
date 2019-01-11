@@ -69,6 +69,8 @@ class main_loops:
 
         # For additional analysis
         self.add_analysis = kwargs.get("additional_analysis", [])
+        if not self.add_analysis:
+            self.add_analysis = []
 
         # Material decision
         self.material = kwargs.get("sensor_type", "n-in-p")
@@ -577,6 +579,8 @@ class langau:
         self.data = self.main.outputdata.copy()
         self.results_dict = {} # Containing all data processed
         self.pedestal = self.main.pedestal
+        self.pool = Pool(processes=self.main.process_pool)
+        self.poolsize = self.main.process_pool
 
     def run(self):
         """Calculates the langau for the specified data"""
@@ -600,31 +604,16 @@ class langau:
             # Get events which show only cluster in its data
             size = 0 # Dummy variable for first loop
             self.results_dict[data]["Clustersize"] = []
-            for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
-                # get the events with the different clustersizes
-                cls_ind = np.nonzero(valid_events_clustersize == size)[0]
-                #indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
-                totalE = np.zeros(len(cls_ind))
-                totalNoise = np.zeros(len(cls_ind))
-                # Loop over the clustersize to get total deposited energy
-                incrementor = 0
-                for ind in tqdm(cls_ind, desc="(langau) Processing event"):
-                    # TODO: make this work for multiple cluster in one event
-                    # Signal calculations
-                    signal_clst_event = np.take(valid_events_Signal[ind], valid_events_clusters[ind][0])
-                    totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event, self.main.calibration.charge_cal))
 
-                    # Noise Calculations
-                    noise_clst_event = np.take(self.main.noise, valid_events_clusters[ind][0])  # Get the Noise of an event
-                    totalNoise[incrementor] = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, self.main.calibration.charge_cal)))  # eError is a list containing electron signal noise
+            paramslist = []
+            for size in clustersize_list:
+                paramslist.append((size+1, valid_events_Signal, valid_events_clusters, valid_events_clustersize, self.main.calibration.charge_cal, self.main.noise))
 
-                    incrementor += 1
+            results = self.pool.starmap(langau_cluster, paramslist) # Here multiple cpu calculate the energy of the events per clustersize
+            self.pool.close()
+            self.pool.join()
 
-                preresults = {}
-                preresults["signal"] = totalE
-                preresults["noise"] = totalNoise
-
-                self.results_dict[data]["Clustersize"].append(preresults.copy()) # The copy prevents overwriting old data!!!
+            self.results_dict[data]["Clustersize"] = results
 
             # With all the data from every clustersize add all together and fit the langau to it
 
@@ -728,7 +717,7 @@ class langau:
 
         # Cut off noise part
         lancut = np.max(hist) * 0.33  # Find maximum of hist and get the cut
-        ind_xmin = np.argwhere(hist > lancut)[0]  # Finds the first element which is higher as threshold
+        ind_xmin = np.argwhere(hist > lancut)[0][0]  # Finds the first element which is higher as threshold
 
         mpv, eta, sigma, A = 18000, 1500, 4600, 2500
 
