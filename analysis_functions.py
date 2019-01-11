@@ -424,8 +424,8 @@ class calibration:
 
             if self.charge_data.any():
                 # Interpolate and get some extrapolation data from polynomial fit (from alibava)
-                #self.charge_cal = PchipInterpolator(self.charge_data[:,1],self.charge_data[:,0], extrapolate=True) # Test with another fit type
-                self.chargecoeff = np.polyfit(self.charge_data[:,1],self.charge_data[:,0], deg=4, full=False)
+                #self.charge_cal = PchipInterpolator(self.charge_data[:,1],self.charge_data[:,0], extrapolate=False) # Test with another fit type
+                self.chargecoeff = np.polyfit(self.charge_data[:,1],self.charge_data[:,0], deg=3, full=False)
                 print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
                 #Todo: make it possible to define these parameters in the config file so everytime the same parameters are used
 
@@ -732,10 +732,14 @@ class langau:
 
         return values, errors, m
 
-    def fit_langau(self, x, errors, ind_xmin = 0, bins = 500):
+    def fit_langau(self, x, errors, bins = 500):
         """Fits the langau to data"""
         hist, edges = np.histogram(x, bins=bins)
         binerror = self.calc_hist_errors(x, errors, edges)
+
+        # Cut off noise part
+        lancut = np.max(hist) * 0.33  # Find maximum of hist and get the cut
+        ind_xmin = np.argwhere(hist > lancut)[0]  # Finds the first element which is higher as threshold
 
         mpv, eta, sigma, A = 18000, 1500, 4600, 2500
 
@@ -818,6 +822,8 @@ class langau:
                 else:
                     warnings.warn("To many histograms for this plot. Colorsheme only supports seven different histograms. Extend if need be!")
                     continue
+
+            plot.set_xlim(0,100000)
             plot.legend()
             fig.tight_layout()
             #plt.draw()

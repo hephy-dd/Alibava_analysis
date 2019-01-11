@@ -1,17 +1,17 @@
 ---
   # Some files to load in, and store data
   Pedestal_file: '\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5'
-  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\10deg\delay.txt'
+  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\delay_scan.txt'
   Charge_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\charge_scan.txt'
   Measurement_file:
     - '350V.hdf5'
   Output_folder: 'C:\Users\dbloech\Desktop\Alibava_Plots'
-  Output_name: 'Testrun'
+  Output_name: '100V'
 
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
-  Plot_single_event: 50000
-  SN_cut: 7 # Minimum height of hit
+  Plot_single_event: 1000
+  SN_cut: 6 # Minimum height of hit
   SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
   SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
   timing:
