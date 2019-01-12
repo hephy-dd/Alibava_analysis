@@ -134,11 +134,9 @@ class NoStdStreams(object):
         self.devnull.close()
 
 
-def langau_cluster(size, valid_events_Signal, valid_events_clusters, valid_events_clustersize, charge_cal, noise):
+def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters, valid_events_clustersize, charge_cal, noise):
+    """Calculates the energy of events, clustersize independend"""
     # for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
-    # get the events with the different clustersizes
-    cls_ind = np.nonzero(valid_events_clustersize == size)[0]
-    # indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
     totalE = np.zeros(len(cls_ind))
     totalNoise = np.zeros(len(cls_ind))
     # Loop over the clustersize to get total deposited energy

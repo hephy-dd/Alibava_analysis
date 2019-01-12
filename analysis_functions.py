@@ -602,39 +602,44 @@ class langau:
             charge_cal, noise = self.main.calibration.charge_cal, self.main.noise
             self.results_dict[data]["Clustersize"] = []
 
-            #paramslist = []
-            #for size in clustersize_list:
-            #    paramslist.append((size+1, valid_events_Signal, valid_events_clusters, valid_events_clustersize, self.main.calibration.charge_cal, self.main.noise))
+            if self.main.usejit:
+                paramslist = []
+                for size in clustersize_list:
+                    cls_ind = np.nonzero(valid_events_clustersize == size)[0]
+                    paramslist.append((cls_ind, valid_events_Signal, valid_events_clusters, valid_events_clustersize, self.main.calibration.charge_cal, self.main.noise))
 
-            #results = self.pool.starmap(langau_cluster, paramslist) # Here multiple cpu calculate the energy of the events per clustersize
-            #self.pool.close()
-            #self.pool.join()
+                results = self.pool.starmap(langau_cluster, paramslist) # Here multiple cpu calculate the energy of the events per clustersize
+                self.pool.close()
+                self.pool.join()
 
-            for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
-                # get the events with the different clustersizes
-                cls_ind = np.nonzero(valid_events_clustersize == size)[0]
-                # indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
-                totalE = np.zeros(len(cls_ind))
-                totalNoise = np.zeros(len(cls_ind))
-                # Loop over the clustersize to get total deposited energy
-                incrementor = 0
-                for ind in tqdm(cls_ind, desc="(langau) Processing event"):
-                    # TODO: make this work for multiple cluster in one event
-                    # Signal calculations
-                    signal_clst_event = np.take(valid_events_Signal[ind], valid_events_clusters[ind][0])
-                    totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal))
+                self.results_dict[data]["Clustersize"] = results
 
-                    # Noise Calculations
-                    noise_clst_event = np.take(noise, valid_events_clusters[ind][0])  # Get the Noise of an event
-                    totalNoise[incrementor] = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal)))  # eError is a list containing electron signal noise
+            else:
+                for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
+                    # get the events with the different clustersizes
+                    cls_ind = np.nonzero(valid_events_clustersize == size)[0]
+                    # indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
+                    totalE = np.zeros(len(cls_ind))
+                    totalNoise = np.zeros(len(cls_ind))
+                    # Loop over the clustersize to get total deposited energy
+                    incrementor = 0
+                    for ind in tqdm(cls_ind, desc="(langau) Processing event"):
+                        # TODO: make this work for multiple cluster in one event
+                        # Signal calculations
+                        signal_clst_event = np.take(valid_events_Signal[ind], valid_events_clusters[ind][0])
+                        totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal))
 
-                    incrementor += 1
+                        # Noise Calculations
+                        noise_clst_event = np.take(noise, valid_events_clusters[ind][0])  # Get the Noise of an event
+                        totalNoise[incrementor] = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal)))  # eError is a list containing electron signal noise
 
-                preresults = {}
-                preresults["signal"] = totalE
-                preresults["noise"] = totalNoise
+                        incrementor += 1
 
-                self.results_dict[data]["Clustersize"].append(preresults)
+                    preresults = {}
+                    preresults["signal"] = totalE
+                    preresults["noise"] = totalNoise
+
+                #    self.results_dict[data]["Clustersize"].append(preresults)
 
             # With all the data from every clustersize add all together and fit the langau to it
 

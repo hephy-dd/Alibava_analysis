@@ -1,16 +1,16 @@
 ---
   # Some files to load in, and store data
-  Pedestal_file: '\\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5'
-  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\delay_scan.txt'
-  Charge_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\charge_scan.txt'
+  Pedestal_file: 'D:\Data\VC811929\Pedestal.hdf5'
+  Delay_scan: 'D:\Data\VC811929\delay_scan.txt'
+  Charge_scan: 'D:\Data\VC811929\charge_scan.txt'
   Measurement_file:
-    - '350V.hdf5'
+    - 'D:\Data\VC811929\330V.hdf5'
   Output_folder: ''
   Output_name: '100V'
 
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
-  Processes: 4
+  Processes: 6
   Plot_single_event: 1000
   SN_cut: 6 # Minimum height of hit
   SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
@@ -21,7 +21,7 @@
   max_cluster_size: 7 # Directly affects runtime!!!
   sensor_type: "n-in-p" # Sensor Material
   automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
-  optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true
+  optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true, or may be misleading
   additional_analysis:
       - langau
       #- CCE

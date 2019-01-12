@@ -9,7 +9,8 @@ from tqdm import tqdm
 from multiprocessing import Pool
 
 
-def f(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material):
+def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material):
+    """Necessary function to pass to the pool.map function"""
     prodata = []
     automasked = 0
     hitmap = np.zeros(numchan)
@@ -36,7 +37,6 @@ def f(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, 
 
     return prodata
 
-#@jit(parallel = False, cache=False)
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1):
     """Parallel processing of events."""
     goodevents = goodtiming[0].shape[0]
@@ -53,17 +53,22 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material))
         start=end+1
 
-    results = pool.starmap(f, paramslist)
+    results = pool.starmap(event_process_function, paramslist)
     pool.close()
     pool.join()
 
+    # Build the correct Hitmap which gets lost during calculations
+    hitmap = np.zeros(numchan)
+    for hmap in results:
+        hitmap += hmap[-1][4]
 
     prodata = functools.reduce(operator.concat, results)
+
+    # Set the last hit with the full hitmap # I know this is pretty shitty coding style.
+    prodata[-1][4] = hitmap
     #prodata = []
     #for i in range(poolsize):
     #    prodata.append(results[i])
-
-
 
     return prodata, automasked
 
