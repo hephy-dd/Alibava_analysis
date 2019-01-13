@@ -1,14 +1,9 @@
 # This file is the main analysis file here all processes will be started
 
-
-from utilities import *
 from analysis_functions import *
 import os
 from optparse import OptionParser
 import matplotlib.pyplot as plt
-
-
-
 
 def main(args, options):
     """The main analysis which will be executed after the arguments are parsed"""

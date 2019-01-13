@@ -15,7 +15,6 @@ import yaml
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
-from numba import jit, guvectorize, int64, float64
 
 def create_dictionary(file, filepath):
     '''Creates a dictionary with all values written in the file using yaml'''
@@ -134,7 +133,7 @@ class NoStdStreams(object):
         self.devnull.close()
 
 
-def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters, valid_events_clustersize, charge_cal, noise):
+def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters, charge_cal, noise):
     """Calculates the energy of events, clustersize independend"""
     # for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
     totalE = np.zeros(len(cls_ind))

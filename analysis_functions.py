@@ -8,14 +8,9 @@ __email__ = "dominic.bloech@oeaw.ac.at"
 # Import statements
 from utilities import *
 import warnings
-import copy
-import io, sys
-from tqdm import tqdm
-import numpy as np
 from scipy.stats import norm
-from scipy import histogram, stats
 import matplotlib.pyplot as plt
-from scipy.interpolate import CubicSpline, PchipInterpolator
+from scipy.interpolate import CubicSpline
 from scipy.optimize import curve_fit
 import pylandau
 from nb_analysisFunction import *
@@ -82,7 +77,7 @@ class main_loops:
         self.calibration = kwargs.get("calibration", None)
         self.SN_cluster = kwargs.get("SN_cluster", 6)
         self.process_pool = kwargs.get("Processes", 1)
-        #self.pool = Pool(processes=self.process_pool)
+        self.Pool = Pool(processes=self.process_pool)
 
 
         if "pedestal" in kwargs:
@@ -113,7 +108,7 @@ class main_loops:
                 file = str(self.data[data]).split('"')[1].split('.')[0]
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 object = base_analysis(self, events, timing) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
-                results = np.array(object.run())
+                results = object.run()
                 # make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
                 # So now order the data Dictionary --> Filename:Type of data: List of all events for specific data type ---> results[: (take all events), 0 (give me data from signal]
                 # Resulting is an array containing all singal data etc.
@@ -154,6 +149,8 @@ class main_loops:
                                                                                                     total_events = self.total_events,
                                                                                                     time = round((time()-self.start), 1))
                                                                                                     )
+        self.Pool.close()
+        self.Pool.join()
 
 class base_analysis:
 
@@ -200,12 +197,11 @@ class base_analysis:
         else:
             start = time()
             # This should, in theory, use parallelization of the loop over event but i did not see any performance boost, maybe you can find the bug =)?
-            data, automasked_hits = parallel_event_processing(gtime, self.events, self.main.pedestal, meanCMN, meanCMsig, self.main.noise, self.main.numchan, self.main.SN_cut, self.main.SN_ratio, self.main.SN_cluster, max_clustersize = self.main.max_clustersize, masking=self.main.masking, material=self.main.material, poolsize=self.main.process_pool)
-            prodata = list(data)
+            data, automasked_hits = parallel_event_processing(gtime, self.events, self.main.pedestal, meanCMN, meanCMsig, self.main.noise, self.main.numchan, self.main.SN_cut, self.main.SN_ratio, self.main.SN_cluster, max_clustersize = self.main.max_clustersize, masking=self.main.masking, material=self.main.material, poolsize=self.main.process_pool, Pool=self.main.Pool)
+            prodata = data
             self.main.automasked_hit = automasked_hits
 
         end = time()
-        #print("\nTime taken: {!s} seconds".format(round(abs(end - start), 2)))
         return prodata
 
     def clustering(self, event, SN, Noise):
@@ -575,7 +571,7 @@ class langau:
         self.data = self.main.outputdata.copy()
         self.results_dict = {} # Containing all data processed
         self.pedestal = self.main.pedestal
-        self.pool = Pool(processes=self.main.process_pool)
+        self.pool = self.main.Pool
         self.poolsize = self.main.process_pool
 
     def run(self):
@@ -598,19 +594,16 @@ class langau:
             valid_events_clusters = np.take(self.data[data]["Clusters"], indizes)
             valid_events_Signal = np.take(self.data[data]["Signal"], indizes)  # Get the clustersizes of valid events
             # Get events which show only cluster in its data
-            size = 0 # Dummy variable for first loop
             charge_cal, noise = self.main.calibration.charge_cal, self.main.noise
             self.results_dict[data]["Clustersize"] = []
 
-            if self.main.usejit:
+            if self.main.usejit and self.poolsize > 1:
                 paramslist = []
                 for size in clustersize_list:
                     cls_ind = np.nonzero(valid_events_clustersize == size)[0]
-                    paramslist.append((cls_ind, valid_events_Signal, valid_events_clusters, valid_events_clustersize, self.main.calibration.charge_cal, self.main.noise))
+                    paramslist.append((cls_ind, valid_events_Signal, valid_events_clusters, self.main.calibration.charge_cal, self.main.noise))
 
-                results = self.pool.starmap(langau_cluster, paramslist) # Here multiple cpu calculate the energy of the events per clustersize
-                self.pool.close()
-                self.pool.join()
+                results = self.pool.starmap(langau_cluster, paramslist, chunksize=1) # Here multiple cpu calculate the energy of the events per clustersize
 
                 self.results_dict[data]["Clustersize"] = results
 
@@ -639,7 +632,7 @@ class langau:
                     preresults["signal"] = totalE
                     preresults["noise"] = totalNoise
 
-                #    self.results_dict[data]["Clustersize"].append(preresults)
+                    self.results_dict[data]["Clustersize"].append(preresults)
 
             # With all the data from every clustersize add all together and fit the langau to it
 
@@ -743,7 +736,11 @@ class langau:
 
         # Cut off noise part
         lancut = np.max(hist) * 0.33  # Find maximum of hist and get the cut
-        ind_xmin = np.argwhere(hist > lancut)[0][0]  # Finds the first element which is higher as threshold
+        #TODO: Bug when using optimized vs non optimized !!!
+        try:
+            ind_xmin = np.argwhere(hist > lancut)[0][0]  # Finds the first element which is higher as threshold optimized
+        except:
+            ind_xmin = np.argwhere(hist > lancut)[0]  # Finds the first element which is higher as threshold non optimized
 
         mpv, eta, sigma, A = 18000, 1500, 4600, 2500
 

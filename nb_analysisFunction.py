@@ -2,19 +2,20 @@
 
 import numpy as np
 from numba import jit, prange
-import functools
-import operator
-
 from tqdm import tqdm
-from multiprocessing import Pool
+from multiprocessing import current_process
 
 
-def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material):
+
+
+def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, queue=None):
     """Necessary function to pass to the pool.map function"""
-    prodata = []
+    prodata = np.zeros((np.abs(start-end), 9), dtype=np.object)
     automasked = 0
+    index = 0
     hitmap = np.zeros(numchan)
-    for i in tqdm(range(start, end), desc="Events processed:"):
+    #worker = current_process().name.split("-")[1]
+    for i in tqdm(range(start, end), desc="Events processed"):
         signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
@@ -24,7 +25,9 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
         for channel in channels_hit:
             hitmap[channel] += 1
         automasked += automasked_hits
-        prodata.append([
+
+        #prodata.append([
+        prodata[index]=np.array([
             signal,
             SN,
             CMN,
@@ -34,43 +37,52 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
             clusters,
             numclus,
             clustersize])
+        index +=1
 
     return prodata
 
-def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1):
+
+def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1, Pool=None):
     """Parallel processing of events."""
     goodevents = goodtiming[0].shape[0]
     #prodata = np.zeros(goodevents, dtype=object)
     automasked = 0
-    pool = Pool(processes=poolsize)
 
-    # Split data for the pools
-    splits = int(goodevents/poolsize) # you may loose the last event!!!
-    paramslist = []
-    start = 0
-    for i in range(poolsize):
-        end = splits*(i+1)
-        paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material))
-        start=end+1
+    if poolsize > 1:
+        #pool = Pool # legacy
+        #manager = Manager()
+        #q = manager.Queue()
+        # Split data for the pools
+        splits = int(goodevents/poolsize) # you may loose the last event!!!
+        paramslist = []
+        start = 0
+        for i in range(poolsize):
+            end = splits*(i+1)
+            paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material))
+            start=end+1
 
-    results = pool.starmap(event_process_function, paramslist)
-    pool.close()
-    pool.join()
+        results = Pool.starmap(event_process_function, paramslist, chunksize=1)
+        #print("here")
+        #prodata = np.zeros((goodevents, 9), dtype=np.object)
+        #for i in tqdm(range(len(goodevents))):
+        #    prodata[i] = q.get()
 
-    # Build the correct Hitmap which gets lost during calculations
-    hitmap = np.zeros(numchan)
-    for hmap in results:
-        hitmap += hmap[-1][4]
+        #pool.close()
+        #pool.join()
 
-    prodata = functools.reduce(operator.concat, results)
+        # Build the correct Hitmap which gets lost during calculations
+        hitmap = np.zeros(numchan)
+        for hmap in results:
+            hitmap += hmap[-1][4]
+        prodata = np.concatenate(results, axis=0)
+        # Set the last hit with the full hitmap # I know this is pretty shitty coding style.
+        prodata[-1][4] = hitmap
+        return prodata, automasked
 
-    # Set the last hit with the full hitmap # I know this is pretty shitty coding style.
-    prodata[-1][4] = hitmap
-    #prodata = []
-    #for i in range(poolsize):
-    #    prodata.append(results[i])
+    else:
+        prodata = event_process_function(0, goodevents, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material)
+        return np.array(prodata), automasked
 
-    return prodata, automasked
 
 @jit(parallel = False, nopython = False)
 def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
