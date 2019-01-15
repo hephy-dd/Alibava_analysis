@@ -1,11 +1,11 @@
 ---
   # Some files to load in, and store data
-  Pedestal_file: 'D:\Data\10deg\pedestal.hdf5'
-  Delay_scan: 'D:\Data\10deg\delay.txt'
-  Charge_scan: 'D:\Data\10deg\charge.txt'
+  Pedestal_file: '\\HEROS\dbloech\Alibava_measurements\10deg\pedestal.hdf5'
+  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\10deg\delay.txt'
+  Charge_scan: '\\HEROS\dbloech\Alibava_measurements\10deg\charge.txt'
   Measurement_file:
-    - 'D:\Data\10deg\1M_m250V.hdf5'
-    #- 'D:\Data\VC811929\330V.hdf5'
+    #- 'D:\Data\10deg\1M_m250V.hdf5'
+    - '330V.hdf5'
   Output_folder: ''
   Output_name: '100V'
 

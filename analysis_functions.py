@@ -103,8 +103,8 @@ class main_loops:
         print("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
         for data in tqdm(prange(len(self.data)), desc="Data files processed:"):
-                events = self.data[data]["events/signal"][:]
-                timing = self.data[data]["events/time"][:]
+                events = np.array(self.data[data]["events/signal"][:], dtype=np.uint16)
+                timing = np.array(self.data[data]["events/time"][:], dtype=np.float16)
                 file = str(self.data[data]).split('"')[1].split('.')[0]
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 object = base_analysis(self, events, timing) # you get back a list with events, containing the event processed data --> np array makes it easier to slice

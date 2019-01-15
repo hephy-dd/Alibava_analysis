@@ -3,7 +3,7 @@
 import numpy as np
 from numba import jit, prange
 from tqdm import tqdm
-from multiprocessing import current_process
+from multiprocessing import Manager
 
 
 
@@ -45,20 +45,19 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1, Pool=None):
     """Parallel processing of events."""
     goodevents = goodtiming[0].shape[0]
-    #prodata = np.zeros(goodevents, dtype=object)
     automasked = 0
 
     if poolsize > 1:
-        #pool = Pool # legacy
-        #manager = Manager()
-        #q = manager.Queue()
+
+        manager = Manager()
+        q = manager.Queue()
         # Split data for the pools
         splits = int(goodevents/poolsize) # you may loose the last event!!!
         paramslist = []
         start = 0
         for i in range(poolsize):
             end = splits*(i+1)
-            paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material))
+            paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, q))
             start=end+1
 
         results = Pool.starmap(event_process_function, paramslist, chunksize=1)
