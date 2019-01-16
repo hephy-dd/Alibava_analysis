@@ -1,8 +1,8 @@
 ---
   # Some files to load in, and store data
-  Pedestal_file: '\\HEROS\dbloech\Alibava_measurements\10deg\pedestal.hdf5'
-  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\10deg\delay.txt'
-  Charge_scan: '\\HEROS\dbloech\Alibava_measurements\10deg\charge.txt'
+  Pedestal_file: '\\HEROS\dbloech\Alibava_measurements\VC811929\pedestal.hdf5'
+  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\delay.txt'
+  Charge_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\charge.txt'
   Measurement_file:
     #- 'D:\Data\10deg\1M_m250V.hdf5'
     - '330V.hdf5'
@@ -11,7 +11,7 @@
 
   # Event analysis parameters
   Charge_scale: True # Convert ADC to electrons
-  Processes: 6 # High numbers of processes causes huge memory overhead, only use when more than 100G are available for large files!!!
+  Processes: 1 # High numbers of processes causes huge memory overhead, only use when more than 100G are available for large files!!!
   Plot_single_event: 1000
   SN_cut: 6 # Minimum height of hit
   SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
@@ -24,7 +24,7 @@
   automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
   optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true, or may be misleading
   additional_analysis:
-      - langau
+      #- langau
       #- CCE
       #- chargesharing
 

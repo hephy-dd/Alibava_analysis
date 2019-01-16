@@ -472,20 +472,24 @@ class noise_analysis:
             # Calculate pedestal
             print("Calculating pedestal and Noise...")
             self.pedestal = np.mean(self.data['/events/signal'][0:], axis=0)
+            self.signal = self.data['/events/signal'][:]
 
             # Noise Calculations
             if not usejit:
                 start = time()
-                self.score, self.CMnoise, self.CMsig = self.noise_calc(self.data['/events/signal'][:], self.pedestal[:], self.numevents, self.numchan)
+                self.score, self.CMnoise, self.CMsig = self.noise_calc(self.signal, self.pedestal[:], self.numevents, self.numchan)
                 end = time()
                 print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
             else:
                 print("Jit version used!!! No progress bar can be shown")
                 start = time()
-                self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.data['/events/signal'][:], self.pedestal[:], self.numevents, self.numchan)
+                self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.signal, self.pedestal[:], self.numevents, self.numchan)
                 end = time()
                 print("Time taken: {!s} seconds".format(round(abs(end-start), 2)))
             self.noise = np.std(self.score, axis=0)  # Calculate the actual noise for every channel by building the mean of all noise from every event
+            self.total_noise = np.concatenate(self.score, axis=0)
+
+            
         else:
             print("No valid file, skipping pedestal run")
 
@@ -496,9 +500,9 @@ class noise_analysis:
         But got 36k events per second.
         So fuck it.
         This function is not numba optimized!!!"""
-        score = np.zeros((numevents, numchannels), dtype=np.float64)  # Variable needed for noise calculations
-        CMnoise = np.zeros(numevents, dtype=np.float64)
-        CMsig = np.zeros(numevents, dtype=np.float64)
+        score = np.zeros((numevents, numchannels), dtype=np.float32)  # Variable needed for noise calculations
+        CMnoise = np.zeros(numevents, dtype=np.float16)
+        CMsig = np.zeros(numevents, dtype=np.float16)
 
         for event in tqdm(range(self.goodevents[0].shape[0]), desc="Events processed:"): # Loop over all good events
 
@@ -532,8 +536,7 @@ class noise_analysis:
 
         # Plot pedestal
         pede_plot = fig.add_subplot(222)
-        pede_plot.bar(np.arange(self.numchan), self.pedestal, 1.,
-                               yerr=self.noise, error_kw=dict(elinewidth=0.2, ecolor='r', ealpha=0.1), alpha=0.4, color="b")
+        pede_plot.bar(np.arange(self.numchan), self.pedestal, 1., yerr=self.noise, error_kw=dict(elinewidth=0.2, ecolor='r', ealpha=0.1), alpha=0.4, color="b")
         pede_plot.set_xlabel('Channel [#]')
         pede_plot.set_ylabel('Pedestal [ADC]')
         pede_plot.set_title('Pedestal levels per Channel with noise')
@@ -553,6 +556,27 @@ class noise_analysis:
         CM_plot.set_ylabel('[%]')
         CM_plot.set_title(r'$\mathrm{Common\ mode\:}\ \mu=' + str(round(mu,2)) + r',\ \sigma=' + str(round(std,2)) + r'$')
         #CM_plot.legend()
+
+        # Plot noise hist
+        CM_plot = fig.add_subplot(224)
+        n, bins, patches = CM_plot.hist(self.total_noise, bins=500, density=False, alpha=0.4, color="b")
+        CM_plot.set_yscale("log", nonposy='clip')
+        CM_plot.set_ylim(1.)
+
+        # Cut off noise part
+        cut = np.max(n) * 0.2  # Find maximum of hist and get the cut
+        ind = np.concatenate(np.argwhere(n > cut))  # Finds the first element which is higher as threshold optimized
+
+        # Calculate the mean and std
+        mu, std = norm.fit(bins[ind])
+        # Calculate the distribution for plotting in a histogram
+        plotrange = np.arange(-35,35)
+        p = gaussian(plotrange, mu, std, np.max(n))
+        CM_plot.plot(plotrange, p, "r--", color="g")
+
+        CM_plot.set_xlabel('Noise')
+        CM_plot.set_ylabel('count')
+        CM_plot.set_title("Noise Histogram")
 
         fig.tight_layout()
         #plt.draw()

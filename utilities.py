@@ -132,6 +132,8 @@ class NoStdStreams(object):
         sys.stderr = self.old_stderr
         self.devnull.close()
 
+def gaussian(x, mu, sig, a):
+    return a*np.exp(-np.power(x - mu, 2.) / (2. * np.power(sig, 2.)))
 
 def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters, charge_cal, noise):
     """Calculates the energy of events, clustersize independend"""

@@ -41,7 +41,6 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
 
     return prodata
 
-
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1, Pool=None):
     """Parallel processing of events."""
     goodevents = goodtiming[0].shape[0]
@@ -81,7 +80,6 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
     else:
         prodata = event_process_function(0, goodevents, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material)
         return np.array(prodata), automasked
-
 
 @jit(parallel = False, nopython = False)
 def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
