@@ -103,8 +103,8 @@ class main_loops:
         print("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
         for data in tqdm(prange(len(self.data)), desc="Data files processed:"):
-                events = np.array(self.data[data]["events/signal"][:], dtype=np.uint16)
-                timing = np.array(self.data[data]["events/time"][:], dtype=np.float16)
+                events = np.array(self.data[data]["events/signal"][:], dtype=np.uint32)
+                timing = np.array(self.data[data]["events/time"][:], dtype=np.float32)
                 file = str(self.data[data]).split('"')[1].split('.')[0]
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 object = base_analysis(self, events, timing) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
@@ -472,7 +472,7 @@ class noise_analysis:
             # Calculate pedestal
             print("Calculating pedestal and Noise...")
             self.pedestal = np.mean(self.data['/events/signal'][0:], axis=0)
-            self.signal = self.data['/events/signal'][:]
+            self.signal = np.array(self.data['/events/signal'][:], dtype=np.float32)
 
             # Noise Calculations
             if not usejit:
@@ -483,7 +483,7 @@ class noise_analysis:
             else:
                 print("Jit version used!!! No progress bar can be shown")
                 start = time()
-                self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.signal, self.pedestal[:], self.numevents, self.numchan)
+                self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.signal, self.pedestal[:])
                 end = time()
                 print("Time taken: {!s} seconds".format(round(abs(end-start), 2)))
             self.noise = np.std(self.score, axis=0)  # Calculate the actual noise for every channel by building the mean of all noise from every event
@@ -492,6 +492,13 @@ class noise_analysis:
             
         else:
             print("No valid file, skipping pedestal run")
+
+    def detect_noisy_strips(self, signals, pedestal, CMN):
+        """This function detects noisy strips and returns two arrays first array noisy strips, second array good strips"""
+
+        # Calculate the
+        pass
+
 
 
     def noise_calc(self, events, pedestal, numevents, numchannels):

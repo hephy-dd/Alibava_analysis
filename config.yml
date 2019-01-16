@@ -24,7 +24,7 @@
   automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
   optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true, or may be misleading
   additional_analysis:
-      - langau
+      #- langau
       #- CCE
       #- chargesharing
 

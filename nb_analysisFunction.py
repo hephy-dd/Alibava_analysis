@@ -14,9 +14,9 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
     automasked = 0
     index = 0
     hitmap = np.zeros(numchan)
-    #worker = current_process().name.split("-")[1]
+    signal, SN, CMN, CMsig = nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan)
     for i in tqdm(range(start, end), desc="Events processed"):
-        signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
+        #signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
@@ -81,7 +81,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         prodata = event_process_function(0, goodevents, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material)
         return np.array(prodata), automasked
 
-@jit(parallel = False, nopython = False)
+@jit(nopython = True)
 def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
     """Looks for cluster in a event"""
     channels = np.nonzero(np.abs(SN) > SN_cut)[0]  # Only channels which have a signal/Noise higher then the signal/Noise cut
@@ -159,40 +159,29 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
 
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
-@jit(parallel=True, nopython = True, cache=False)
-def nb_noise_calc(events, pedestal, numevents, numchannels):
+def nb_noise_calc(events, pedestal):
     """Noise calculation, normal noise (NN) and common mode noise (CMN)
-    Uses numba and numpy, this function uses jit for optimization"""
-    score = np.zeros((numevents, numchannels), dtype=np.float32)  # Variable needed for noise calculations
-    CMnoise = np.zeros(numevents, dtype=np.float32)
-    CMsig = np.zeros(numevents, dtype=np.float32)
-
-    for event in prange(numevents):  # Loop over all good events
-
-        # Calculate the common mode noise for every channel
-        cm = events[event][:] - pedestal  # Get the signal from event and subtract pedestal
-        CMNsig = np.std(cm)  # Calculate the standard deviation
-        CMN = np.mean(cm)  # Now calculate the mean from the cm to get the actual common mode noise
-
-        # Calculate the noise of channels
-        cn = cm - CMN  # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
-        score[event] = cn
-        # Append the common mode values per event into the data arrays
-        CMnoise[event] = CMN
-        CMsig[event] = CMNsig
-
-    return score, CMnoise, CMsig  # Return everything
-
-@jit(parallel=False, nopython = False, cache=True)
-def nb_process_event(event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
-    """Processes single events"""
-
+    Uses numpy"""
     # Calculate the common mode noise for every channel
-    signal = event - pedestal  # Get the signal from event and subtract pedestal
+    cm = np.subtract(events,pedestal, dtype=np.float32)  # Get the signal from event and subtract pedestal
+    CMsig = np.std(cm, axis=1)  # Calculate the standard deviation
+    CMnoise = np.mean(cm, axis=1)  # Now calculate the mean from the cm to get the actual common mode noise
+    # Calculate the noise of channels
+    score = np.subtract(cm,CMnoise[:,None], dtype= np.float32)  # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
+    # This is a trick with the dimensions of ndarrays, score = shape[ (x,y) - x,1 ] is possible otherwise a loop is the only way
 
+    return np.array(score, dtype=np.float32), np.array(CMnoise, dtype=np.float32), np.array(CMsig, dtype=np.float32)  # Return everything
+
+
+def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan):
+    """Processes single events"""
+    #TODO: some elusive error happens here when using jit and njit
+    # Calculate the common mode noise for every channel
+    signal = events - pedestal  # Get the signal from event and subtract pedestal
+    here you left !!!
     # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
-    removed = np.nonzero(signal < (5 * meanCMsig + meanCMN))
-    prosignal = np.take(signal, removed)  # Processed signal
+    removed = np.nonzero(signal < (5. * meanCMsig + meanCMN))
+    prosignal = signal[removed]
 
     if prosignal.any():
         cmpro = np.mean(prosignal)
@@ -203,6 +192,6 @@ def nb_process_event(event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
 
         return corrsignal, SN, cmpro, sigpro
     else:
-        return np.zeros(numchan), np.zeros(numchan), 0, 0  # A default value return if everything fails
+        return np.zeros(numchan), np.zeros(numchan), 0., 0.  # A default value return if everything fails
 
 
