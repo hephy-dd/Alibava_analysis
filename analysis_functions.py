@@ -34,15 +34,15 @@ class main_loops:
 
         self.numchan = len(self.data[0]["events/signal"][0])
         self.numevents = len(self.data[0]["events/signal"])
-        self.pedestal = np.zeros(self.numchan, dtype=np.float64)
-        self.noise = np.zeros(self.numchan, dtype=np.float64)
+        self.pedestal = np.zeros(self.numchan, dtype=np.float32)
+        self.noise = np.zeros(self.numchan, dtype=np.float32)
         self.SN_cut = 1
         self.hits = 0
         self.tmin = 0
         self.tmax = 100
         self.maxcluster = 4
-        self.CMN = np.zeros(self.numchan, dtype=np.float64)
-        self.CMsig = np.zeros(self.numchan, dtype=np.float64)
+        self.CMN = np.zeros(self.numchan, dtype=np.float32)
+        self.CMsig = np.zeros(self.numchan, dtype=np.float32)
         self.outputdata = {}
         self.automasked_hit = 0
         self.numgoodevents = 0
@@ -462,12 +462,12 @@ class noise_analysis:
             self.data=self.data[0]# Since I always get back a list
             self.numchan = len(self.data["header/pedestal"][0])
             self.numevents = len(self.data["events/signal"])
-            self.pedestal = np.zeros(self.numchan, dtype=np.float64)
-            self.noise = np.zeros(self.numchan, dtype=np.float64)
+            self.pedestal = np.zeros(self.numchan, dtype=np.float32)
+            self.noise = np.zeros(self.numchan, dtype=np.float32)
             self.goodevents = np.nonzero(self.data['/events/time'][:] >= 0)  # Only use events with good timing, here always the case
-            self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float64)
-            self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float64)
-            self.score = np.zeros((len(self.goodevents[0]), self.numchan), dtype=np.float64)  # Variable needed for noise calculations
+            self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float32)
+            self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float32)
+            self.score = np.zeros((len(self.goodevents[0]), self.numchan), dtype=np.float32)  # Variable needed for noise calculations
 
             # Calculate pedestal
             print("Calculating pedestal and Noise...")
@@ -621,6 +621,7 @@ class langau:
             charge_cal, noise = self.main.calibration.charge_cal, self.main.noise
             self.results_dict[data]["Clustersize"] = []
 
+            # General langau, where all clustersizes are considered
             if self.main.usejit and self.poolsize > 1:
                 paramslist = []
                 for size in clustersize_list:
@@ -659,7 +660,6 @@ class langau:
                     self.results_dict[data]["Clustersize"].append(preresults)
 
             # With all the data from every clustersize add all together and fit the langau to it
-
             finalE = np.zeros(0)
             finalNoise = np.zeros(0)
             for cluster in self.results_dict[data]["Clustersize"]:
@@ -668,11 +668,30 @@ class langau:
 
             # Fit the langau to it
             coeff, pcov, hist, error_bins = self.fit_langau(finalE, finalNoise)
-            self.results_dict[data]["signal"] = finalE  # mpv, eta, sigma, A
-            self.results_dict[data]["noise"] = finalNoise  # mpv, eta, sigma, A
-            self.results_dict[data]["langau_coeff"] = coeff  # mpv, eta, sigma, A
+            self.results_dict[data]["signal"] = finalE
+            self.results_dict[data]["noise"] = finalNoise
+            self.results_dict[data]["langau_coeff"] = coeff
             self.results_dict[data]["langau_data"] = [np.arange(1., 100000., 1000.), pylandau.langau(np.arange(1., 100000., 1000.), *coeff)]  # aka x and y data
             self.results_dict[data]["data_error"] = error_bins
+
+            # Consider now only the seedcut hits for the langau,
+            if self.main.kwargs["configs"].get("langau",{}).get("seed_cut_langau",False):
+                seed_cut_channels = self.data[data]["Channel_hit"]
+                signals = self.data[data]["Signal"]
+                finalE = np.zeros(len(seed_cut_channels), dtype=np.float32)
+                i=0
+                for event in tqdm(seed_cut_channels, desc="(langau SC) Processing events"):
+                    if event.any(): # Cut out all garbage events
+                        finalE[i] = np.sum(convert_ADC_to_e(signals[i][event], charge_cal))
+                    i += 1
+
+                # get rid of 0 events
+                indizes = np.nonzero(finalE > 0)[0]
+                coeff, pcov, hist, error_bins = self.fit_langau(finalE[indizes])
+                self.results_dict[data]["signal_SC"] = finalE
+                self.results_dict[data]["langau_coeff_SC"] = coeff
+                self.results_dict[data]["langau_data_SC"] = [np.arange(1., 100000., 1000.),
+                                                          pylandau.langau(np.arange(1., 100000., 1000.), *coeff)]  # aka x and y data
 
         return self.results_dict.copy()
 
@@ -753,10 +772,13 @@ class langau:
 
         return values, errors, m
 
-    def fit_langau(self, x, errors, bins = 500):
+    def fit_langau(self, x, errors=np.array([]), bins = 500):
         """Fits the langau to data"""
         hist, edges = np.histogram(x, bins=bins)
-        binerror = self.calc_hist_errors(x, errors, edges)
+        if errors.any():
+            binerror = self.calc_hist_errors(x, errors, edges)
+        else:
+            binerror = np.array([])
 
         # Cut off noise part
         lancut = np.max(hist) * 0.33  # Find maximum of hist and get the cut
@@ -835,7 +857,7 @@ class langau:
             plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g", label = "Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3]))
             plot.set_xlabel('electrons [#]')
             plot.set_ylabel('Count [#]')
-            plot.set_title('Energy deposition SR-90 from file: {!s}'.format(file))
+            plot.set_title('All clusters Langau from file: {!s}'.format(file))
             #plot.legend(["Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3])])
 
 
@@ -852,6 +874,23 @@ class langau:
             plot.legend()
             fig.tight_layout()
             #plt.draw()
+
+            if self.main.kwargs["configs"].get("langau", {}).get("seed_cut_langau", False):
+                fig = plt.figure("Seed cut langau from file: {!s}".format(file))
+
+                # Plot delay
+                plot = fig.add_subplot(111)
+                indizes = np.nonzero(data["signal_SC"] > 0)[0]
+                plot.hist(data["signal_SC"][indizes], bins=500, density=False, alpha=0.4, color="b", label="Seed clusters")
+                plot.plot(data["langau_data_SC"][0], data["langau_data_SC"][1], "r--", color="g",
+                          label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
+                              mpv=data["langau_coeff_SC"][0], eta=data["langau_coeff_SC"][1], sigma=data["langau_coeff_SC"][2],
+                              A=data["langau_coeff_SC"][3]))
+                plot.set_xlabel('electrons [#]')
+                plot.set_ylabel('Count [#]')
+                plot.set_title('Seed cut Langau from file: {!s}'.format(file))
+                plot.set_xlim(0, 100000)
+                plot.legend()
 
 class chargesharing:
     """ A class calculating the charge sharing between two strip clusters and plotting it into a histogram and a eta plot"""

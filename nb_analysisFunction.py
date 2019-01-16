@@ -32,7 +32,7 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
             SN,
             CMN,
             CMsig,
-            hitmap,
+            hitmap, # Todo: remove hitmap from every event Is useless info and costs memory
             channels_hit,
             clusters,
             numclus,
@@ -163,9 +163,9 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
 def nb_noise_calc(events, pedestal, numevents, numchannels):
     """Noise calculation, normal noise (NN) and common mode noise (CMN)
     Uses numba and numpy, this function uses jit for optimization"""
-    score = np.zeros((numevents, numchannels), dtype=np.float64)  # Variable needed for noise calculations
-    CMnoise = np.zeros(numevents, dtype=np.float64)
-    CMsig = np.zeros(numevents, dtype=np.float64)
+    score = np.zeros((numevents, numchannels), dtype=np.float32)  # Variable needed for noise calculations
+    CMnoise = np.zeros(numevents, dtype=np.float32)
+    CMsig = np.zeros(numevents, dtype=np.float32)
 
     for event in prange(numevents):  # Loop over all good events
 

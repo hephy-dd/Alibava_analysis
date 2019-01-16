@@ -1,8 +1,8 @@
 ---
   # Some files to load in, and store data
   Pedestal_file: '\\HEROS\dbloech\Alibava_measurements\VC811929\pedestal.hdf5'
-  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\delay.txt'
-  Charge_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\charge.txt'
+  Delay_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\delay_scan.txt'
+  Charge_scan: '\\HEROS\dbloech\Alibava_measurements\Alibava configs\charge_scan.txt'
   Measurement_file:
     #- 'D:\Data\10deg\1M_m250V.hdf5'
     - '330V.hdf5'
@@ -24,12 +24,12 @@
   automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
   optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true, or may be misleading
   additional_analysis:
-      #- langau
+      - langau
       #- CCE
       #- chargesharing
 
   langau:
     clustersize: [1,2,3] # Defines which cluster sizes should be fitted with a langau, list of values defines only these, negative values are for all clustersizes
-
+    seed_cut_langau: True # If you want a langau from the seed cut strips only or not
 
 
