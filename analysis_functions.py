@@ -51,6 +51,7 @@ class main_loops:
         self.start = time()
         self.pathes = path_list
         self.kwargs = kwargs
+        self.noise_analysis = kwargs["configs"].get("noise_analysis", None)
 
 
 
@@ -103,8 +104,10 @@ class main_loops:
         print("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
         for data in tqdm(prange(len(self.data)), desc="Data files processed:"):
-                events = np.array(self.data[data]["events/signal"][:], dtype=np.uint32)
+                events = np.array(self.data[data]["events/signal"][:], dtype=np.float32)
                 timing = np.array(self.data[data]["events/time"][:], dtype=np.float32)
+                #events[:, self.noise_analysis.noisy_strips] = 0
+
                 file = str(self.data[data]).split('"')[1].split('.')[0]
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 object = base_analysis(self, events, timing) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
@@ -197,7 +200,22 @@ class base_analysis:
         else:
             start = time()
             # This should, in theory, use parallelization of the loop over event but i did not see any performance boost, maybe you can find the bug =)?
-            data, automasked_hits = parallel_event_processing(gtime, self.events, self.main.pedestal, meanCMN, meanCMsig, self.main.noise, self.main.numchan, self.main.SN_cut, self.main.SN_ratio, self.main.SN_cluster, max_clustersize = self.main.max_clustersize, masking=self.main.masking, material=self.main.material, poolsize=self.main.process_pool, Pool=self.main.Pool)
+            data, automasked_hits = parallel_event_processing(gtime,
+                                                              self.events,
+                                                              self.main.pedestal,
+                                                              meanCMN,
+                                                              meanCMsig,
+                                                              self.main.noise,
+                                                              self.main.numchan,
+                                                              self.main.SN_cut,
+                                                              self.main.SN_ratio,
+                                                              self.main.SN_cluster,
+                                                              max_clustersize = self.main.max_clustersize,
+                                                              masking=self.main.masking,
+                                                              material=self.main.material,
+                                                              poolsize=self.main.process_pool,
+                                                              Pool=self.main.Pool,
+                                                              noisy_strips = self.main.noise_analysis.noisy_strips)
             prodata = data
             self.main.automasked_hit = automasked_hits
 
@@ -283,6 +301,9 @@ class base_analysis:
 
         # Calculate the common mode noise for every channel
         signal = event - pedestal  # Get the signal from event and subtract pedestal
+
+        # Mask noisy strips, by setting every noisy channel to 0 --> SN is always 0
+        signal[self.main.noise_analysis.noisy_strips] = 0
 
         # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
         prosignal = np.take(signal, np.nonzero(signal<(5*meanCMsig+meanCMN))) # Processed signal
@@ -448,7 +469,7 @@ class calibration:
 class noise_analysis:
     """This class contains all calculations and data concerning pedestals in ALIBAVA files"""
 
-    def __init__(self, path = "", usejit=False):
+    def __init__(self, path = "", usejit=False, configs=None):
         """
         :param path: Path to pedestal file
         """
@@ -468,6 +489,7 @@ class noise_analysis:
             self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float32)
             self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float32)
             self.score = np.zeros((len(self.goodevents[0]), self.numchan), dtype=np.float32)  # Variable needed for noise calculations
+            self.configs = configs
 
             # Calculate pedestal
             print("Calculating pedestal and Noise...")
@@ -477,27 +499,41 @@ class noise_analysis:
             # Noise Calculations
             if not usejit:
                 start = time()
-                self.score, self.CMnoise, self.CMsig = self.noise_calc(self.signal, self.pedestal[:], self.numevents, self.numchan)
+                self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(self.signal, self.pedestal[:], self.numevents, self.numchan)
+                self.noise = np.std(self.score_raw, axis=0)
+                self.noisy_strips, self.good_strips = self.detect_noisy_strips(self.noise, configs.get("Noise_cut", 5.))
+                #self.noise_corr = np.std(self.score, axis=0)
+                self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(self.signal[:, self.good_strips],
+                                                                           self.pedestal[self.good_strips], self.numevents,
+                                                                           len(self.good_strips))
                 end = time()
                 print("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
             else:
                 print("Jit version used!!! No progress bar can be shown")
                 start = time()
-                self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.signal, self.pedestal[:])
+                self.score_raw, self.CMnoise, self.CMsig = nb_noise_calc(self.signal, self.pedestal)
+                self.noise = np.std(self.score_raw,axis=0)  # Calculate the actual noise for every channel by building the mean of all noise from every event
+                self.noisy_strips, self.good_strips = self.detect_noisy_strips(self.noise, configs.get("Noise_cut", 5.))
+                self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.signal[:,self.good_strips], self.pedestal[self.good_strips])
+                #self.noise_corr = np.std(self.score, axis=0)
                 end = time()
                 print("Time taken: {!s} seconds".format(round(abs(end-start), 2)))
-            self.noise = np.std(self.score, axis=0)  # Calculate the actual noise for every channel by building the mean of all noise from every event
             self.total_noise = np.concatenate(self.score, axis=0)
 
             
         else:
             print("No valid file, skipping pedestal run")
 
-    def detect_noisy_strips(self, signals, pedestal, CMN):
+    def detect_noisy_strips(self, Noise, Noise_cut):
         """This function detects noisy strips and returns two arrays first array noisy strips, second array good strips"""
 
+        good_strips = np.arange(len(Noise))
         # Calculate the
-        pass
+        self.median_noise = np.median(Noise)
+        high_noise_strips = np.nonzero(Noise > self.median_noise+Noise_cut)
+        good_strips = np.delete(good_strips, high_noise_strips)
+
+        return high_noise_strips[0], good_strips
 
 
 
@@ -508,8 +544,8 @@ class noise_analysis:
         So fuck it.
         This function is not numba optimized!!!"""
         score = np.zeros((numevents, numchannels), dtype=np.float32)  # Variable needed for noise calculations
-        CMnoise = np.zeros(numevents, dtype=np.float16)
-        CMsig = np.zeros(numevents, dtype=np.float16)
+        CMnoise = np.zeros(numevents, dtype=np.float32)
+        CMsig = np.zeros(numevents, dtype=np.float32)
 
         for event in tqdm(range(self.goodevents[0].shape[0]), desc="Events processed:"): # Loop over all good events
 
@@ -536,10 +572,20 @@ class noise_analysis:
         #Plot noisedata
         noise_plot = fig.add_subplot(221)
         noise_plot.bar(np.arange(self.numchan), self.noise, 1., alpha=0.4, color="b")
+        # array of non masked strips
+        valid_strips = np.ones(self.numchan)
+        valid_strips[self.noisy_strips] = 0
+        noise_plot.plot(np.arange(self.numchan), valid_strips, 1., color="r", label= "Masked strips")
+
+        # Plot the threshold for deciding a good channel
+        xval = [0,self.numchan]
+        yval = [self.median_noise + self.configs.get("Noise_cut", 5.), self.median_noise + self.configs.get("Noise_cut", 5.)]
+        noise_plot.plot(xval, yval, 1., "r--", color="g", label="Threshold for noisy strips")
+
         noise_plot.set_xlabel('Channel [#]')
         noise_plot.set_ylabel('Noise [ADC]')
         noise_plot.set_title('Noise levels per Channel')
-        #noise_plot.legend()
+        noise_plot.legend()
 
         # Plot pedestal
         pede_plot = fig.add_subplot(222)
@@ -694,7 +740,9 @@ class langau:
 
                 # get rid of 0 events
                 indizes = np.nonzero(finalE > 0)[0]
-                coeff, pcov, hist, error_bins = self.fit_langau(finalE[indizes])
+                #nogarbage = finalE[indizes]
+                #indizes = np.nonzero(nogarbage < 120000)[0] # ultra_high_energy_cut TODO: is this valid?
+                coeff, pcov, hist, error_bins = self.fit_langau(finalE[indizes], bins=1000)
                 self.results_dict[data]["signal_SC"] = finalE
                 self.results_dict[data]["langau_coeff_SC"] = coeff
                 self.results_dict[data]["langau_data_SC"] = [np.arange(1., 100000., 1000.),
@@ -795,7 +843,7 @@ class langau:
         except:
             ind_xmin = np.argwhere(hist > lancut)[0]  # Finds the first element which is higher as threshold non optimized
 
-        mpv, eta, sigma, A = 18000, 1500, 4600, 2500
+        mpv, eta, sigma, A = 18000, 1500, 5000, np.max(hist)
 
         # Fit with constrains
         converged = False
@@ -809,7 +857,7 @@ class langau:
                 # create a text trap and redirect stdout
                 #text_trap = io.StringIO()
                 #sys.stdout = text_trap
-                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 60000))
+                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, np.max(hist)+5000))
                 # now restore stdout function
                 #sys.stdout = sys.__stdout__
             if abs(coeff[0]-oldmpv) > diff:
@@ -885,10 +933,10 @@ class langau:
             if self.main.kwargs["configs"].get("langau", {}).get("seed_cut_langau", False):
                 fig = plt.figure("Seed cut langau from file: {!s}".format(file))
 
-                # Plot delay
+                # Plot Seed cut langau
                 plot = fig.add_subplot(111)
                 indizes = np.nonzero(data["signal_SC"] > 0)[0]
-                plot.hist(data["signal_SC"][indizes], bins=500, density=False, alpha=0.4, color="b", label="Seed clusters")
+                plot.hist(data["signal_SC"][indizes], bins=1000, density=False, alpha=0.4, color="b", label="Seed clusters")
                 plot.plot(data["langau_data_SC"][0], data["langau_data_SC"][1], "r--", color="g",
                           label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
                               mpv=data["langau_coeff_SC"][0], eta=data["langau_coeff_SC"][1], sigma=data["langau_coeff_SC"][2],

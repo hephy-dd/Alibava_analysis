@@ -31,7 +31,7 @@ def do_with_config_file(config):
 
     # Look if a pedestal file is specified
     if "Pedestal_file" in config:
-        noise_data = noise_analysis(config["Pedestal_file"], usejit=config.get("optimize", False))
+        noise_data = noise_analysis(config["Pedestal_file"], usejit=config.get("optimize", False), configs=config)
         noise_data.plot_data()
 
     # Look if a pedestal file is specified
@@ -42,7 +42,8 @@ def do_with_config_file(config):
                         "CMN": noise_data.CMnoise,
                         "CMsig": noise_data.CMsig,
                         "Noise": noise_data.noise,
-                       "calibration": config_data})
+                       "calibration": config_data,
+                       "noise_analysis": noise_data})
 
         event_data = main_loops(config["Measurement_file"], configs = config) # Is adictionary containing all keys and values for configuration
         #event_data.plot_data(single_event=config.get("Plot_single_event", 15))

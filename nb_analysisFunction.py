@@ -8,15 +8,15 @@ from multiprocessing import Manager
 
 
 
-def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, queue=None):
+def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips, queue=None):
     """Necessary function to pass to the pool.map function"""
     prodata = np.zeros((np.abs(start-end), 9), dtype=np.object)
     automasked = 0
     index = 0
     hitmap = np.zeros(numchan)
-    signal, SN, CMN, CMsig = nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan)
+    #signal, SN, CMN, CMsig = nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan)
     for i in tqdm(range(start, end), desc="Events processed"):
-        #signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan)
+        signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips)
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
@@ -41,7 +41,7 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
 
     return prodata
 
-def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1, Pool=None):
+def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1, Pool=None, noisy_strips = []):
     """Parallel processing of events."""
     goodevents = goodtiming[0].shape[0]
     automasked = 0
@@ -56,7 +56,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         start = 0
         for i in range(poolsize):
             end = splits*(i+1)
-            paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, q))
+            paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips, q))
             start=end+1
 
         results = Pool.starmap(event_process_function, paramslist, chunksize=1)
@@ -78,7 +78,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         return prodata, automasked
 
     else:
-        prodata = event_process_function(0, goodevents, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material)
+        prodata = event_process_function(0, goodevents, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips)
         return np.array(prodata), automasked
 
 @jit(nopython = True)
@@ -173,12 +173,14 @@ def nb_noise_calc(events, pedestal):
     return np.array(score, dtype=np.float32), np.array(CMnoise, dtype=np.float32), np.array(CMsig, dtype=np.float32)  # Return everything
 
 
-def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan):
+def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
     """Processes single events"""
     #TODO: some elusive error happens here when using jit and njit
     # Calculate the common mode noise for every channel
     signal = events - pedestal  # Get the signal from event and subtract pedestal
-    here you left !!!
+
+    signal[noisy_strips] = 0
+
     # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
     removed = np.nonzero(signal < (5. * meanCMsig + meanCMN))
     prosignal = signal[removed]
