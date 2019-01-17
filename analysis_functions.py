@@ -740,13 +740,12 @@ class langau:
 
                 # get rid of 0 events
                 indizes = np.nonzero(finalE > 0)[0]
-                #nogarbage = finalE[indizes]
-                #indizes = np.nonzero(nogarbage < 120000)[0] # ultra_high_energy_cut TODO: is this valid?
-                coeff, pcov, hist, error_bins = self.fit_langau(finalE[indizes], bins=1000)
-                self.results_dict[data]["signal_SC"] = finalE
+                nogarbage = finalE[indizes]
+                indizes = np.nonzero(nogarbage < 120000)[0] # ultra_high_energy_cut
+                coeff, pcov, hist, error_bins = self.fit_langau(nogarbage[indizes], bins=500)
+                self.results_dict[data]["signal_SC"] = nogarbage[indizes]
                 self.results_dict[data]["langau_coeff_SC"] = coeff
-                self.results_dict[data]["langau_data_SC"] = [np.arange(1., 100000., 1000.),
-                                                          pylandau.langau(np.arange(1., 100000., 1000.), *coeff)]  # aka x and y data
+                self.results_dict[data]["langau_data_SC"] = [np.arange(1., 100000., 1000.), pylandau.langau(np.arange(1., 100000., 1000.), *coeff)]  # aka x and y data
 
         return self.results_dict.copy()
 
@@ -857,7 +856,7 @@ class langau:
                 # create a text trap and redirect stdout
                 #text_trap = io.StringIO()
                 #sys.stdout = text_trap
-                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, np.max(hist)+5000))
+                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 200000))
                 # now restore stdout function
                 #sys.stdout = sys.__stdout__
             if abs(coeff[0]-oldmpv) > diff:
@@ -935,8 +934,8 @@ class langau:
 
                 # Plot Seed cut langau
                 plot = fig.add_subplot(111)
-                indizes = np.nonzero(data["signal_SC"] > 0)[0]
-                plot.hist(data["signal_SC"][indizes], bins=1000, density=False, alpha=0.4, color="b", label="Seed clusters")
+                #indizes = np.nonzero(data["signal_SC"] > 0)[0]
+                plot.hist(data["signal_SC"], bins=500, density=False, alpha=0.4, color="b", label="Seed clusters")
                 plot.plot(data["langau_data_SC"][0], data["langau_data_SC"][1], "r--", color="g",
                           label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
                               mpv=data["langau_coeff_SC"][0], eta=data["langau_coeff_SC"][1], sigma=data["langau_coeff_SC"][2],
