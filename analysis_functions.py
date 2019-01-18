@@ -854,11 +854,7 @@ class langau:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 # create a text trap and redirect stdout
-                #text_trap = io.StringIO()
-                #sys.stdout = text_trap
-                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 200000))
-                # now restore stdout function
-                #sys.stdout = sys.__stdout__
+                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 500000))
             if abs(coeff[0]-oldmpv) > diff:
                 mpv, eta, sigma, A = coeff
                 oldmpv = mpv
@@ -866,8 +862,7 @@ class langau:
                 converged = True
             if iter > 50:
                 converged = True
-                warnings.warn("Langau is not converged after 50 attempts!")
-        #print("Langau iterations: {!s}".format(iter))
+                warnings.warn("Langau has not converged after 50 attempts!")
 
 
         return coeff, pcov, hist, binerror
