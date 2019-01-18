@@ -826,7 +826,7 @@ class langau:
 
         return values, errors, m
 
-    def fit_langau(self, x, errors=np.array([]), bins = 500):
+    def fit_langau(self, x, errors=np.array([]), bins=500):
         """Fits the langau to data"""
         hist, edges = np.histogram(x, bins=bins)
         if errors.any():
@@ -854,7 +854,8 @@ class langau:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 # create a text trap and redirect stdout
-                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1], hist[ind_xmin:], absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 500000))
+                # Warning: astype(float) is importanmt somehow, otherwise funny error happens one some machines where it tells you double_t and float are not possible
+                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1].astype(float), hist[ind_xmin:].astype(float), absolute_sigma=True, p0=(mpv, eta, sigma, A), bounds=(1, 500000))
             if abs(coeff[0]-oldmpv) > diff:
                 mpv, eta, sigma, A = coeff
                 oldmpv = mpv

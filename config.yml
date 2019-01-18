@@ -1,11 +1,11 @@
 ---
   # Some files to load in, and store data
-  Pedestal_file: 'D:\Data\VC811929\Pedestal.hdf5'
+  Pedestal_file: 'D:\Data\10deg\pedestal.hdf5'
   Delay_scan: 'D:\Data\VC811929\delay_new.txt'
   Charge_scan: 'D:\Data\VC811929\charge_new.txt'
   Measurement_file:
     - 'D:\Data\10deg\1M_m250V.hdf5'
-    #- '330V.hdf5'
+    #- 'D:\Data\VC811929\330V.hdf5'
   Output_folder: ''
   Output_name: '100V'
 
@@ -27,7 +27,7 @@
   additional_analysis:
       - langau
       #- CCE
-      #- chargesharing
+      - chargesharing
 
   langau:
     clustersize: [1,2,3] # Defines which cluster sizes should be fitted with a langau, list of values defines only these, negative values are for all clustersizes
