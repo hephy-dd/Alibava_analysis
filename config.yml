@@ -13,7 +13,7 @@
   Charge_scale: True # Convert ADC to electrons
   Processes: 1 # High numbers of processes causes huge memory overhead, only use when more than 100G are available for large files!!!
   Plot_single_event: 1000
-  SN_cut: 4 # Minimum height of hit
+  SN_cut: 6 # Minimum height of hit
   SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
   SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
   Noise_cut: 2 # Here the unit is ADC over median of all strips. This discriminates noisy strips.

@@ -15,6 +15,8 @@ import yaml
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
+from warnings import warn
+from numba import jit
 
 def create_dictionary(file, filepath):
     '''Creates a dictionary with all values written in the file using yaml'''
@@ -48,7 +50,7 @@ def import_h5(*pathes):
                 raise Exception('The path {!s} does not exist.'.format(path))
         return loaded_files
     except OSError as e:
-        print("Enountered an OSerror: {!s}".format(e))
+        print("Enountered an OSError: {!s}".format(e))
         return False
 
 def get_xy_data(data, header=0):
@@ -84,7 +86,7 @@ def count_sub_length(ndarray):
             results[i] = len(ndarray[i][0])
     return results
 
-#@jit
+
 def convert_ADC_to_e(signal, interpolation_function):
     """
     Gets the signal in ADC and the interpolatrion function and returns an array with the interpolated singal in electorns
@@ -158,3 +160,47 @@ def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters, charge_c
     preresults["signal"] = totalE
     preresults["noise"] = totalNoise
     return preresults
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
+
+
+class Bdata:
+    """Creates an object which can handle numpy arrays. By passing lables you can get the columns of the multidimensional array.
+    Its like a pandas array but with way less overhead.
+    If you store a Bdata object you can get columns by accessing it via Bdata['label']
+    Not passing an argument results in """
+
+    def __init__(self, data = np.array([]), labels = None):
+        self.data = data
+        self.labels = labels
+
+        if len(self.data) != len(self.labels):
+            warn("Data missmatch!")
+
+    def __getitem__(self, arg=None):
+        if arg:
+            return self.get(arg)
+
+    def __repr__(self):
+        return repr(self.data)
+
+    def get(self, label):
+        return self.data[:,self.labels.index(label)]

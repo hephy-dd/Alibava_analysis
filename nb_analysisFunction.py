@@ -1,9 +1,10 @@
 # This files contains analysis function optimizes by numba jit capabilities
 
 import numpy as np
-from numba import jit, prange
+from numba import jit
 from tqdm import tqdm
 from multiprocessing import Manager
+from utilities import *
 
 
 
@@ -11,25 +12,24 @@ from multiprocessing import Manager
 def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips, queue=None):
     """Necessary function to pass to the pool.map function"""
     prodata = np.zeros((np.abs(start-end), 9), dtype=np.object)
-    automasked = 0
+    #automasked = 0
     index = 0
     hitmap = np.zeros(numchan)
-    #signal, SN, CMN, CMsig = nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan)
+    signal, SN, CMN, CMsig = nb_process_all_events(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips)
     for i in tqdm(range(start, end), desc="Events processed"):
-        signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips)
-        channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal, SN, noise, SN_cut,
+        #signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips)
+        channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal[i], SN[i], noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
                                                                                       masking=masking,
                                                                                       material=material)
         for channel in channels_hit:
             hitmap[channel] += 1
-        automasked += automasked_hits
+        #automasked += automasked_hits
 
-        #prodata.append([
         prodata[index]=np.array([
-            signal,
-            SN,
+            signal[i],
+            SN[i],
             CMN,
             CMsig,
             hitmap, # Todo: remove hitmap from every event Is useless info and costs memory
@@ -38,7 +38,6 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
             numclus,
             clustersize])
         index +=1
-
     return prodata
 
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5, masking=True, material=1, poolsize = 1, Pool=None, noisy_strips = []):
@@ -60,13 +59,11 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
             start=end+1
 
         results = Pool.starmap(event_process_function, paramslist, chunksize=1)
-        #print("here")
         #prodata = np.zeros((goodevents, 9), dtype=np.object)
         #for i in tqdm(range(len(goodevents))):
         #    prodata[i] = q.get()
 
-        #pool.close()
-        #pool.join()
+
 
         # Build the correct Hitmap which gets lost during calculations
         hitmap = np.zeros(numchan)
@@ -196,4 +193,26 @@ def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy
     else:
         return np.zeros(numchan), np.zeros(numchan), 0., 0.  # A default value return if everything fails
 
+def nb_process_all_events(start, stop, events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
+    """Processes events"""
+    #TODO: some elusive error happens here when using jit and njit
+    #Calculate the common mode noise for every channel
+    signal = events[start:stop] - pedestal  # Get the signal from event and subtract pedestal
 
+    signal[:,noisy_strips] = 0
+
+    # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
+    removed = np.nonzero(signal[:,] > (5. * meanCMsig + meanCMN))
+    signal[removed[0], removed[1]] = 0 # Set the signals to 0
+    prosignal = signal
+
+    if prosignal.any():
+        cmpro = np.mean(prosignal, axis=1)
+        sigpro = np.std(prosignal, axis=1)
+
+        corrsignal = signal - cmpro[:,None]
+        SN = corrsignal / noise
+
+        return corrsignal, SN, cmpro, sigpro
+    else:
+        return np.zeros(numchan), np.zeros(numchan), 0., 0.  # A default value return if everything fails

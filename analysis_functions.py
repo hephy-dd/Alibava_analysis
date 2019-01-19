@@ -16,6 +16,7 @@ import pylandau
 from nb_analysisFunction import *
 from time import time
 from multiprocessing import Pool
+import gc
 
 
 class main_loops:
@@ -100,31 +101,36 @@ class main_loops:
             self.min = kwargs["timing"][0] # timinig window
             self.max = kwargs["timing"][1] # timing maximum
 
-
         print("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
-        for data in tqdm(prange(len(self.data)), desc="Data files processed:"):
+        for data in tqdm(range(len(self.data)), desc="Data files processed:"):
                 events = np.array(self.data[data]["events/signal"][:], dtype=np.float32)
                 timing = np.array(self.data[data]["events/time"][:], dtype=np.float32)
-                #events[:, self.noise_analysis.noisy_strips] = 0
+
 
                 file = str(self.data[data]).split('"')[1].split('.')[0]
+                self.outputdata[file] = {}
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 object = base_analysis(self, events, timing) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
                 results = object.run()
+                #print(results[:,7])
                 # make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
                 # So now order the data Dictionary --> Filename:Type of data: List of all events for specific data type ---> results[: (take all events), 0 (give me data from signal]
                 # Resulting is an array containing all singal data etc.
-                self.outputdata[file] =                                             {"Signal": results[:,0],
-                                                                                     "SN": results[:, 1],
-                                                                                     "CMN": results[:, 2],
-                                                                                     "CMsig": results[:, 3],
-                                                                                     "Hitmap": results[:, 4],
-                                                                                     "Channel_hit": results[:, 5],
-                                                                                     "Clusters": results[:, 6],
-                                                                                     "Clustersize": results[:, 8],
-                                                                                     "Numclus": results[:, 7]}
-
+                #self.outputdata[file] =                                             {"Signal": results[:,0],
+                #                                                                     "SN": results[:, 1],
+                #                                                                     "CMN": results[:, 2],
+                #                                                                     "CMsig": results[:, 3],
+                #                                                                     "Hitmap": results[:, 4],
+                #                                                                     "Channel_hit": results[:, 5],
+                #                                                                     "Clusters": results[:, 6],
+                #                                                                     "Numclus": results[:, 7],
+                #                                                                     "Clustersize": results[:, 8],}
+                #print(self.outputdata[file]["Numclus"])
+                self.outputdata[file]["base"] = Bdata(results, labels = ["Signal", "SN", "CMN", "CMsig", "Hitmap", "Channel_hit", "Clusters", "Numclus", "Clustersize"])
+                #print(get_size(self.outputdata[file]))
+                #a = bd["Numclus"]
+                #print(a)
         object.plot_data(single_event=kwargs.get("Plot_single_event", 15)) # Not very pythonic, loop inside analysis (legacy)
         # Now process additional analysis statet in the config file
         for analysis in self.add_analysis:
@@ -152,6 +158,9 @@ class main_loops:
                                                                                                     total_events = self.total_events,
                                                                                                     time = round((time()-self.start), 1))
                                                                                                     )
+        # Add the noise results to the final dict
+        self.outputdata["noise"] = {"pedestal": self.pedestal, "cmn": self.CMN, "cmnsig": self.CMsig, "noise": self.noise}
+
         self.Pool.close()
         self.Pool.join()
 
@@ -178,8 +187,13 @@ class base_analysis:
         if not self.main.usejit:
             # Non jitted version
             start = time()
+            iter = 0
             for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"): # Loop over all good events
             # Event and Cluster Calculations
+                iter +=1
+                if iter == 1000:
+                    gc.collect()
+                    iter = 0
                 signal, SN, CMN, CMsig = self.process_event(self.events[event], self.main.pedestal, meanCMN, meanCMsig,self.main.noise, self.main.numchan)
                 channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN, self.main.noise)
                 for channel in channels_hit:
@@ -332,7 +346,7 @@ class base_analysis:
 
             # Plot Hitmap
             channel_plot = fig.add_subplot(211)
-            channel_plot.bar(np.arange(self.main.numchan), data["Hitmap"][len(data["Hitmap"])-1], 1., alpha=0.4, color="b")
+            channel_plot.bar(np.arange(self.main.numchan), data["base"]["Hitmap"][len(data["base"]["Hitmap"])-1], 1., alpha=0.4, color="b")
             channel_plot.set_xlabel('channel [#]')
             channel_plot.set_ylabel('Hits [#]')
             channel_plot.set_title('Hitmap from file: {!s}'.format(name))
@@ -344,7 +358,7 @@ class base_analysis:
 
             # Plot Number of clusters
             numclusters_plot = fig.add_subplot(221)
-            bin, counts = np.unique(data["Numclus"], return_counts=True)
+            bin, counts = np.unique(data["base"]["Numclus"], return_counts=True)
             numclusters_plot.bar(bin , counts, alpha=0.4, color="b")
             numclusters_plot.set_xlabel('Number of clusters [#]')
             numclusters_plot.set_ylabel('Occurance [#]')
@@ -353,7 +367,7 @@ class base_analysis:
             # Plot clustersizes
             clusters_plot = fig.add_subplot(222)
             # Todo: make it possible to count clusters in multihit scenarios
-            bin, counts = np.unique(np.concatenate(data["Clustersize"]), return_counts=True)
+            bin, counts = np.unique(np.concatenate(data["base"]["Clustersize"]), return_counts=True)
             clusters_plot.bar(bin, counts, alpha=0.4, color="b")
             clusters_plot.set_xlabel('Clustersize [#]')
             clusters_plot.set_ylabel('Occurance [#]')
@@ -373,14 +387,14 @@ class base_analysis:
 
         # Plot signal
         channel_plot = fig.add_subplot(211)
-        channel_plot.bar(np.arange(self.main.numchan), data["Signal"][eventnum], 1., alpha=0.4, color="b")
+        channel_plot.bar(np.arange(self.main.numchan), data["base"]["Signal"][eventnum], 1., alpha=0.4, color="b")
         channel_plot.set_xlabel('channel [#]')
         channel_plot.set_ylabel('Signal [ADC]')
         channel_plot.set_title('Signal')
 
         # Plot signal/Noise
         SN_plot = fig.add_subplot(212)
-        SN_plot.bar(np.arange(self.main.numchan), data["SN"][eventnum], 1., alpha=0.4, color="b")
+        SN_plot.bar(np.arange(self.main.numchan), data["base"]["SN"][eventnum], 1., alpha=0.4, color="b")
         SN_plot.set_xlabel('channel [#]')
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise')
@@ -429,7 +443,7 @@ class calibration:
             if self.charge_data.any():
                 # Interpolate and get some extrapolation data from polynomial fit (from alibava)
                 #self.charge_cal = PchipInterpolator(self.charge_data[:,1],self.charge_data[:,0], extrapolate=False) # Test with another fit type
-                self.chargecoeff = np.polyfit(self.charge_data[:,1],self.charge_data[:,0], deg=3, full=False)
+                self.chargecoeff = np.polyfit(self.charge_data[:,1],self.charge_data[:,0], deg=4, full=False)
                 print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
                 #Todo: make it possible to define these parameters in the config file so everytime the same parameters are used
 
@@ -667,9 +681,9 @@ class langau:
         for data in tqdm(self.data, desc="(langau) Processing file:"):
             self.results_dict[data] = {}
             indizes = self.get_num_clusters(self.data[data], 1)[0] # Here events with only one cluster are choosen
-            valid_events_clustersize = np.take(self.data[data]["Clustersize"], indizes) # Get the clustersizes of valid events
-            valid_events_clusters = np.take(self.data[data]["Clusters"], indizes)
-            valid_events_Signal = np.take(self.data[data]["Signal"], indizes)  # Get the clustersizes of valid events
+            valid_events_clustersize = np.take(self.data[data]["base"]["Clustersize"], indizes) # Get the clustersizes of valid events
+            valid_events_clusters = np.take(self.data[data]["base"]["Clusters"], indizes)
+            valid_events_Signal = np.take(self.data[data]["base"]["Signal"], indizes)  # Get the clustersizes of valid events
             # Get events which show only cluster in its data
             charge_cal, noise = self.main.calibration.charge_cal, self.main.noise
             self.results_dict[data]["Clustersize"] = []
@@ -729,8 +743,8 @@ class langau:
 
             # Consider now only the seedcut hits for the langau,
             if self.main.kwargs["configs"].get("langau",{}).get("seed_cut_langau",False):
-                seed_cut_channels = self.data[data]["Channel_hit"]
-                signals = self.data[data]["Signal"]
+                seed_cut_channels = self.data[data]["base"]["Channel_hit"]
+                signals = self.data[data]["base"]["Signal"]
                 finalE = np.zeros(len(seed_cut_channels), dtype=np.float32)
                 i=0
                 for event in tqdm(seed_cut_channels, desc="(langau SC) Processing events"):
@@ -875,7 +889,7 @@ class langau:
         :param num_cluster: number of cluster which should be considered 1 is default and minimum. 0 makes no sense
         :return: list of data indizes after cluster consideration (so basically eventnumbers which are good)
         """
-        return np.nonzero(data["Numclus"] == num_cluster) # Indizes of events with the desired clusternumbers
+        return np.nonzero(data["base"]["Numclus"] == num_cluster) # Indizes of events with the desired clusternumbers
 
     def calc_hist_errors(self, x, errors, bins):
         """Calculates the errors for the bins in a histogram if error of simple point is known"""
@@ -957,16 +971,16 @@ class chargesharing:
         for data in tqdm(self.data, desc="(chargesharing) Processing file:"):
             self.results_dict[data] = {}
             # Get clustersizes of 2 and only events which show only one cluster in its data (just to be sure
-            indizes_clusters = np.nonzero(self.data[data]["Numclus"] == 1) # Indizes of events with the desired clusternumbers
-            clusters_raw = np.take(self.data[data]["Clustersize"], indizes_clusters)
+            indizes_clusters = np.nonzero(self.data[data]["base"]["Numclus"] == 1) # Indizes of events with the desired clusternumbers
+            clusters_raw = np.take(self.data[data]["base"]["Clustersize"], indizes_clusters)
             clusters_flattend = np.concatenate(clusters_raw).ravel() # so that they are easy accessible
             indizes_clustersize = np.nonzero(clusters_flattend == 2) # Indizes of events with the desired clusternumbers
             indizes = np.take(indizes_clusters, indizes_clustersize)[0]
 
 
             # Data containing the al and ar values as list entries data[0] --> al
-            raw = np.take(self.data[data]["Signal"], indizes)
-            hits = np.take(self.data[data]["Clusters"], indizes)
+            raw = np.take(self.data[data]["base"]["Signal"], indizes)
+            hits = np.take(self.data[data]["base"]["Clusters"], indizes)
             al = np.zeros(len(indizes)) # Amplitude left and right
             ar = np.zeros(len(indizes))
             final_data = np.zeros((len(indizes), 2))
@@ -1061,8 +1075,8 @@ class CCE:
         # Loop over all processed data files
         for path in self.main.pathes:
             file = str(path.split("\\")[-1].split('.')[0])  # Find the filename, warning these files must have been processed
-            if self.data[file]["langau"]:
-                ypos.append(self.data[file]["langau"]["langau_coeff"][0]) # First value is the mpv
+            if self.data[file]:
+                ypos.append(self.data[file]["langau_coeff"][0]) # First value is the mpv
                 if not y0:
                     y0 = ypos[-1]
                 ypos[-1] = ypos[-1]/y0
