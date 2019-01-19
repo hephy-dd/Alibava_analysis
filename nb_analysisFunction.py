@@ -78,7 +78,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         prodata = event_process_function(0, goodevents, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips)
         return np.array(prodata), automasked
 
-@jit(nopython = True)
+@jit(nopython = True, cache=True)
 def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5, masking=True, material=1):
     """Looks for cluster in a event"""
     channels = np.nonzero(np.abs(SN) > SN_cut)[0]  # Only channels which have a signal/Noise higher then the signal/Noise cut

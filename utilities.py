@@ -16,7 +16,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from warnings import warn
-from numba import jit
+from six.moves import cPickle as pickle #for performance
 
 def create_dictionary(file, filepath):
     '''Creates a dictionary with all values written in the file using yaml'''
@@ -204,3 +204,12 @@ class Bdata:
 
     def get(self, label):
         return self.data[:,self.labels.index(label)]
+
+def save_dict(di_, filename_):
+    with open(os.path.normpath(filename_), 'wb') as f:
+        pickle.dump(di_, f)
+
+def load_dict(filename_):
+    with open(os.path.normpath(filename_), 'rb') as f:
+        ret_di = pickle.load(f)
+    return ret_di

@@ -50,6 +50,9 @@ def do_with_config_file(config):
         # Save the plots if specified
         if config.get("Output_folder", "") and config.get("Output_name", ""):
             save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
+            #print("Size of output data: {!s} MB".format(get_size(event_data)/1000000.))
+            if config.get("Pickle_output", False):
+                save_dict(event_data.outputdata, config["Output_folder"] + "\\" + config["Output_name"] + ".dba")
         plt.show()
 
 
