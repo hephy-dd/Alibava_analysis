@@ -704,21 +704,23 @@ class langau:
                     # get the events with the different clustersizes
                     cls_ind = np.nonzero(valid_events_clustersize == size)[0]
                     # indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
-                    totalE = np.zeros(len(cls_ind))
-                    totalNoise = np.zeros(len(cls_ind))
+                    #totalE = np.zeros(len(cls_ind))
+                    #totalNoise = np.zeros(len(cls_ind))
                     # Loop over the clustersize to get total deposited energy
-                    incrementor = 0
+                    #incrementor = 0
+                    signal_clst_event = []
+                    noise_clst_event = []
                     for ind in tqdm(cls_ind, desc="(langau) Processing event"):
                         # TODO: make this work for multiple cluster in one event
                         # Signal calculations
-                        signal_clst_event = np.take(valid_events_Signal[ind], valid_events_clusters[ind][0])
-                        totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal))
-
+                        signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][0]))
                         # Noise Calculations
-                        noise_clst_event = np.take(noise, valid_events_clusters[ind][0])  # Get the Noise of an event
-                        totalNoise[incrementor] = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal)))  # eError is a list containing electron signal noise
+                        noise_clst_event.append(np.take(noise, valid_events_clusters[ind][0]))  # Get the Noise of an event
 
-                        incrementor += 1
+                    totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
+                    totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal), axis=1))  # eError is a list containing electron signal noise
+
+                        #incrementor += 1
 
                     preresults = {}
                     preresults["signal"] = totalE
@@ -745,12 +747,17 @@ class langau:
             if self.main.kwargs["configs"].get("langau",{}).get("seed_cut_langau",False):
                 seed_cut_channels = self.data[data]["base"]["Channel_hit"]
                 signals = self.data[data]["base"]["Signal"]
-                finalE = np.zeros(len(seed_cut_channels), dtype=np.float32)
-                i=0
-                for event in tqdm(seed_cut_channels, desc="(langau SC) Processing events"):
-                    if event.any(): # Cut out all garbage events
-                        finalE[i] = np.sum(convert_ADC_to_e(signals[i][event], charge_cal))
-                    i += 1
+                finalE = []
+                seedcutADC = []
+                for i, signal in enumerate(tqdm(signals, desc="(langau SC) Processing events")):
+                    if signal[seed_cut_channels[i]].any():
+                        seedcutADC.append(signal[seed_cut_channels[i]])
+
+                print("Converting ADC to electrons...")
+                converted = convert_ADC_to_e(seedcutADC, charge_cal)
+                for conv in converted:
+                    finalE.append(sum(conv))
+                finalE = np.array(finalE, dtype=np.float32)
 
                 # get rid of 0 events
                 indizes = np.nonzero(finalE > 0)[0]
@@ -980,16 +987,17 @@ class chargesharing:
 
             # Data containing the al and ar values as list entries data[0] --> al
             raw = np.take(self.data[data]["base"]["Signal"], indizes)
-            hits = np.take(self.data[data]["base"]["Clusters"], indizes)
+            raw = np.reshape(np.concatenate(raw), (len(raw),self.main.numchan))
+            hits = np.concatenate(np.take(self.data[data]["base"]["Clusters"], indizes))
             al = np.zeros(len(indizes)) # Amplitude left and right
             ar = np.zeros(len(indizes))
-            final_data = np.zeros((len(indizes), 2))
+            il = np.min(hits, axis=1)  # Indizes of left and right
+            ir = np.max(hits, axis=1)
+            #final_data = np.zeros((len(indizes), 2))
 
-            for event in range(len(raw)):
-                al[event] = raw[event][np.min(hits[event][0])] # So always the left strip is choosen
-                ar[event] = raw[event][np.max(hits[event][0])] # Same with the right strip
-                # al[event] = np.max(np.abs(raw[event][hits[event][0]]))
-                # ar[event] = np.min(np.abs(raw[event][hits[event][0]]))
+            for i, event, ali, ari, l, r in zip(range(len(al)), raw, al, ar, il, ir):
+                al[i] = event[l] # So always the left strip is choosen
+                ar[i] = event[r] # Same with the right strip
 
             # Convert ADC to actual energy
             al = convert_ADC_to_e(al, self.main.calibration.charge_cal)
