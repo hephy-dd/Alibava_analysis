@@ -19,6 +19,7 @@ from optparse import OptionParser
 from numpy import sum
 import matplotlib.pyplot as plt
 import numpy as np
+#from time import time
 
 #########################################
 # Define Landau (Moyal) and error function
@@ -140,7 +141,8 @@ def process_event(ievt, S, nchan, pedestal, noise):
 # Manin Analysis
 #########################################
 def main(fname,options):  
-    
+
+    start = time.time()
     print("HOLA")
     ##################################
     # Open data files
@@ -225,7 +227,7 @@ def main(fname,options):
     ########################
     
     #for im , ievt in enumerate(GT[0]):
-    for  ievt in  range(0,10000):
+    for  ievt in  range(0,100000):
             
         if T[ievt]<=tmin or T[ievt]>tmax :
             continue
@@ -500,7 +502,9 @@ def main(fname,options):
     #legend([p],[r'mode  %.1f sigma %.1f' % (fit_par[1], fit_par[2])],'upper right')
 
     plt.axvspan(Elecmin, Elecmax, alpha=0.20,facecolor='g')
-    
+
+    print(abs(start - time.time()))
+
     show()
 
 if __name__ == "__main__":
