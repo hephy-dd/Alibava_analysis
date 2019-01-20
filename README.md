@@ -34,7 +34,7 @@ In the future here will be a Link to the docs or something else
 
 ### Python
 
-You need python 2.7 64 bit distribution. (32 bit works as well but unstable)
+You need python 3.6 64 bit distribution. (32 bit works as well but unstable)
 I recommended to use this program with a [Anaconda](https://www.anaconda.com/download/) python distribution, it will work with a normal version too, but I have not tested it.
 
 The program is known to be running on Windows, Linux (Centos7) and Mac.
