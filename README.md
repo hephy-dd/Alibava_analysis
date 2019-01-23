@@ -44,7 +44,10 @@ The program is known to be running on Windows, Linux (Centos7) and Mac.
 
 * [Numba](http://numba.pydata.org/) - For Low-Level optimizations
 * [Numpy](http://www.numpy.org/) - For numerical operations
+* [SciPy](https://www.scipy.org/) - For numerical operations
 * [Matplotlib](https://matplotlib.org/) - For the plots
+* [PyLandau](https://github.com/SiLab-Bonn/pylandau) - For Langau fitting
+
 
 ## Authors
 
