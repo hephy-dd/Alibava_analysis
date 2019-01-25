@@ -9,17 +9,16 @@ __email__ = "dominic.bloech@oeaw.ac.at"
 from utilities import *
 import warnings
 from scipy.stats import norm
-import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 from scipy.optimize import curve_fit
 import pylandau
-from nb_analysisFunction import *
+from nb_analysis import *
 from time import time
 from multiprocessing import Pool
 import gc
 
 
-class main_loops:
+class main_analysis:
     """This class analyses measurement files per event and conducts additional defined analysis"""
 
     def __init__(self, path_list = None, **kwargs):
@@ -53,53 +52,40 @@ class main_loops:
         self.pathes = path_list
         self.kwargs = kwargs
         self.noise_analysis = kwargs["configs"].get("noise_analysis", None)
+        self.calibration = kwargs["configs"].get("calibration", None)
+        #self.kwargs = kwargs.get("configs", {}) # If a config was passeds it has to be a dict containig all settings therefore kwargs rewritten
 
-
-
-
-        if "configs" in kwargs:
-            kwargs = kwargs["configs"] # If a config was passeds it has to be a dict containig all settings therefore kwargs rewritten
+        self.pedestal = self.noise_analysis.pedestal
+        self.CMN = self.noise_analysis.CMnoise
+        self.CMsig = self.noise_analysis.CMsig
+        self.noise = self.noise_analysis.noise
+        self.SN_cut = self.kwargs["configs"]["SN_cut"]  # Cut for the signal to noise ratio
 
         # For additional analysis
-        self.add_analysis = kwargs.get("additional_analysis", [])
+        self.add_analysis = kwargs["configs"].get("additional_analysis", [])
         if not self.add_analysis:
             self.add_analysis = []
 
         # Material decision
-        self.material = kwargs.get("sensor_type", "n-in-p")
+        self.material = kwargs["configs"].get("sensor_type", "n-in-p")
         if self.material == "n-in-p":
             self.material = 1
         else:
-            self.material = 0
+            self.material = 0 # Easier to handle
 
-        self.masking = kwargs.get("automasking", False)
-        self.max_clustersize = kwargs.get("max_cluster_size", 5)
-        self.SN_ratio = kwargs.get("SN_ratio", 0.5)
-        self.usejit = kwargs.get("optimize", False)
-        self.calibration = kwargs.get("calibration", None)
-        self.SN_cluster = kwargs.get("SN_cluster", 6)
-        self.process_pool = kwargs.get("Processes", 1)
+        self.masking = kwargs["configs"].get("automasking", False)
+        self.max_clustersize = kwargs["configs"].get("max_cluster_size", 5)
+        self.SN_ratio = kwargs["configs"].get("SN_ratio", 0.5)
+        self.usejit = kwargs["configs"].get("optimize", False)
+        self.SN_cluster = kwargs["configs"].get("SN_cluster", 6)
+
+        # Create a pool for multiprocessing
+        self.process_pool = kwargs["configs"].get("Processes", 1)  # How many workers
         self.Pool = Pool(processes=self.process_pool)
 
-
-        if "pedestal" in kwargs:
-            self.pedestal = kwargs["pedestal"]
-
-        if "SN_cut" in kwargs:
-            self.SN_cut = kwargs["SN_cut"] # Cut for the signal to noise ratio
-
-        if "CMN" in kwargs:
-            self.CMN = kwargs["CMN"] # CMN for every channel and event
-
-        if "CMsig" in kwargs:
-            self.CMsig = kwargs["CMsig"] # Common mode sig for every channel
-
-        if "Noise" in kwargs:
-            self.noise = kwargs["Noise"] # Noise for every channel and event
-
-        if "timing" in kwargs:
-            self.min = kwargs["timing"][0] # timinig window
-            self.max = kwargs["timing"][1] # timing maximum
+        if "timing" in kwargs["configs"]:
+            self.min = kwargs["configs"]["timing"][0] # timinig window
+            self.max = kwargs["configs"]["timing"][1] # timing maximum
 
         print("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
@@ -113,25 +99,10 @@ class main_loops:
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 object = base_analysis(self, events, timing) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
                 results = object.run()
-                #print(results[:,7])
-                # make the data easy accessible: results(array) --> entries are events --> containing data eg indes 0 ist signal
-                # So now order the data Dictionary --> Filename:Type of data: List of all events for specific data type ---> results[: (take all events), 0 (give me data from signal]
-                # Resulting is an array containing all singal data etc.
-                #self.outputdata[file] =                                             {"Signal": results[:,0],
-                #                                                                     "SN": results[:, 1],
-                #                                                                     "CMN": results[:, 2],
-                #                                                                     "CMsig": results[:, 3],
-                #                                                                     "Hitmap": results[:, 4],
-                #                                                                     "Channel_hit": results[:, 5],
-                #                                                                     "Clusters": results[:, 6],
-                #                                                                     "Numclus": results[:, 7],
-                #                                                                     "Clustersize": results[:, 8],}
-                #print(self.outputdata[file]["Numclus"])
+
                 self.outputdata[file]["base"] = Bdata(results, labels = ["Signal", "SN", "CMN", "CMsig", "Hitmap", "Channel_hit", "Clusters", "Numclus", "Clustersize"])
-                #print(get_size(self.outputdata[file]))
-                #a = bd["Numclus"]
-                #print(a)
-        object.plot_data(single_event=kwargs.get("Plot_single_event", 15)) # Not very pythonic, loop inside analysis (legacy)
+
+        object.plot_data(single_event=kwargs["configs"].get("Plot_single_event", 15)) # Not very pythonic, loop inside analysis (legacy)
         # Now process additional analysis statet in the config file
         for analysis in self.add_analysis:
             print("Starting analysis: {!s}".format(analysis))
@@ -529,7 +500,7 @@ class noise_analysis:
                 self.noise = np.std(self.score_raw,axis=0)  # Calculate the actual noise for every channel by building the mean of all noise from every event
                 self.noisy_strips, self.good_strips = self.detect_noisy_strips(self.noise, configs.get("Noise_cut", 5.))
                 self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.signal[:,self.good_strips], self.pedestal[self.good_strips])
-                #self.noise_corr = np.std(self.score, axis=0)
+                self.noise_corr = np.std(self.score, axis=0)
                 end = time()
                 print("Time taken: {!s} seconds".format(round(abs(end-start), 2)))
             self.total_noise = np.concatenate(self.score, axis=0)

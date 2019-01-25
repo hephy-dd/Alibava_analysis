@@ -1,6 +1,6 @@
 # This file is the main analysis file here all processes will be started
 
-from analysis_functions import *
+from analysis import *
 import os
 from optparse import OptionParser
 import matplotlib.pyplot as plt
@@ -38,28 +38,15 @@ def do_with_config_file(config):
     if "Measurement_file" in config:
         # TODO: potential call before assignment error !!! with pedestal file
 
-        config.update({"pedestal": noise_data.pedestal,
-                        "CMN": noise_data.CMnoise,
-                        "CMsig": noise_data.CMsig,
-                        "Noise": noise_data.noise,
-                       "calibration": config_data,
+        config.update({"calibration": config_data,
                        "noise_analysis": noise_data})
 
-        event_data = main_loops(config["Measurement_file"], configs = config) # Is adictionary containing all keys and values for configuration
-        #event_data.plot_data(single_event=config.get("Plot_single_event", 15))
+        event_data = main_analysis(config["Measurement_file"], configs = config) # Is adictionary containing all keys and values for configuration
         # Save the plots if specified
         if config.get("Output_folder", "") and config.get("Output_name", ""):
             save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
-            #print("Size of output data: {!s} MB".format(get_size(event_data)/1000000.))
             if config.get("Pickle_output", False):
                 save_dict(event_data.outputdata, config["Output_folder"] + "\\" + config["Output_name"] + ".dba")
-        plt.show()
-
-
-
-
-
-
 
 # Parse some options to the main analysis
 parser = OptionParser()
@@ -75,13 +62,5 @@ parser.add_option("--file",
                   )
 (options, args) = parser.parse_args()
 
-#try:
 if __name__ == "__main__":
     main(args, options)
-#except KeyError:
-    #print("ERROR: I need an input file!")
-#except IndexError:
-    #print("ERROR: I need at least one parameter to work properly!")
-
-
-
