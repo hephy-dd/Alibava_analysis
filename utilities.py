@@ -7,8 +7,8 @@ __author__ = "Dominic Bloech"
 __email__ = "dominic.bloech@oeaw.ac.at"
 
 # Import statements
-import os
 import sys
+import os
 from tqdm import tqdm
 import h5py
 import yaml

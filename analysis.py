@@ -17,6 +17,33 @@ from time import time
 from multiprocessing import Pool
 import gc
 
+def do_with_config_file(config):
+    """Starts analysis with a config file"""
+
+    # Look if a calibration file is specified
+    if "Delay_scan" in config or "Charge_scan" in config:
+        config_data = calibration(config.get("Delay_scan",""), config.get("Charge_scan",""))
+        config_data.plot_data()
+
+    # Look if a pedestal file is specified
+    if "Pedestal_file" in config:
+        noise_data = noise_analysis(config["Pedestal_file"], usejit=config.get("optimize", False), configs=config)
+        noise_data.plot_data()
+
+    # Look if a pedestal file is specified
+    if "Measurement_file" in config:
+        # TODO: potential call before assignment error !!! with pedestal file
+
+        config.update({"calibration": config_data,
+                       "noise_analysis": noise_data})
+
+        event_data = main_analysis(config["Measurement_file"], configs = config) # Is adictionary containing all keys and values for configuration
+        # Save the plots if specified
+        if config.get("Output_folder", "") and config.get("Output_name", ""):
+            save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
+            if config.get("Pickle_output", False):
+                save_dict(event_data.outputdata, config["Output_folder"] + "\\" + config["Output_name"] + ".dba")
+        return event_data.outputdata
 
 class main_analysis:
     """This class analyses measurement files per event and conducts additional defined analysis"""
