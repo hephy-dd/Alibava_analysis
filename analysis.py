@@ -20,15 +20,15 @@ import gc
 def do_with_config_file(config):
     """Starts analysis with a config file"""
 
-    # Look if a calibration file is specified
-    if "Delay_scan" in config or "Charge_scan" in config:
-        config_data = calibration(config.get("Delay_scan",""), config.get("Charge_scan",""))
-        config_data.plot_data()
-
     # Look if a pedestal file is specified
     if "Pedestal_file" in config:
         noise_data = noise_analysis(config["Pedestal_file"], usejit=config.get("optimize", False), configs=config)
         noise_data.plot_data()
+
+    # Look if a calibration file is specified
+    if "Delay_scan" in config or "Charge_scan" in config:
+        config_data = calibration(config.get("Delay_scan",""), config.get("Charge_scan",""), pedestal = noise_data.pedestal)
+        config_data.plot_data()
 
     # Look if a pedestal file is specified
     if "Measurement_file" in config:
@@ -56,6 +56,12 @@ class main_analysis:
         """
 
         # Init parameters
+
+        if not path_list:
+            print("No file to analyse passed...")
+            self.outputdata = {}
+            return
+
         print("Loading event file(s): {!s}".format(path_list))
 
         if not kwargs["configs"].get("isBinary", False):
@@ -413,7 +419,7 @@ class base_analysis:
 class calibration:
     """This class handles all concerning the calibration"""
 
-    def __init__(self, delay_path = "", charge_path = ""):
+    def __init__(self, delay_path = "", charge_path = "", pedestal = np.zeros(256)):
         """
         :param delay_path: Path to calibration file
         :param charge_path: Path to calibration file
@@ -423,6 +429,7 @@ class calibration:
         self.delay_cal = None
         self.delay_data = None
         self.charge_data = None
+        self.pedestal = pedestal
 
         self.charge_calibration_calc(charge_path)
         self.delay_calibration_calc(delay_path)
@@ -431,27 +438,50 @@ class calibration:
     def delay_calibration_calc(self, delay_path):
         # Delay scan
         print("Loading delay file: {!s}".format(delay_path))
-        self.delay_data = read_file(delay_path)
-        if self.delay_data:
-            self.delay_data = get_xy_data(self.delay_data, 2)
+        self.delay_data = import_h5(delay_path)[0]
+        pulses = np.array(self.delay_data["scan"]["value"][:])  # aka xdata
+        signals = np.array(self.delay_data["events"]["signal"][:])#- self.pedestal  # signals per pulse
+        sigppulse = int(len(signals) / len(pulses))  # How many signals per pulses
+        self.meansig_delay = []  # mean per pulse per channel
+        start = 0
+        for i in range(sigppulse, len(signals) + sigppulse, sigppulse):
+            self.meansig_delay.append(np.mean(signals[start:i], axis=0))
+            start = i
 
-            if self.delay_data.any():
-                # Interpolate data with cubic spline interpolation
-                self.delay_cal = CubicSpline(self.delay_data[:,0],self.delay_data[:,1], extrapolate=True)
+        # Interpolate and get some extrapolation data from polynomial fit (from alibava)
+        self.delay_cal = []
+        data = np.array(self.meansig_delay).transpose()
+        #datamoffset = data - data[0]
+        for pul in data:
+            self.delay_cal.append(CubicSpline(pulses, pul))
+        # print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
+        self.delay_cal = np.array(self.delay_cal)
+
+        # Interpolate data with cubic spline interpolation
+        #self.delay_cal = CubicSpline(self.delay_data[:,0],self.delay_data[:,1], extrapolate=True)
 
     def charge_calibration_calc(self, charge_path):
         # Charge scan
         print("Loading charge calibration file: {!s}".format(charge_path))
         self.charge_data = import_h5(charge_path)[0]
         if self.charge_data:
-            self.charge_data = get_xy_data(self.charge_data, 2)
+            pulses = np.array(self.charge_data["scan"]["value"][:]) # aka xdata
+            signals = np.array(self.charge_data["events"]["signal"][:]) - self.pedestal # signals per pulse
+            sigppulse = int(len(signals)/len(pulses)) # How many signals per pulses
+            self.meansig_charge = [] # mean per pulse per channel
+            start = 0
+            for i in range(sigppulse,len(signals)+sigppulse,sigppulse):
+                self.meansig_charge.append(np.mean(signals[start:i], axis=0))
+                start = i
 
-            if self.charge_data.any():
-                # Interpolate and get some extrapolation data from polynomial fit (from alibava)
-                #self.charge_cal = PchipInterpolator(self.charge_data[:,1],self.charge_data[:,0], extrapolate=False) # Test with another fit type
-                self.chargecoeff = np.polyfit(self.charge_data[:,1],self.charge_data[:,0], deg=4, full=False)
-                print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
-                #Todo: make it possible to define these parameters in the config file so everytime the same parameters are used
+            # Interpolate and get some extrapolation data from polynomial fit (from alibava)
+            self.chargecoeff = []
+            data = np.array(self.meansig_charge).transpose()
+            #datamoffset = data-data[0]
+            for pul in data:
+                self.chargecoeff.append(np.polyfit(pulses, pul, deg=4, full=False))
+            #print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
+            self.chargecoeff = np.array(self.chargecoeff)
 
 
     def charge_cal(self, x):
@@ -465,18 +495,18 @@ class calibration:
 
             # Plot delay
             delay_plot = fig.add_subplot(212)
-            delay_plot.bar(self.delay_data[:,0], self.delay_data[:,1], 5., alpha=0.4, color="b")
-            delay_plot.plot(self.delay_data[:, 0], self.delay_cal(self.delay_data[:, 0]), "r--", color="g")
+            delay_plot.bar(self.delay_data["scan"]["value"][:], np.mean(self.meansig_delay,axis=1), 1., alpha=0.4, color="b")
+            #delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay[:,60], 1., alpha=0.4, color="b")
             delay_plot.set_xlabel('time [ns]')
             delay_plot.set_ylabel('Signal [ADC]')
             delay_plot.set_title('Delay plot')
 
             # Plot charge
             charge_plot = fig.add_subplot(211)
-            charge_plot.bar(self.charge_data[:, 0], self.charge_data[:, 1], 2000., alpha=0.4, color="b")
+            #charge_plot.bar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge,axis=1), 1000., alpha=0.4, color="b")
             cal_range = np.array(np.arange(1., 700., 10.))
-            charge_plot.plot(self.charge_cal(cal_range), cal_range, "r--", color="g")
-            #charge_plot.plot(self.charge_cal(self.charge_data[:, 1]), self.charge_data[:, 1], "r--", color="g")
+            #charge_plot.plot(self.charge_cal(cal_range), cal_range, "r--", color="g")
+            charge_plot.plot(self.charge_cal(self.charge_data[:, 1]), self.charge_data[:, 1], "r--", color="g")
             charge_plot.set_xlabel('Charge [e-]')
             charge_plot.set_ylabel('Signal [ADC]')
             charge_plot.set_title('Charge plot')
