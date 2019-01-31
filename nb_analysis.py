@@ -97,7 +97,6 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
 
     if masking:
         if material:
-            # Todo: masking of dead channels etc.
             masked_ind = np.nonzero(np.take(event, channels) > 0)[0]  # So only negative values are considered
             valid_ind = np.nonzero(event < 0)[0]
             automasked_hit += len(masked_ind)
@@ -107,9 +106,7 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
             automasked_hit += len(masked_ind)
     else:
         valid_ind = np.arange(strips)
-        #masked_ind = np.zeros([-1])
 
-    #masked_list = list(masked_ind)
     for i in valid_ind: # Define valid index to search for
         used_channels[i] = 0
 

@@ -17,6 +17,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from warnings import warn
 from six.moves import cPickle as pickle #for performance
+import struct
 
 def create_dictionary(file, filepath):
     '''Creates a dictionary with all values written in the file using yaml'''
@@ -63,12 +64,69 @@ def get_xy_data(data, header=0):
             np2Darray[i-header] = np.array(list_data)
     return np2Darray
 
-def read_file(filepath):
+def read_binary_Alibava(filepath):
+    """Reads binary alibava files"""
+
+    with open(os.path.normpath(filepath), "rb") as f:
+        Starttime = struct.unpack("II", f.read(8))[0]  # Is a uint32
+        Runtype = struct.unpack("i", f.read(4))[0]  # int32
+        Headerlength = struct.unpack("I", f.read(4))
+        Header = struct.unpack("{}s".format(Headerlength[0]), f.read(Headerlength[0]))[0].decode("Utf-8")
+        Pedestal = np.array(struct.unpack("d" * 256, f.read(8 * 256)), dtype=np.float32)
+        Noise = np.array(struct.unpack("d" * 256, f.read(8 * 256)), dtype=np.float32)
+
+        # Data Blocks
+        # Read all data Blocks
+        events = Header.split("|")[1].split(";")[0]
+        event_data = []
+        for event in range(int(events)):
+            blockheader = f.read(4)  # should be 0xcafe002
+            if blockheader == b'\x02\x00\xfe\xca' or blockheader == b'\xca\xfe\x00\x02':
+                blocksize = struct.unpack("I", f.read(4))
+                event_data.append(f.read(blocksize[0]))
+            else:
+                print("Warning data Block header was not the 0xcafe0002 it was {!s}".format(str(blockheader)))
+
+        dict = {"header": {
+                            "noise": Noise,
+                            "pedestal": Pedestal,
+                            "Attribute:setup": None
+                            },
+                "events": {
+                            "header": Header,
+                            "signal": np.zeros((int(events),256), dtype=np.float32),
+                            "temperature": np.zeros(int(events), dtype=np.float32),
+                            "time": np.zeros(int(events), dtype=np.float32),
+                            "clock": np.zeros(int(events), dtype=np.float32)
+                            },
+                "scan": {
+                        "start": Starttime,
+                        "end": None,
+                        "value": Runtype,
+                        "attribute:scan_definition": Noneg
+                        }
+                }
+
+        # decode data from data Blocks
+        for i, event in enumerate(event_data):
+            dict["events"]["clock"][i] = struct.unpack("III", event[0:12])[-1]
+            dict["events"]["time"][i] = struct.unpack("I", event[12:16])[0]
+            dict["events"]["temperature"][i] = 0.12*struct.unpack("H", event[16:18])[0]-39.8
+            dict["events"]["signal"][i] =struct.unpack("H"*256, event[18:18+2*256])
+            #extra = struct.unpack("f", event[18+2*256:18+2*256+4])[0]
+
+    return dict
+
+def read_file(filepath, binary=False):
     """Just reads a file and returns the content line by line"""
     if os.path.exists(os.path.normpath(filepath)):
-        with open(os.path.normpath(filepath), 'r') as f:
-            read_data = f.readlines()
-        return read_data
+        if not binary:
+            with open(os.path.normpath(filepath), 'r') as f:
+                read_data = f.readlines()
+            return read_data
+        else:
+            return read_binary_Alibava(filepath)
+
     else:
         print("No valid path passed: {!s}".format(filepath))
         return None
@@ -213,3 +271,7 @@ def load_dict(filename_):
     with open(os.path.normpath(filename_), 'rb') as f:
         ret_di = pickle.load(f)
     return ret_di
+
+
+if __name__ == "__main__":
+    read_file('C:\\Users\\dbloech\\Desktop\\run002_1E4.dat', True)

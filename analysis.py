@@ -57,10 +57,16 @@ class main_analysis:
 
         # Init parameters
         print("Loading event file(s): {!s}".format(path_list))
-        self.data = import_h5(path_list)
 
-        self.numchan = len(self.data[0]["events/signal"][0])
-        self.numevents = len(self.data[0]["events/signal"])
+        if not kwargs["configs"].get("isBinary", False):
+            self.data = import_h5(path_list)
+        else:
+            self.data = []
+            for path in path_list:
+                self.data.append(read_file(path, binary=True))
+
+        self.numchan = len(self.data[0]["events"]["signal"][0])
+        self.numevents = len(self.data[0]["events"]["signal"])
         self.pedestal = np.zeros(self.numchan, dtype=np.float32)
         self.noise = np.zeros(self.numchan, dtype=np.float32)
         self.SN_cut = 1
@@ -117,11 +123,13 @@ class main_analysis:
         print("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
         for data in tqdm(range(len(self.data)), desc="Data files processed:"):
-                events = np.array(self.data[data]["events/signal"][:], dtype=np.float32)
-                timing = np.array(self.data[data]["events/time"][:], dtype=np.float32)
+                events = np.array(self.data[data]["events"]["signal"][:], dtype=np.float32)
+                timing = np.array(self.data[data]["events"]["time"][:], dtype=np.float32)
 
-
-                file = str(self.data[data]).split('"')[1].split('.')[0]
+                try:
+                    file = str(self.data[data]).split('"')[1].split('.')[0]
+                except:
+                    file = str(data)
                 self.outputdata[file] = {}
                 # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
                 object = base_analysis(self, events, timing) # you get back a list with events, containing the event processed data --> np array makes it easier to slice
@@ -434,7 +442,7 @@ class calibration:
     def charge_calibration_calc(self, charge_path):
         # Charge scan
         print("Loading charge calibration file: {!s}".format(charge_path))
-        self.charge_data = read_file(charge_path)
+        self.charge_data = import_h5(charge_path)[0]
         if self.charge_data:
             self.charge_data = get_xy_data(self.charge_data, 2)
 
