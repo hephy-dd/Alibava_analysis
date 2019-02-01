@@ -27,7 +27,7 @@ def do_with_config_file(config):
 
     # Look if a calibration file is specified
     if "Delay_scan" in config or "Charge_scan" in config:
-        config_data = calibration(config.get("Delay_scan",""), config.get("Charge_scan",""), pedestal = noise_data.pedestal)
+        config_data = calibration(config.get("Delay_scan",""), config.get("Charge_scan",""), Noise_calc = noise_data, isBinary=config.get("isBinary",False))
         config_data.plot_data()
 
     # Look if a pedestal file is specified
@@ -419,7 +419,7 @@ class base_analysis:
 class calibration:
     """This class handles all concerning the calibration"""
 
-    def __init__(self, delay_path = "", charge_path = "", pedestal = np.zeros(256)):
+    def __init__(self, delay_path = "", charge_path = "", Noise_calc = {}, isBinary = False):
         """
         :param delay_path: Path to calibration file
         :param charge_path: Path to calibration file
@@ -429,7 +429,15 @@ class calibration:
         self.delay_cal = None
         self.delay_data = None
         self.charge_data = None
-        self.pedestal = pedestal
+        self.pedestal = Noise_calc.pedestal
+        self.noisy_channels = Noise_calc.noisy_strips
+        self.chargecoeff = []
+        self.meancoeff = None # Mean coefficient out of all calibrations curves
+        self.meansig_charge = []  # mean per pulse per channel
+        self.charge_sig = None # Standard deviation of all charge calibartions
+        self.delay_cal = []
+        self.meansig_delay = []  # mean per pulse per channel
+        self.isBinary = isBinary
 
         self.charge_calibration_calc(charge_path)
         self.delay_calibration_calc(delay_path)
@@ -438,54 +446,65 @@ class calibration:
     def delay_calibration_calc(self, delay_path):
         # Delay scan
         print("Loading delay file: {!s}".format(delay_path))
-        self.delay_data = import_h5(delay_path)[0]
+        if not self.isBinary:
+            self.delay_data = import_h5(delay_path)[0]
+        else:
+            self.delay_data = read_binary_Alibava(delay_path)
+
         pulses = np.array(self.delay_data["scan"]["value"][:])  # aka xdata
-        signals = np.array(self.delay_data["events"]["signal"][:])#- self.pedestal  # signals per pulse
+        signals = np.array(self.delay_data["events"]["signal"][:]) - self.pedestal  # signals per pulse
+        signals = np.delete(signals, self.noisy_channels, axis=1)
         sigppulse = int(len(signals) / len(pulses))  # How many signals per pulses
-        self.meansig_delay = []  # mean per pulse per channel
+
         start = 0
         for i in range(sigppulse, len(signals) + sigppulse, sigppulse):
-            self.meansig_delay.append(np.mean(signals[start:i], axis=0))
+            self.meansig_delay.append(np.mean(signals[start:i], axis=1))
             start = i
 
         # Interpolate and get some extrapolation data from polynomial fit (from alibava)
-        self.delay_cal = []
-        data = np.array(self.meansig_delay).transpose()
-        #datamoffset = data - data[0]
-        for pul in data:
-            self.delay_cal.append(CubicSpline(pulses, pul))
+        self.meansig_delay = np.mean(self.meansig_delay, axis=1)
+        self.delay_cal = CubicSpline(pulses, self.meansig_delay)
         # print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
-        self.delay_cal = np.array(self.delay_cal)
-
-        # Interpolate data with cubic spline interpolation
-        #self.delay_cal = CubicSpline(self.delay_data[:,0],self.delay_data[:,1], extrapolate=True)
 
     def charge_calibration_calc(self, charge_path):
         # Charge scan
         print("Loading charge calibration file: {!s}".format(charge_path))
-        self.charge_data = import_h5(charge_path)[0]
+        if not self.isBinary:
+            self.charge_data = import_h5(charge_path)[0]
+        else:
+            self.charge_data = read_binary_Alibava(charge_path)
         if self.charge_data:
             pulses = np.array(self.charge_data["scan"]["value"][:]) # aka xdata
             signals = np.array(self.charge_data["events"]["signal"][:]) - self.pedestal # signals per pulse
+            signals = np.delete(signals, self.noisy_channels, axis=1)
+
+            # Warning it seem that alibava calibrates in this order:
+            # 1) Alternating pulses (pos/neg) on strips --> Strip 1-->pos, Strip2-->neg
+            # 2) Next time other way round.
+            # 3) Repeat until samplesize is is filled
+
             sigppulse = int(len(signals)/len(pulses)) # How many signals per pulses
-            self.meansig_charge = [] # mean per pulse per channel
+
             start = 0
             for i in range(sigppulse,len(signals)+sigppulse,sigppulse):
-                self.meansig_charge.append(np.mean(signals[start:i], axis=0))
+                # Calculate the absolute value of the difference of each strip to the pedestal and mean it
+                raw = np.mean(np.abs(signals[start:i]), axis=0)
+                self.meansig_charge.append(raw)
                 start = i
 
             # Interpolate and get some extrapolation data from polynomial fit (from alibava)
-            self.chargecoeff = []
             data = np.array(self.meansig_charge).transpose()
             #datamoffset = data-data[0]
             for pul in data:
-                self.chargecoeff.append(np.polyfit(pulses, pul, deg=4, full=False))
+                self.chargecoeff.append(np.polyfit(pul, pulses, deg=4, full=False))
             #print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
+            self.meancoeff = np.polyfit(np.mean(self.meansig_charge,axis=1), pulses,  deg=4, full=False)
+            self.charge_sig = np.polyval(self.meancoeff, np.std(self.meansig_charge,axis=1))
             self.chargecoeff = np.array(self.chargecoeff)
 
 
     def charge_cal(self, x):
-        return np.polyval(self.chargecoeff, x)
+        return np.polyval(self.meancoeff, x)
 
     def plot_data(self):
         """Plots the processed data"""
@@ -494,22 +513,50 @@ class calibration:
             fig = plt.figure("Calibration")
 
             # Plot delay
-            delay_plot = fig.add_subplot(212)
-            delay_plot.bar(self.delay_data["scan"]["value"][:], np.mean(self.meansig_delay,axis=1), 1., alpha=0.4, color="b")
+            delay_plot = fig.add_subplot(222)
+            delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay, 1., alpha=0.4, color="b")
             #delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay[:,60], 1., alpha=0.4, color="b")
             delay_plot.set_xlabel('time [ns]')
             delay_plot.set_ylabel('Signal [ADC]')
             delay_plot.set_title('Delay plot')
 
             # Plot charge
-            charge_plot = fig.add_subplot(211)
-            #charge_plot.bar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge,axis=1), 1000., alpha=0.4, color="b")
-            cal_range = np.array(np.arange(1., 700., 10.))
-            #charge_plot.plot(self.charge_cal(cal_range), cal_range, "r--", color="g")
-            charge_plot.plot(self.charge_cal(self.charge_data[:, 1]), self.charge_data[:, 1], "r--", color="g")
+            charge_plot = fig.add_subplot(221)
             charge_plot.set_xlabel('Charge [e-]')
             charge_plot.set_ylabel('Signal [ADC]')
             charge_plot.set_title('Charge plot')
+            charge_plot.bar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge,axis=1), 2000., alpha=0.4, color="b", label="Mean of all gains")
+            cal_range = np.array(np.arange(1., 450., 10.))
+            charge_plot.plot(np.polyval(self.meancoeff, cal_range), cal_range, "r--", color="g")
+            charge_plot.errorbar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge,axis=1), xerr=self.charge_sig, fmt='o', markersize=1,color="red", label= "Error in e-")
+            charge_plot.legend()
+
+            # Gain per Strip at ADC 100
+            gain_plot = fig.add_subplot(223)
+            gain_plot.set_xlabel('Channel [#]')
+            gain_plot.set_ylabel('Gain [e- at 100 ADC]')
+            gain_plot.set_title('Gain per Channel')
+            gain_plot.set_ylim(0, 50000)
+            gain = []
+            for coeff in self.chargecoeff:
+                gain.append(np.polyval(coeff, 100.))
+
+            gain_plot.bar(np.arange(len(self.pedestal)-len(self.noisy_channels)), gain, alpha=0.4, color="b", label="Only non masked channels")
+            gain_plot.legend()
+
+            # Gain hist per Strip at ADC 100
+            gain_hist = fig.add_subplot(224)
+            gain_hist.set_ylabel('Count [#]')
+            gain_hist.set_xlabel('Gain [e- at 100 ADC]')
+            gain_hist.set_title('Gain Histogram')
+            gain_hist.hist(gain, alpha=0.4, bins = 20, color="b", label="Only non masked channels")
+            gain_hist.legend()
+
+
+
+
+
+
 
             fig.tight_layout()
             #plt.draw()
@@ -580,10 +627,11 @@ class noise_analysis:
         good_strips = np.arange(len(Noise))
         # Calculate the
         self.median_noise = np.median(Noise)
-        high_noise_strips = np.nonzero(Noise > self.median_noise+Noise_cut)
+        high_noise_strips = np.nonzero(Noise > self.median_noise+Noise_cut)[0]
+        high_noise_strips = np.append(high_noise_strips, self.configs["Manual_mask"])
         good_strips = np.delete(good_strips, high_noise_strips)
 
-        return high_noise_strips[0], good_strips
+        return high_noise_strips, good_strips
 
 
 

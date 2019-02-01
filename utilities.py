@@ -68,10 +68,12 @@ def read_binary_Alibava(filepath):
     """Reads binary alibava files"""
 
     with open(os.path.normpath(filepath), "rb") as f:
-        Starttime = struct.unpack("II", f.read(8))[0]  # Is a uint32
-        Runtype = struct.unpack("i", f.read(4))[0]  # int32
-        Headerlength = struct.unpack("I", f.read(4))
-        Header = struct.unpack("{}s".format(Headerlength[0]), f.read(Headerlength[0]))[0].decode("Utf-8")
+        header = f.read(16)
+        Starttime = struct.unpack("II", header[0:8])[0]  # Is a uint32
+        Runtype = struct.unpack("i", header[8:12])[0]  # int32
+        Headerlength = struct.unpack("I", header[12:16])
+        header = f.read(Headerlength[0])
+        Header = struct.unpack("{}s".format(Headerlength[0]), header)[0].decode("Utf-8")
         Pedestal = np.array(struct.unpack("d" * 256, f.read(8 * 256)), dtype=np.float32)
         Noise = np.array(struct.unpack("d" * 256, f.read(8 * 256)), dtype=np.float32)
 
@@ -79,6 +81,7 @@ def read_binary_Alibava(filepath):
         # Read all data Blocks
         events = Header.split("|")[1].split(";")[0]
         event_data = []
+        events = 32*150
         for event in range(int(events)):
             blockheader = f.read(4)  # should be 0xcafe002
             if blockheader == b'\x02\x00\xfe\xca' or blockheader == b'\xca\xfe\x00\x02':
@@ -102,18 +105,30 @@ def read_binary_Alibava(filepath):
                 "scan": {
                         "start": Starttime,
                         "end": None,
-                        "value": Runtype,
-                        "attribute:scan_definition": Noneg
+                        "value": None,
+                        "attribute:scan_definition": None
                         }
                 }
+
+        # Disect the header for the correct informations for values
+        points = Header.split("|")[1].split(";")
+        dict["scan"]["value"] = np.arange(int(points[1]), int(points[2]), int(points[3].strip("\x00")))  # aka xdata
 
         # decode data from data Blocks
         for i, event in enumerate(event_data):
             dict["events"]["clock"][i] = struct.unpack("III", event[0:12])[-1]
             dict["events"]["time"][i] = struct.unpack("I", event[12:16])[0]
             dict["events"]["temperature"][i] = 0.12*struct.unpack("H", event[16:18])[0]-39.8
-            dict["events"]["signal"][i] =struct.unpack("H"*256, event[18:18+2*256])
-            #extra = struct.unpack("f", event[18+2*256:18+2*256+4])[0]
+
+            # There seems to be garbage data which needs to be cut out
+            padding = 18+32
+            part1 = list(struct.unpack("h"*128, event[padding:padding+2*128]))
+            padding += 2*130+28
+            part2 = list(struct.unpack("h" * 128, event[padding:padding + 2*128]))
+            part1.extend(part2)
+            dict["events"]["signal"][i] = np.array(part1)
+            #dict["events"]["signal"][i] =struct.unpack("H"*256, event[18:18+2*256])
+            #extra = struct.unpack("d", event[18+2*256:18+2*256+4])[0]
 
     return dict
 
