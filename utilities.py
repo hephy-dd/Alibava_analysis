@@ -76,19 +76,29 @@ def read_binary_Alibava(filepath):
         Header = struct.unpack("{}s".format(Headerlength[0]), header)[0].decode("Utf-8")
         Pedestal = np.array(struct.unpack("d" * 256, f.read(8 * 256)), dtype=np.float32)
         Noise = np.array(struct.unpack("d" * 256, f.read(8 * 256)), dtype=np.float32)
+        byteorder = sys.byteorder
 
         # Data Blocks
         # Read all data Blocks
-        events = Header.split("|")[1].split(";")[0]
+        # Warning Alibava Binary calibration files have no indicatior how many events are really inside the file
+        # The eventnumber corresponds to the pulse number --> Readout of files have to be done until end of file is reached
+        # and the eventnumber must be calculated --> Advantage: Damaged files can be read as well
+        #events = Header.split("|")[1].split(";")[0]
         event_data = []
-        events = 32*150
-        for event in range(int(events)):
+        events = 0
+        eof = False
+        #for event in range(int(events)):
+        while not eof:
             blockheader = f.read(4)  # should be 0xcafe002
             if blockheader == b'\x02\x00\xfe\xca' or blockheader == b'\xca\xfe\x00\x02':
+                events += 1
                 blocksize = struct.unpack("I", f.read(4))
                 event_data.append(f.read(blocksize[0]))
             else:
-                print("Warning data Block header was not the 0xcafe0002 it was {!s}".format(str(blockheader)))
+                print("Warning: While reading data Block {}. Header was not the 0xcafe0002 it was {!s}".format(events, str(blockheader)))
+                if not blockheader:
+                    print("Persumably end of binary file reached. Events read: {}".format(events))
+                    eof = True
 
         dict = {"header": {
                             "noise": Noise,
@@ -105,19 +115,35 @@ def read_binary_Alibava(filepath):
                 "scan": {
                         "start": Starttime,
                         "end": None,
-                        "value": None,
+                        "value": None, # Values of cal files for example. eg. 32 pulses for a charge scan steps should be here
                         "attribute:scan_definition": None
                         }
                 }
 
         # Disect the header for the correct informations for values
         points = Header.split("|")[1].split(";")
-        dict["scan"]["value"] = np.arange(int(points[1]), int(points[2]), int(points[3].strip("\x00")))  # aka xdata
+        params = [x.strip("\x00") for x in points]
 
+        # Alibava binary have (unfortunately) a non consistend header format
+        # Therefore, we have to distinguish between the two formats --> len(params) = 4 --> Calibration
+        # len(params) = 2 --> Eventfile
+
+        if len(params) >= 4: # Cal file
+            dict["scan"]["value"] = np.arange(int(params[1]), int(params[2]), int(params[3]))  # aka xdata
+        elif len(params) == 2: # Events file
+            dict["scan"]["value"] = np.arange(0, int(params[0]),step=1)  # aka xdata
+
+        shift1 = int.from_bytes(b'0xFFFF0000',byteorder=byteorder)
+        shift2 = int.from_bytes(b'0xFFFF',byteorder=byteorder)
         # decode data from data Blocks
         for i, event in enumerate(event_data):
             dict["events"]["clock"][i] = struct.unpack("III", event[0:12])[-1]
-            dict["events"]["time"][i] = struct.unpack("I", event[12:16])[0]
+            coded_time = struct.unpack("I", event[12:16])[0]
+            #coded_time = event[12:16]
+            ipart = (coded_time & shift1)>>16
+            fpart = (np.sign(ipart))*(coded_time & shift2)
+            time = 100*ipart+fpart
+            dict["events"]["time"][i] = time
             dict["events"]["temperature"][i] = 0.12*struct.unpack("H", event[16:18])[0]-39.8
 
             # There seems to be garbage data which needs to be cut out

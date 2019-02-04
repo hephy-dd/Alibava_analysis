@@ -69,7 +69,7 @@ class main_analysis:
         else:
             self.data = []
             for path in path_list:
-                self.data.append(read_file(path, binary=True))
+                self.data.append(read_binary_Alibava(path))
 
         self.numchan = len(self.data[0]["events"]["signal"][0])
         self.numevents = len(self.data[0]["events"]["signal"])
@@ -188,7 +188,7 @@ class base_analysis:
         """Does the actual event analysis"""
 
         # get events with good timinig only gtime and only process these events
-        gtime = np.nonzero(self.timing>self.main.tmin)
+        gtime = np.nonzero(self.timing>=self.main.tmin)
         self.main.numgoodevents += int(gtime[0].shape[0])
         meanCMN = np.mean(self.main.CMN)
         meanCMsig = np.mean(self.main.CMsig)
@@ -431,6 +431,7 @@ class calibration:
         self.charge_data = None
         self.pedestal = Noise_calc.pedestal
         self.noisy_channels = Noise_calc.noisy_strips
+        #self.CMN = np.std(Noise_calc.CMnoise)
         self.chargecoeff = []
         self.meancoeff = None # Mean coefficient out of all calibrations curves
         self.meansig_charge = []  # mean per pulse per channel
@@ -439,8 +440,11 @@ class calibration:
         self.meansig_delay = []  # mean per pulse per channel
         self.isBinary = isBinary
 
-        self.charge_calibration_calc(charge_path)
-        self.delay_calibration_calc(delay_path)
+        if charge_path:
+            self.charge_calibration_calc(charge_path)
+        if delay_path:
+            self.delay_calibration_calc(delay_path)
+
 
 
     def delay_calibration_calc(self, delay_path):
@@ -452,7 +456,7 @@ class calibration:
             self.delay_data = read_binary_Alibava(delay_path)
 
         pulses = np.array(self.delay_data["scan"]["value"][:])  # aka xdata
-        signals = np.array(self.delay_data["events"]["signal"][:]) - self.pedestal  # signals per pulse
+        signals = np.array(self.delay_data["events"]["signal"][:]) - self.pedestal  # signals per pulse, CMN is a single value
         signals = np.delete(signals, self.noisy_channels, axis=1)
         sigppulse = int(len(signals) / len(pulses))  # How many signals per pulses
 
@@ -492,6 +496,12 @@ class calibration:
                 self.meansig_charge.append(raw)
                 start = i
 
+            # Set the zero value to a real 0 size otherwise a non physical error happens (Offset corretion)
+            offset = self.meansig_charge[0]
+            self.meansig_charge = self.meansig_charge - offset
+            if np.mean(offset) > 5:
+                warn("Charge offset is greater then 5 ADC! This may be a result of bad calibration!")
+
             # Interpolate and get some extrapolation data from polynomial fit (from alibava)
             data = np.array(self.meansig_charge).transpose()
             #datamoffset = data-data[0]
@@ -500,6 +510,7 @@ class calibration:
             #print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
             self.meancoeff = np.polyfit(np.mean(self.meansig_charge,axis=1), pulses,  deg=4, full=False)
             self.charge_sig = np.polyval(self.meancoeff, np.std(self.meansig_charge,axis=1))
+            self.ADC_sig = np.std(data, axis=0)
             self.chargecoeff = np.array(self.chargecoeff)
 
 
@@ -513,50 +524,46 @@ class calibration:
             fig = plt.figure("Calibration")
 
             # Plot delay
-            delay_plot = fig.add_subplot(222)
-            delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay, 1., alpha=0.4, color="b")
-            #delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay[:,60], 1., alpha=0.4, color="b")
-            delay_plot.set_xlabel('time [ns]')
-            delay_plot.set_ylabel('Signal [ADC]')
-            delay_plot.set_title('Delay plot')
+            if self.delay_data:
+                delay_plot = fig.add_subplot(222)
+                delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay, 1., alpha=0.4, color="b")
+                #delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay[:,60], 1., alpha=0.4, color="b")
+                delay_plot.set_xlabel('time [ns]')
+                delay_plot.set_ylabel('Signal [ADC]')
+                delay_plot.set_title('Delay plot')
 
             # Plot charge
-            charge_plot = fig.add_subplot(221)
-            charge_plot.set_xlabel('Charge [e-]')
-            charge_plot.set_ylabel('Signal [ADC]')
-            charge_plot.set_title('Charge plot')
-            charge_plot.bar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge,axis=1), 2000., alpha=0.4, color="b", label="Mean of all gains")
-            cal_range = np.array(np.arange(1., 450., 10.))
-            charge_plot.plot(np.polyval(self.meancoeff, cal_range), cal_range, "r--", color="g")
-            charge_plot.errorbar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge,axis=1), xerr=self.charge_sig, fmt='o', markersize=1,color="red", label= "Error in e-")
-            charge_plot.legend()
+            if self.charge_data:
+                charge_plot = fig.add_subplot(221)
+                charge_plot.set_xlabel('Charge [e-]')
+                charge_plot.set_ylabel('Signal [ADC]')
+                charge_plot.set_title('Charge plot')
+                charge_plot.bar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge,axis=1), 1000., alpha=0.4, color="b", label="Mean of all gains")
+                cal_range = np.array(np.arange(1., 450., 10.))
+                charge_plot.plot(np.polyval(self.meancoeff, cal_range), cal_range, "r--", color="g")
+                charge_plot.errorbar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge,axis=1), xerr=self.charge_sig, yerr=self.ADC_sig, fmt='o', markersize=1,color="red", label= "Error")
+                charge_plot.legend()
 
-            # Gain per Strip at ADC 100
-            gain_plot = fig.add_subplot(223)
-            gain_plot.set_xlabel('Channel [#]')
-            gain_plot.set_ylabel('Gain [e- at 100 ADC]')
-            gain_plot.set_title('Gain per Channel')
-            gain_plot.set_ylim(0, 50000)
-            gain = []
-            for coeff in self.chargecoeff:
-                gain.append(np.polyval(coeff, 100.))
+                # Gain per Strip at ADC 100
+                gain_plot = fig.add_subplot(223)
+                gain_plot.set_xlabel('Channel [#]')
+                gain_plot.set_ylabel('Gain [e- at 100 ADC]')
+                gain_plot.set_title('Gain per Channel')
+                gain_plot.set_ylim(0, 70000)
+                gain = []
+                for coeff in self.chargecoeff:
+                    gain.append(np.polyval(coeff, 100.))
 
-            gain_plot.bar(np.arange(len(self.pedestal)-len(self.noisy_channels)), gain, alpha=0.4, color="b", label="Only non masked channels")
-            gain_plot.legend()
+                gain_plot.bar(np.arange(len(self.pedestal)-len(self.noisy_channels)), gain, alpha=0.4, color="b", label="Only non masked channels")
+                gain_plot.legend()
 
-            # Gain hist per Strip at ADC 100
-            gain_hist = fig.add_subplot(224)
-            gain_hist.set_ylabel('Count [#]')
-            gain_hist.set_xlabel('Gain [e- at 100 ADC]')
-            gain_hist.set_title('Gain Histogram')
-            gain_hist.hist(gain, alpha=0.4, bins = 20, color="b", label="Only non masked channels")
-            gain_hist.legend()
-
-
-
-
-
-
+                # Gain hist per Strip at ADC 100
+                gain_hist = fig.add_subplot(224)
+                gain_hist.set_ylabel('Count [#]')
+                gain_hist.set_xlabel('Gain [e- at 100 ADC]')
+                gain_hist.set_title('Gain Histogram')
+                gain_hist.hist(gain, alpha=0.4, bins = 20, color="b", label="Only non masked channels")
+                gain_hist.legend()
 
             fig.tight_layout()
             #plt.draw()
@@ -573,16 +580,19 @@ class noise_analysis:
 
         # Init parameters
         print("Loading pedestal file: {!s}".format(path))
-        self.data = import_h5(path)
+        if not configs["isBinary"]:
+            self.data = import_h5(path)[0]
+        else:
+            self.data = read_binary_Alibava(path)
 
         if self.data:
             # Some of the declaration may seem unecessary but it clears things up when you need to know how big some arrays are
-            self.data=self.data[0]# Since I always get back a list
-            self.numchan = len(self.data["header/pedestal"][0])
-            self.numevents = len(self.data["events/signal"])
+            #self.data=self.data[0]# Since I always get back a list
+            self.numchan = len(self.data["events"]["signal"][0])
+            self.numevents = len(self.data["events"]["signal"])
             self.pedestal = np.zeros(self.numchan, dtype=np.float32)
             self.noise = np.zeros(self.numchan, dtype=np.float32)
-            self.goodevents = np.nonzero(self.data['/events/time'][:] >= 0)  # Only use events with good timing, here always the case
+            self.goodevents = np.nonzero(self.data["events"]["time"][:] >= 0)  # Only use events with good timing, here always the case
             self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float32)
             self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float32)
             self.score = np.zeros((len(self.goodevents[0]), self.numchan), dtype=np.float32)  # Variable needed for noise calculations
@@ -590,8 +600,8 @@ class noise_analysis:
 
             # Calculate pedestal
             print("Calculating pedestal and Noise...")
-            self.pedestal = np.mean(self.data['/events/signal'][0:], axis=0)
-            self.signal = np.array(self.data['/events/signal'][:], dtype=np.float32)
+            self.pedestal = np.mean(self.data["events"]["signal"][0:], axis=0)
+            self.signal = np.array(self.data["events"]["signal"][:], dtype=np.float32)
 
             # Noise Calculations
             if not usejit:
@@ -628,10 +638,10 @@ class noise_analysis:
         # Calculate the
         self.median_noise = np.median(Noise)
         high_noise_strips = np.nonzero(Noise > self.median_noise+Noise_cut)[0]
-        high_noise_strips = np.append(high_noise_strips, self.configs["Manual_mask"])
+        high_noise_strips = np.append(high_noise_strips, self.configs.get("Manual_mask", []))
         good_strips = np.delete(good_strips, high_noise_strips)
 
-        return high_noise_strips, good_strips
+        return np.array(high_noise_strips, dtype=np.int32), np.array(good_strips, dtype=np.int32)
 
 
 
@@ -748,6 +758,10 @@ class langau:
         self.pedestal = self.main.pedestal
         self.pool = self.main.Pool
         self.poolsize = self.main.process_pool
+        self.numClusters = self.main.kwargs["configs"].get("langau",{}).get("numClus",1)
+        self.bins = self.main.kwargs["configs"].get("langau",{}).get("bins",500)
+        self.Ecut = self.main.kwargs["configs"].get("langau",{}).get("energyCutOff",150000)
+        self.plotfit = self.main.kwargs["configs"].get("langau",{}).get("fitLangau",True)
 
     def run(self):
         """Calculates the langau for the specified data"""
@@ -764,8 +778,9 @@ class langau:
         # Go over all datafiles
         for data in tqdm(self.data, desc="(langau) Processing file:"):
             self.results_dict[data] = {}
-            indizes = self.get_num_clusters(self.data[data], 1)[0] # Here events with only one cluster are choosen
-            valid_events_clustersize = np.take(self.data[data]["base"]["Clustersize"], indizes) # Get the clustersizes of valid events
+            indNumClus = self.get_num_clusters(self.data[data], self.numClusters) # Here events with only one cluster are choosen
+            indizes = np.concatenate(indNumClus)
+            valid_events_clustersize = np.take(self.data[data]["base"]["Clustersize"], indizes)
             valid_events_clusters = np.take(self.data[data]["base"]["Clusters"], indizes)
             valid_events_Signal = np.take(self.data[data]["base"]["Signal"], indizes)  # Get the clustersizes of valid events
             # Get events which show only cluster in its data
@@ -786,20 +801,22 @@ class langau:
             else:
                 for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
                     # get the events with the different clustersizes
-                    cls_ind = np.nonzero(valid_events_clustersize == size)[0]
-                    # indizes_to_search = np.take(valid_events_clustersize, cls_ind) # TODO: veeeeery ugly implementation
-                    #totalE = np.zeros(len(cls_ind))
-                    #totalNoise = np.zeros(len(cls_ind))
-                    # Loop over the clustersize to get total deposited energy
-                    #incrementor = 0
+                    ClusInd = [[],[]]
+                    for i, event in enumerate(valid_events_clustersize):
+                        #cls_ind = np.nonzero(valid_events_clustersize == size)[0]
+                        for j, clus in enumerate(event):
+                            if clus == size:
+                                ClusInd[0].extend([i])
+                                ClusInd[1].extend([j])
+
                     signal_clst_event = []
                     noise_clst_event = []
-                    for ind in tqdm(cls_ind, desc="(langau) Processing event"):
-                        # TODO: make this work for multiple cluster in one event
+                    for i, ind in tqdm(enumerate(ClusInd[0]), desc="(langau) Processing event"):
+                        y = ClusInd[1][i]
                         # Signal calculations
-                        signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][0]))
+                        signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][y]))
                         # Noise Calculations
-                        noise_clst_event.append(np.take(noise, valid_events_clusters[ind][0]))  # Get the Noise of an event
+                        noise_clst_event.append(np.take(noise, valid_events_clusters[ind][y]))  # Get the Noise of an event
 
                     totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
                     totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal), axis=1))  # eError is a list containing electron signal noise
@@ -816,11 +833,16 @@ class langau:
             finalE = np.zeros(0)
             finalNoise = np.zeros(0)
             for cluster in self.results_dict[data]["Clustersize"]:
+                indi = np.nonzero(cluster["signal"] > 0)[0] # Clean up and extra energy cut
+                nogarbage = cluster["signal"][indi]
+                indi = np.nonzero(nogarbage < self.Ecut)[0]  # ultra_high_energy_cut
+                cluster["signal"] = cluster["signal"][indi]
                 finalE = np.append(finalE, cluster["signal"])
                 finalNoise = np.append(finalNoise, cluster["noise"])
 
             # Fit the langau to it
-            coeff, pcov, hist, error_bins = self.fit_langau(finalE, finalNoise)
+
+            coeff, pcov, hist, error_bins = self.fit_langau(finalE, finalNoise, bins=self.bins)
             self.results_dict[data]["signal"] = finalE
             self.results_dict[data]["noise"] = finalNoise
             self.results_dict[data]["langau_coeff"] = coeff
@@ -846,8 +868,9 @@ class langau:
                 # get rid of 0 events
                 indizes = np.nonzero(finalE > 0)[0]
                 nogarbage = finalE[indizes]
-                indizes = np.nonzero(nogarbage < 120000)[0] # ultra_high_energy_cut
-                coeff, pcov, hist, error_bins = self.fit_langau(nogarbage[indizes], bins=500)
+                indizes = np.nonzero(nogarbage < self.Ecut)[0] # ultra_high_energy_cut
+                coeff, pcov, hist, error_bins = self.fit_langau(nogarbage[indizes], bins=self.bins)
+                #coeff, pcov, hist, error_bins = self.fit_langau(nogarbage, bins=500)
                 self.results_dict[data]["signal_SC"] = nogarbage[indizes]
                 self.results_dict[data]["langau_coeff_SC"] = coeff
                 self.results_dict[data]["langau_data_SC"] = [np.arange(1., 100000., 1000.), pylandau.langau(np.arange(1., 100000., 1000.), *coeff)]  # aka x and y data
@@ -947,7 +970,7 @@ class langau:
         except:
             ind_xmin = np.argwhere(hist > lancut)[0]  # Finds the first element which is higher as threshold non optimized
 
-        mpv, eta, sigma, A = 18000, 1500, 5000, np.max(hist)
+        mpv, eta, sigma, A = np.argmax(hist), 150, 5000, np.max(hist)
 
         # Fit with constrains
         converged = False
@@ -973,14 +996,18 @@ class langau:
 
         return coeff, pcov, hist, binerror
 
-    def get_num_clusters(self, data, num_cluster=1):
+    def get_num_clusters(self, data, num_cluster):
         """
         Get all clusters which seem important- Here custers with numclus will be returned
         :param data: data file which should be searched
-        :param num_cluster: number of cluster which should be considered 1 is default and minimum. 0 makes no sense
+        :param num_cluster: number of cluster which should be considered. 0 makes no sense
         :return: list of data indizes after cluster consideration (so basically eventnumbers which are good)
         """
-        return np.nonzero(data["base"]["Numclus"] == num_cluster) # Indizes of events with the desired clusternumbers
+        events = []
+        for clus in num_cluster:
+            events.append(np.nonzero(data["base"]["Numclus"] == clus)[0]) # Indizes of events with the desired clusternumbers
+
+        return events
 
     def calc_hist_errors(self, x, errors, bins):
         """Calculates the errors for the bins in a histogram if error of simple point is known"""
@@ -1006,10 +1033,11 @@ class langau:
 
             # Plot delay
             plot = fig.add_subplot(111)
-            hist, edges = np.histogram(data["signal"], bins=500)
-            plot.hist(data["signal"], bins=500, density=False, alpha=0.4, color="b", label= "All clusters")
+            hist, edges = np.histogram(data["signal"], bins=self.bins)
+            plot.hist(data["signal"], bins=self.bins, density=False, alpha=0.4, color="b", label= "All clusters")
             plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
-            plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g", label = "Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3]))
+            if self.plotfit:
+                plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g", label = "Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3]))
             plot.set_xlabel('electrons [#]')
             plot.set_ylabel('Count [#]')
             plot.set_title('All clusters Langau from file: {!s}'.format(file))
@@ -1020,12 +1048,12 @@ class langau:
             colour = ['green', 'red', 'orange', 'cyan', 'black', 'pink', 'magenta']
             for i, cls in enumerate(data["Clustersize"]):
                 if i<7:
-                    plot.hist(cls["signal"], bins=500, density=False, alpha=0.3, color=colour[i], label="Clustersize: {!s}".format(i+1))
+                    plot.hist(cls["signal"], bins=self.bins, density=False, alpha=0.3, color=colour[i], label="Clustersize: {!s}".format(i+1))
                 else:
                     warnings.warn("To many histograms for this plot. Colorsheme only supports seven different histograms. Extend if need be!")
                     continue
 
-            plot.set_xlim(0,100000)
+            #plot.set_xlim(0,100000)
             plot.legend()
             fig.tight_layout()
             #plt.draw()
@@ -1036,15 +1064,16 @@ class langau:
                 # Plot Seed cut langau
                 plot = fig.add_subplot(111)
                 #indizes = np.nonzero(data["signal_SC"] > 0)[0]
-                plot.hist(data["signal_SC"], bins=500, density=False, alpha=0.4, color="b", label="Seed clusters")
-                plot.plot(data["langau_data_SC"][0], data["langau_data_SC"][1], "r--", color="g",
-                          label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
-                              mpv=data["langau_coeff_SC"][0], eta=data["langau_coeff_SC"][1], sigma=data["langau_coeff_SC"][2],
-                              A=data["langau_coeff_SC"][3]))
+                plot.hist(data["signal_SC"], bins=self.bins, density=False, alpha=0.4, color="b", label="Seed clusters")
+                if self.plotfit:
+                    plot.plot(data["langau_data_SC"][0], data["langau_data_SC"][1], "r--", color="g",
+                              label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
+                                  mpv=data["langau_coeff_SC"][0], eta=data["langau_coeff_SC"][1], sigma=data["langau_coeff_SC"][2],
+                                  A=data["langau_coeff_SC"][3]))
                 plot.set_xlabel('electrons [#]')
                 plot.set_ylabel('Count [#]')
                 plot.set_title('Seed cut Langau from file: {!s}'.format(file))
-                plot.set_xlim(0, 100000)
+                #plot.set_xlim(0, 100000)
                 plot.legend()
 
 class chargesharing:
