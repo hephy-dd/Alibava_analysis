@@ -16,7 +16,7 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
     index = 0
     hitmap = np.zeros(numchan)
     signal, SN, CMN, CMsig = nb_process_all_events(start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips)
-    for i in tqdm(range(start, end), desc="Events processed"):
+    for i in tqdm(range(0, abs(start-end)), desc="Events processed"):
         #signal, SN, CMN, CMsig = nb_process_event(events[i], pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips)
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal[i], SN[i], noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
@@ -53,12 +53,15 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         splits = int(goodevents/poolsize) # you may loose the last event!!!
         paramslist = []
         start = 0
+        results = []
         for i in range(poolsize):
             end = splits*(i+1)
-            paramslist.append((start, end, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips, q))
+            paramslist.append((start, end, events[goodtiming[0]], pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips, q))
             start=end+1
 
         results = Pool.starmap(event_process_function, paramslist, chunksize=1)
+        #for i in paramslist:
+        #    results.append(event_process_function(*i))
         #prodata = np.zeros((goodevents, 9), dtype=np.object)
         #for i in tqdm(range(len(goodevents))):
         #    prodata[i] = q.get()
@@ -75,7 +78,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         return prodata, automasked
 
     else:
-        prodata = event_process_function(0, goodevents, events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips)
+        prodata = event_process_function(0, goodevents, events[goodtiming[0]], pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips)
         return np.array(prodata), automasked
 
 @jit(nopython = True, cache=True)
@@ -94,7 +97,6 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
 
     if masking:
         if material:
-            # Todo: masking of dead channels etc.
             masked_ind = np.nonzero(np.take(event, channels) > 0)[0]  # So only negative values are considered
             valid_ind = np.nonzero(event < 0)[0]
             automasked_hit += len(masked_ind)
@@ -104,9 +106,7 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
             automasked_hit += len(masked_ind)
     else:
         valid_ind = np.arange(strips)
-        #masked_ind = np.zeros([-1])
 
-    #masked_list = list(masked_ind)
     for i in valid_ind: # Define valid index to search for
         used_channels[i] = 0
 
@@ -197,9 +197,7 @@ def nb_process_all_events(start, stop, events, pedestal, meanCMN, meanCMsig, noi
     """Processes events"""
     #TODO: some elusive error happens here when using jit and njit
     #Calculate the common mode noise for every channel
-    signal = events[start:stop] - pedestal  # Get the signal from event and subtract pedestal
-
-    signal[:,noisy_strips] = 0
+    signal = events[start:stop]- pedestal  # Get the signal from event and subtract pedestal
 
     # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
     removed = np.nonzero(signal[:,] > (5. * meanCMsig + meanCMN))
@@ -211,6 +209,7 @@ def nb_process_all_events(start, stop, events, pedestal, meanCMN, meanCMsig, noi
         sigpro = np.std(prosignal, axis=1)
 
         corrsignal = signal - cmpro[:,None]
+        corrsignal[:, noisy_strips] = 0
         SN = corrsignal / noise
 
         return corrsignal, SN, cmpro, sigpro
