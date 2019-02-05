@@ -375,15 +375,16 @@ class base_analysis:
             numclusters_plot.set_xlabel('Number of clusters [#]')
             numclusters_plot.set_ylabel('Occurance [#]')
             numclusters_plot.set_title('Number of clusters')
+            #numclusters_plot.set_yscale("log", nonposy='clip')
 
             # Plot clustersizes
             clusters_plot = fig.add_subplot(222)
-            # Todo: make it possible to count clusters in multihit scenarios
             bin, counts = np.unique(np.concatenate(data["base"]["Clustersize"]), return_counts=True)
             clusters_plot.bar(bin, counts, alpha=0.4, color="b")
             clusters_plot.set_xlabel('Clustersize [#]')
             clusters_plot.set_ylabel('Occurance [#]')
             clusters_plot.set_title('Clustersizes')
+            #clusters_plot.set_yscale("log", nonposy='clip')
 
             fig.suptitle('Cluster analysis from file {!s}'.format(name))
             fig.tight_layout()
@@ -509,8 +510,8 @@ class calibration:
                 self.chargecoeff.append(np.polyfit(pul, pulses, deg=4, full=False))
             #print("Coefficients of charge fit: {!s}".format(self.chargecoeff))
             self.meancoeff = np.polyfit(np.mean(self.meansig_charge,axis=1), pulses,  deg=4, full=False)
-            self.charge_sig = np.polyval(self.meancoeff, np.std(self.meansig_charge,axis=1))
             self.ADC_sig = np.std(data, axis=0)
+            self.charge_sig = np.polyval(self.meancoeff, self.ADC_sig)
             self.chargecoeff = np.array(self.chargecoeff)
 
 
@@ -970,7 +971,7 @@ class langau:
         except:
             ind_xmin = np.argwhere(hist > lancut)[0]  # Finds the first element which is higher as threshold non optimized
 
-        mpv, eta, sigma, A = np.argmax(hist), 150, 5000, np.max(hist)
+        mpv, eta, sigma, A = 27000, 1500, 5000, np.max(hist)
 
         # Fit with constrains
         converged = False
