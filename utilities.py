@@ -255,9 +255,7 @@ def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters, charge_c
 
         incrementor += 1
 
-    preresults = {}
-    preresults["signal"] = totalE
-    preresults["noise"] = totalNoise
+    preresults = {"signal": totalE, "noise": totalNoise}
     return preresults
 
 def get_size(obj, seen=None):

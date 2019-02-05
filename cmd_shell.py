@@ -23,7 +23,6 @@ class AlisysShell(cmd.Cmd):
             'This was programmed by Dominic Bloech and uses the cmd framework'
     prompt = '(Alisys)'
     file = None
-    global get_shell
 
     def __init__(self):
         """Initiates the cmd line interface etc"""
@@ -34,7 +33,6 @@ class AlisysShell(cmd.Cmd):
         # results object
         self.results_obj = None
 
-
         try:
             self.cmdloop()
         except KeyboardInterrupt:
@@ -44,14 +42,13 @@ class AlisysShell(cmd.Cmd):
         """This function adds an object to the cmd prompt by calling the object with the args and kwargs"""
         self.list_of_objects.append(object)
         self.list_of_objects_str.append(object.__name__)
-        setattr(self, "do_"+str(object.__name__), object)
+        setattr(self, "do_" + str(object.__name__), object)
 
-    def do_list(self, arg=None):
+    def do_list(self):
         """Just calls do_UniDAQ_functions"""
         self.do_functions()
 
-
-    def do_functions(self, arg=None):
+    def do_functions(self):
         """This function writes back all functions added for use in the UniDAQ framework"""
         print("All functions provided by the Alisys framework:")
         for i in self.list_of_objects:
@@ -73,17 +70,17 @@ class AlisysShell(cmd.Cmd):
         except KeyboardInterrupt:
             print("^C")
 
-    def do_bye(self, arg):
+    def do_bye(self):
         'Stops the Alisys shell'
         print('Thank you for using the Alisys analysis framework')
         return True
 
-    #def precmd(self, line):
+    # def precmd(self, line):
     #    """Just the pre command"""
     #    print("=====================================")
     #    return line
 
-    #def postcmd(self, retval, line):
+    # def postcmd(self, retval, line):
     #    """Just the post command"""
     #    if "list" not in line and line.split()[0] in self.list_of_objects_str:
     #        try:
@@ -106,9 +103,9 @@ class AlisysShell(cmd.Cmd):
         else:
             print("Please enter a valid filepath!")
 
-    def do_plotEvent(self, eventnumber):
+    def do_plotEvent(self):
         """This function plots a Single event of all processed files"""
-        plt.show() #todo: write the cmd plot functions
+        plt.show()  # todo: write the cmd plot functions
         pass
 
     def do_hierachy(self, arg=None):
@@ -123,4 +120,3 @@ class AlisysShell(cmd.Cmd):
                 pp.pprint(self.results_obj[str(arg)])
         else:
             print("Please process some data first. Type ? for the how to")
-
