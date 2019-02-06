@@ -3,6 +3,8 @@
 from numba import jit
 from multiprocessing import Manager
 from analysis_classes.utilities import *
+import numpy as np
+from tqdm import tqdm
 
 def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise,
                            numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,

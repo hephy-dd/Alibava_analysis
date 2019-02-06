@@ -8,7 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from analysis_classes.nb_analysis import parallel_event_processing
 
-class base_analysis:
+class BaseAnalysis:
 
     def __init__(self, main, events, timing):
         self.main = main
@@ -26,7 +26,8 @@ class base_analysis:
         meanCMsig = np.mean(self.main.CMsig)
         prodata = []  # List of processed data which then can be accessed
         hitmap = np.zeros(self.main.numchan)
-        # Warning: If you have a RS and pulseshape recognition enabled the timing window has to be set accordingly
+        # Warning: If you have a RS and pulseshape recognition enabled the
+        # timing window has to be set accordingly
 
         if not self.main.usejit:
             # Non jitted version
@@ -56,7 +57,8 @@ class base_analysis:
                 )
 
         else:
-            # This should, in theory, use parallelization of the loop over event but i did not see any performance boost, maybe you can find the bug =)?
+            # This should, in theory, use parallelization of the loop over event
+            # but i did not see any performance boost, maybe you can find the bug =)?
             data, automasked_hits = parallel_event_processing(gtime,
                                                               self.events,
                                                               self.main.pedestal,
@@ -80,21 +82,22 @@ class base_analysis:
 
     def clustering(self, event, SN, Noise):
         """Looks for cluster in a event"""
-        channels = np.nonzero(np.abs(SN) > self.main.SN_cut)[
-            0]  # Only channels which have a signal/Noise higher then the signal/Noise cut
+        # Only channels which have a signal/Noise higher then the signal/Noise cut
+        channels = np.nonzero(np.abs(SN) > self.main.SN_cut)[0]
         valid_ind = np.arange(len(event))
 
         if self.main.masking:
             if self.main.material:
-                # Todo: masking of dead channels etc.
-                masked_ind = np.nonzero(np.take(event, channels) > 0)[0]  # So only negative values are considered
-                valid_ind = np.nonzero(event < 0)[
-                    0]  # Find out which index are negative so we dont count them accidently
+                # So only negative values are considered
+                masked_ind = np.nonzero(np.take(event, channels) > 0)[0]
+                # Find out which index are negative so we dont count them accidently
+                valid_ind = np.nonzero(event < 0)[0]
                 if len(masked_ind):
                     channels = np.delete(channels, masked_ind)
                     self.main.automasked_hit += len(masked_ind)
             else:
-                masked_ind = np.nonzero(np.take(event, channels) < 0)[0]  # So only positive values are considered
+                # So only positive values are considered
+                masked_ind = np.nonzero(np.take(event, channels) < 0)[0]
                 valid_ind = np.nonzero(event > 0)[0]
                 if len(masked_ind):
                     channels = np.delete(channels, masked_ind)
@@ -104,7 +107,8 @@ class base_analysis:
         numclus = 0  # The number of found clusters
         clusters_list = []
         clustersize = np.array([])
-        for ch in channels:  # Loop over all left channels which are a hit, here from "left" to "right"
+        # Loop over all left channels which are a hit, here from "left" to "right"
+        for ch in channels:
             if not used_channels[ch]:  # Make sure we dont count everything twice
                 used_channels[ch] = 1  # So now the channel is used
                 cluster = [ch]  # Keep track of the individual clusters
@@ -112,7 +116,8 @@ class base_analysis:
 
                 right_stop = False
                 left_stop = False
-                # Now make a loop to find neighbouring hits of cluster, we must go into both directions
+                # Now make a loop to find neighbouring hits of cluster,
+                # we must go into both directions
                 offset = int(self.main.max_clustersize * 0.5)
                 for i in range(1, offset + 1):  # Search plus minus the channel found Todo: first entry useless
                     if 0 < ch - i and ch + i < self.main.numchan:  # To exclude overrun
@@ -180,6 +185,7 @@ class base_analysis:
 
     def plot_data(self, single_event=-1):
         """This function plots all data processed"""
+        # COMMENT: every plot needs its own method!!!
 
         for name, data in self.main.outputdata.items():
             # Plot a single event from every file
@@ -191,7 +197,8 @@ class base_analysis:
 
             # Plot Hitmap
             channel_plot = fig.add_subplot(211)
-            channel_plot.bar(np.arange(self.main.numchan), data["base"]["Hitmap"][len(data["base"]["Hitmap"]) - 1], 1.,
+            channel_plot.bar(np.arange(self.main.numchan),
+                             data["base"]["Hitmap"][len(data["base"]["Hitmap"]) - 1], 1.,
                              alpha=0.4, color="b")
             channel_plot.set_xlabel('channel [#]')
             channel_plot.set_ylabel('Hits [#]')
@@ -234,14 +241,18 @@ class base_analysis:
 
         # Plot signal
         channel_plot = fig.add_subplot(211)
-        channel_plot.bar(np.arange(self.main.numchan), data["base"]["Signal"][eventnum], 1., alpha=0.4, color="b")
+        channel_plot.bar(np.arange(self.main.numchan),
+                         data["base"]["Signal"][eventnum], 1.,
+                         alpha=0.4, color="b")
         channel_plot.set_xlabel('channel [#]')
         channel_plot.set_ylabel('Signal [ADC]')
         channel_plot.set_title('Signal')
 
         # Plot signal/Noise
         SN_plot = fig.add_subplot(212)
-        SN_plot.bar(np.arange(self.main.numchan), data["base"]["SN"][eventnum], 1., alpha=0.4, color="b")
+        SN_plot.bar(np.arange(self.main.numchan),
+                    data["base"]["SN"][eventnum], 1.,
+                    alpha=0.4, color="b")
         SN_plot.set_xlabel('channel [#]')
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise')

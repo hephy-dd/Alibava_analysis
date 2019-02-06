@@ -2,12 +2,11 @@
 run data"""
 #pylint: disable=R0902,R0915,C0103
 
-from time import time
 from multiprocessing import Pool
-import numpy as np
-from tqdm import tqdm
-from analysis_classes.utilities import * #import_h5, Bdata, read_binary_Alibava
-from analysis_classes.base_analysis import *
+
+from analysis_classes.BaseAnalysis import *
+from analysis_classes.utilities import *  # import_h5, Bdata, read_binary_Alibava
+
 
 class MainLoops:
     # COMMENT: the __init__ should be split up at least into 2 methods
@@ -23,13 +22,14 @@ class MainLoops:
         """
 
         # Init parameters
+        self.log = logging.getLogger()
 
         if not path_list:
-            print("No file to analyse passed...")
+            self.log.info("No file to analyse passed...")
             self.outputdata = {}
             return
 
-        print("Loading event file(s): {!s}".format(path_list))
+        self.log.info("Loading event file(s): {!s}".format(path_list))
 
         if not kwargs["configs"].get("isBinary", False):
             self.data = import_h5(path_list)
@@ -94,7 +94,7 @@ class MainLoops:
             self.min = kwargs["configs"]["timing"][0]  # timinig window
             self.max = kwargs["configs"]["timing"][1]  # timing maximum
 
-        print("Processing files ...")
+        self.log.info("Processing files ...")
         # Here a loop over all files will be done to do the analysis on all imported files
         for data in tqdm(range(len(self.data)), desc="Data files processed:"):
             events = np.array(self.data[data]["events"]["signal"][:], dtype=np.float32)
@@ -106,7 +106,7 @@ class MainLoops:
                 file = str(data)
             self.outputdata[file] = {}
             # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
-            object = base_analysis(self, events,
+            object = BaseAnalysis(self, events,
                                    timing)  # you get back a list with events, containing the event processed data -->
                                             # np array makes it easier to slice
             results = object.run()
@@ -123,7 +123,7 @@ class MainLoops:
         plugins = load_plugins()
 
         for analysis in self.add_analysis:
-            print("Starting analysis: {!s}".format(analysis))
+            self.log.info("Starting analysis: {!s}".format(analysis))
             # Gets the total analysis class, so be aware of changes inside!!!
             add_analysis = getattr(plugins[analysis], str(analysis))(self)
             results = add_analysis.run()

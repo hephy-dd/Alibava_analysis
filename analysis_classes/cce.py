@@ -2,7 +2,9 @@
 efficiency"""
 
 import logging
+
 import matplotlib.pyplot as plt
+
 
 class CCE:
     """This function has actually plots the the CCE plot"""

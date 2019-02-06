@@ -11,7 +11,7 @@ from analysis_classes.nb_analysis import nb_noise_calc
 from analysis_classes.utilities import import_h5, gaussian, read_binary_Alibava
 
 
-class noise_analysis:
+class NoiseAnalysis:
     """This class contains all calculations and data concerning pedestals in 
 	ALIBAVA files"""
 

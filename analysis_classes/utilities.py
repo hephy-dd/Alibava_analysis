@@ -3,21 +3,20 @@ functions for a more general purpose. Furthermore, these functions are for
 python analysis of ALIBAVA files."""
 # pylint: disable=C0103,R1710,R0903
 
-import sys
-import os
-import yaml
-from importlib import import_module
-import numpy as np
-import struct
-from matplotlib.backends.backend_pdf import PdfPages
-import matplotlib.pyplot as plt
-from warnings import warn
-from six.moves import cPickle as pickle #for performance
-# COMMENT: tqdm and h5py are both missing in requirements
-from tqdm import tqdm
-import h5py
-from analysis_classes.base_analysis import *
 import logging
+import os
+import struct
+import sys
+from importlib import import_module
+from warnings import warn
+
+# COMMENT: tqdm and h5py are both missing in requirements
+import h5py
+import yaml
+from matplotlib.backends.backend_pdf import PdfPages
+from six.moves import cPickle as pickle  # for performance
+
+from analysis_classes.BaseAnalysis import *
 
 log = logging.getLogger()
 

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from analysis_classes.utilities import convert_ADC_to_e
 
 
-class chargesharing:
+class ChargeSharing:
     """ A class calculating the charge sharing between two strip clusters
     and plotting it into a histogram and a eta plot"""
 

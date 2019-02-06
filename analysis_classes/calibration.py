@@ -1,13 +1,13 @@
 """This file contains the class for the ALiBaVa calibration"""
 
-import matplotlib.pyplot as plt
-import numpy as np
+import logging
+
 from scipy.interpolate import CubicSpline
-from warnings import warn
-from analysis_classes.utilities import * #import_h5, read_binary_Alibava
+
+from analysis_classes.utilities import *  # import_h5, read_binary_Alibava
 
 
-class calibration:
+class Calibration:
     """This class handles all concerning the calibration"""
 
     def __init__(self, delay_path="", charge_path="", Noise_calc={}, isBinary=False):
@@ -31,6 +31,7 @@ class calibration:
         self.meansig_delay = []  # mean per pulse per channel
         self.isBinary = isBinary
         self.ADC_sig = None
+        self.log = logging.getLogger()
 
         if charge_path:
             self.charge_calibration_calc(charge_path)
@@ -63,7 +64,7 @@ class calibration:
 
     def charge_calibration_calc(self, charge_path):
         # Charge scan
-        print("Loading charge calibration file: {!s}".format(charge_path))
+        self.log.info("Loading charge calibration file: {!s}".format(charge_path))
         if not self.isBinary:
             self.charge_data = import_h5(charge_path)[0]
         else:
@@ -161,6 +162,7 @@ class calibration:
 
             fig.tight_layout()
             # plt.draw()
-        except Exception as e:
-            print("An error happened while trying to plot calibration data ", e)
+        except Exception as err:
+            self.log.error("An error happened while trying to plot calibration data")
+            self.log.error(err)
 

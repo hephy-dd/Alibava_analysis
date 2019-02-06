@@ -2,18 +2,20 @@
 
 # pylint: disable=C0103,E1101,R0913
 
-import warnings
 import logging
+import pylandau
+import warnings
+
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
-import matplotlib.pyplot as plt
 from tqdm import tqdm
-import pylandau
+
 # from nb_analysisFunction import *
 from analysis_classes.utilities import convert_ADC_to_e
 
 
-class langau:
+class Langau:
     """This class calculates the langau distribution and returns the best values for landau and Gauss fit to the data
     """
 
@@ -186,7 +188,8 @@ class langau:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 # create a text trap and redirect stdout
-                # Warning: astype(float) is importanmt somehow, otherwise funny error happens one some machines where it tells you double_t and float are not possible
+                # Warning: astype(float) is importanmt somehow, otherwise funny error happens one
+                # some machines where it tells you double_t and float are not possible
                 coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1].astype(float),
                                         hist[ind_xmin:].astype(float), absolute_sigma=True, p0=(mpv, eta, sigma, A),
                                         bounds=(1, 500000))
@@ -243,14 +246,17 @@ class langau:
             plot.hist(data["signal"], bins=self.bins, density=False, alpha=0.4, color="b", label="All clusters")
             plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
             if self.plotfit:
-                plot.plot(data["langau_data"][0], data["langau_data"][1], "r--", color="g",
-                          label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
-                              mpv=data["langau_coeff"][0], eta=data["langau_coeff"][1], sigma=data["langau_coeff"][2],
-                              A=data["langau_coeff"][3]))
+                plot.plot(data["langau_data"][0], data["langau_data"][1], "r--",
+                            color="g",
+                            label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
+                            mpv=data["langau_coeff"][0],
+                            eta=data["langau_coeff"][1],
+                            sigma=data["langau_coeff"][2],
+                            A=data["langau_coeff"][3]))
+
             plot.set_xlabel('electrons [#]')
             plot.set_ylabel('Count [#]')
             plot.set_title('All clusters Langau from file: {!s}'.format(file))
-            # plot.legend(["Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(mpv=data["langau_coeff"][0],eta=data["langau_coeff"][1],sigma=data["langau_coeff"][2],A=data["langau_coeff"][3])])
 
             # Plot the different clustersizes as well into the langau plot
             colour = ['green', 'red', 'orange', 'cyan', 'black', 'pink', 'magenta']
@@ -260,13 +266,12 @@ class langau:
                               label="Clustersize: {!s}".format(i + 1))
                 else:
                     warnings.warn(
-                        "To many histograms for this plot. Colorsheme only supports seven different histograms. Extend if need be!")
+                        "To many histograms for this plot. "
+                        "Colorsheme only supports seven different histograms. Extend if need be!")
                     continue
 
-            # plot.set_xlim(0,100000)
             plot.legend()
             fig.tight_layout()
-            # plt.draw()
 
             if self.main.kwargs["configs"].get("langau", {}).get("seed_cut_langau", False):
                 fig = plt.figure("Seed cut langau from file: {!s}".format(file))
@@ -277,12 +282,11 @@ class langau:
                 plot.hist(data["signal_SC"], bins=self.bins, density=False, alpha=0.4, color="b", label="Seed clusters")
                 if self.plotfit:
                     plot.plot(data["langau_data_SC"][0], data["langau_data_SC"][1], "r--", color="g",
-                              label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
-                                  mpv=data["langau_coeff_SC"][0], eta=data["langau_coeff_SC"][1],
-                                  sigma=data["langau_coeff_SC"][2],
-                                  A=data["langau_coeff_SC"][3]))
+                            label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
+                            mpv=data["langau_coeff_SC"][0], eta=data["langau_coeff_SC"][1],
+                            sigma=data["langau_coeff_SC"][2],
+                            A=data["langau_coeff_SC"][3]))
                 plot.set_xlabel('electrons [#]')
                 plot.set_ylabel('Count [#]')
                 plot.set_title('Seed cut Langau from file: {!s}'.format(file))
-                # plot.set_xlim(0, 100000)
                 plot.legend()

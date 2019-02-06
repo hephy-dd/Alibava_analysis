@@ -1,17 +1,16 @@
 # This file is the main analysis file here all processes will be started
 
 
-import os, logging
 from optparse import OptionParser
-import matplotlib.pyplot as plt
-from cmd_shell import AlisysShell
-from analysis_classes.utilities import *
-from analysis_classes.noise_analysis import noise_analysis
-from analysis_classes.calibration import calibration
-from analysis_classes.main_loops import MainLoops
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from analysis_classes.Calibration import Calibration
+from analysis_classes.NoiseAnalysis import NoiseAnalysis
+from analysis_classes.main_loops import MainLoops
+from analysis_classes.utilities import *
+from cmd_shell import AlisysShell
+
+log = logging.getLogger()
+log.setLevel(logging.INFO)
 if log.hasHandlers() is False:
     format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
     formatter = logging.Formatter(format_string)
@@ -24,12 +23,12 @@ def do_with_config_file(config):
 
     # Look if a pedestal file is specified
     if "Pedestal_file" in config:
-        noise_data = noise_analysis(config["Pedestal_file"], usejit=config.get("optimize", False), configs=config)
+        noise_data = NoiseAnalysis(config["Pedestal_file"], usejit=config.get("optimize", False), configs=config)
         noise_data.plot_data()
 
     # Look if a calibration file is specified
     if "Delay_scan" in config or "Charge_scan" in config:
-        config_data = calibration(config.get("Delay_scan", ""), config.get("Charge_scan", ""), Noise_calc=noise_data,
+        config_data = Calibration(config.get("Delay_scan", ""), config.get("Charge_scan", ""), Noise_calc=noise_data,
                                   isBinary=config.get("isBinary", False))
         config_data.plot_data()
 
