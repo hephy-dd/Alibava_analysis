@@ -6,7 +6,9 @@ python analysis of ALIBAVA files."""
 import sys
 import os
 import yaml
+from importlib import import_module
 import numpy as np
+import struct
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from warnings import warn
@@ -14,12 +16,29 @@ from six.moves import cPickle as pickle #for performance
 # COMMENT: tqdm and h5py are both missing in requirements
 from tqdm import tqdm
 import h5py
+from analysis_classes.base_analysis import *
+import logging
+
+log = logging.getLogger()
+
+
+def load_plugins():
+    # Load all measurement functions
+    # install_directory = os.getcwd() # Obtain the install path of this module
+    all_plugins = {}
+    all_measurement_functions = os.listdir("./analysis_classes/")
+    all_measurement_functions = list(set([modules.split(".")[0] for modules in all_measurement_functions]))
+
+    for modules in all_measurement_functions:  # import all modules from all files in the plugins folder
+        all_plugins.update({modules: import_module("analysis_classes." + modules)})
+    return all_plugins
+
 
 def create_dictionary(file, filepath):
     '''Creates a dictionary with all values written in the file using yaml'''
 
     file_string = os.path.abspath(os.getcwd() + str(filepath) + "\\" + str(file))
-    print ("Loading file: " + str(file))
+    log.info("Loading file: " + str(file))
     with open(file_string, "r") as yfile:
         dic = yaml.load(yfile)
         return dic
@@ -47,7 +66,7 @@ def import_h5(*pathes):
                 raise Exception('The path {!s} does not exist.'.format(path))
         return loaded_files
     except OSError as err:
-        print("Enountered an OSError: {!s}".format(err))
+        log.info("Enountered an OSError: {!s}".format(err))
         return False
 
 def get_xy_data(data, header=0):
@@ -78,7 +97,8 @@ def read_binary_Alibava(filepath):
         # Data Blocks
         # Read all data Blocks
         # Warning Alibava Binary calibration files have no indicatior how many events are really inside the file
-        # The eventnumber corresponds to the pulse number --> Readout of files have to be done until end of file is reached
+        # The eventnumber corresponds to the pulse number -->
+        # Readout of files have to be done until end of file is reached
         # and the eventnumber must be calculated --> Advantage: Damaged files can be read as well
         #events = Header.split("|")[1].split(";")[0]
         event_data = []
@@ -92,9 +112,10 @@ def read_binary_Alibava(filepath):
                 blocksize = struct.unpack("I", f.read(4))
                 event_data.append(f.read(blocksize[0]))
             else:
-                print("Warning: While reading data Block {}. Header was not the 0xcafe0002 it was {!s}".format(events, str(blockheader)))
+                log.info("Warning: While reading data Block {}. "
+                      "Header was not the 0xcafe0002 it was {!s}".format(events, str(blockheader)))
                 if not blockheader:
-                    print("Persumably end of binary file reached. Events read: {}".format(events))
+                    log.info("Persumably end of binary file reached. Events read: {}".format(events))
                     eof = True
 
         dict = {"header": {
@@ -112,7 +133,8 @@ def read_binary_Alibava(filepath):
                 "scan": {
                         "start": Starttime,
                         "end": None,
-                        "value": None, # Values of cal files for example. eg. 32 pulses for a charge scan steps should be here
+                        "value": None, # Values of cal files for example. eg. 32 pulses for
+                                       # a charge scan steps should be here
                         "attribute:scan_definition": None
                         }
                 }
@@ -165,7 +187,7 @@ def read_file(filepath, binary=False):
             return read_binary_Alibava(filepath)
 
     else:
-        print("No valid path passed: {!s}".format(filepath))
+        log.info("No valid path passed: {!s}".format(filepath))
         return None
 
 def clustering(estimator):
@@ -207,7 +229,7 @@ def save_all_plots(name, folder, figs=None, dpi=200):
     try:
         pp = PdfPages(os.path.normpath(folder) + "\\" + name + ".pdf")
     except PermissionError:
-        print("While overwriting the file {!s} a permission error occured, "
+        log.info("While overwriting the file {!s} a permission error occured, "
               "please close file if opened!".format(name + ".pdf"))
         return
     if figs is None:
