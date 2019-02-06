@@ -47,6 +47,8 @@ The program is known to be running on Windows, Linux (Centos7) and Mac.
 * [SciPy](https://www.scipy.org/) - For numerical operations
 * [Matplotlib](https://matplotlib.org/) - For the plots
 * [PyLandau](https://github.com/SiLab-Bonn/pylandau) - For Langau fitting
+#COMMENT: pylandau requiers Microsoft Visual C++ 14.0 from https://visualstudio.microsoft.com/visual-cpp-build-tools/
+# COMMENT: After the installation you need to update setuptools as well 'pip install --upgrade setuptools'
 
 
 ## Authors
@@ -60,4 +62,3 @@ This project is licensed under the GNU License - see the [LICENSE.md](LICENSE) f
 ## Acknowledgments
 
 * Thanks to my friends for their inspiring conversations and help
-

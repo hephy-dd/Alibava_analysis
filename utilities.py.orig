@@ -3,23 +3,40 @@ functions for a more general purpose. Furthermore, these functions are for
 python analysis of ALIBAVA files."""
 # pylint: disable=C0103,R1710,R0903
 
+<<<<<<< HEAD
+__version__ = 0.1
+__date__ = "13.12.2018"
+__author__ = "Dominic Bloech"
+__email__ = "dominic.bloech@oeaw.ac.at"
+
+# Import statements
 import sys
 import os
+from tqdm import tqdm
+import h5py
+=======
+import os
+import sys
+>>>>>>> 93cfb03ce3dac6cb0e2964f13b5b2d6f5b453efd
 import yaml
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 from warnings import warn
 from six.moves import cPickle as pickle #for performance
+<<<<<<< HEAD
+import struct
+=======
 # COMMENT: tqdm and h5py are both missing in requirements
 from tqdm import tqdm
 import h5py
+>>>>>>> 93cfb03ce3dac6cb0e2964f13b5b2d6f5b453efd
 
 def create_dictionary(file, filepath):
     '''Creates a dictionary with all values written in the file using yaml'''
 
     file_string = os.path.abspath(os.getcwd() + str(filepath) + "\\" + str(file))
-    print ("Loading file: " + str(file))
+    print("Loading file: " + str(file))
     with open(file_string, "r") as yfile:
         dic = yaml.load(yfile)
         return dic
@@ -39,7 +56,7 @@ def import_h5(*pathes):
     # First check if pathes exist and if so import
     loaded_files = []
     try:
-        for path in tqdm(pathes, desc= "Loading files:"):
+        for path in tqdm(pathes, desc="Loading files:"):
             if os.path.exists(os.path.normpath(path)):
                 # Now import all hdf5 files
                 loaded_files.append(h5py.File(os.path.normpath(path), 'r'))
@@ -54,10 +71,10 @@ def get_xy_data(data, header=0):
     """This functions takes a list of strings, containing a header and xy data,
     return values are 2D np.array of the data and the header lines"""
 
-    np2Darray = np.zeros((len(data)-int(header),2), dtype=np.float32)
+    np2Darray = np.zeros((len(data)-int(header), 2), dtype=np.float32)
     for i, item in enumerate(data):
         if i > header-1:
-            list_data = list(map(float,item.split()))
+            list_data = list(map(float, item.split()))
             np2Darray[i-header] = np.array(list_data)
     return np2Darray
 
@@ -158,15 +175,24 @@ def read_binary_Alibava(filepath):
 def read_file(filepath, binary=False):
     """Just reads a file and returns the content line by line"""
     if os.path.exists(os.path.normpath(filepath)):
+<<<<<<< HEAD
         if not binary:
             with open(os.path.normpath(filepath), 'r') as f:
                 read_data = f.readlines()
             return read_data
+        else:
             return read_binary_Alibava(filepath)
 
     else:
         print("No valid path passed: {!s}".format(filepath))
         return None
+=======
+        with open(os.path.normpath(filepath), 'r') as f:
+            read_data = f.readlines()
+        return read_data
+    print("No valid path passed: {!s}".format(filepath))
+    return None
+>>>>>>> 93cfb03ce3dac6cb0e2964f13b5b2d6f5b453efd
 
 def clustering(estimator):
     """Does the clustering up to the max cluster number, you just need the
@@ -218,8 +244,8 @@ def save_all_plots(name, folder, figs=None, dpi=200):
 
 class NoStdStreams(object):
     """Surpresses all output of a function when called with with """
-    def __init__(self,stdout = None, stderr = None):
-        self.devnull = open(os.devnull,'w')
+    def __init__(self, stdout=None, stderr=None):
+        self.devnull = open(os.devnull, 'w')
         self._stdout = stdout or self.devnull or sys.stdout
         self._stderr = stderr or self.devnull or sys.stderr
 
@@ -299,7 +325,7 @@ class Bdata:
     If you store a Bdata object you can get columns by accessing it via Bdata['label']
     Not passing an argument results in """
 
-    def __init__(self, data = np.array([]), labels = None):
+    def __init__(self, data=np.array([]), labels=None):
         self.data = data
         self.labels = labels
 
@@ -316,7 +342,7 @@ class Bdata:
 
     def get(self, label):
         """DOC of function"""
-        return self.data[:,self.labels.index(label)]
+        return self.data[:, self.labels.index(label)]
 
 def save_dict(di_, filename_):
     """DOC of function"""

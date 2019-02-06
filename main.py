@@ -10,9 +10,7 @@ def main(args, options):
     """The main analysis which will be executed after the arguments are parsed"""
 
     if options.shell:
-        shell = AlisysShell()
-        #shell.start_shell()
-
+        AlisysShell()
 
     elif options.configfile and os.path.exists(os.path.normpath(options.configfile)):
         configs = create_dictionary(os.path.normpath(options.configfile), "")
