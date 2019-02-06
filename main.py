@@ -6,23 +6,27 @@ from optparse import OptionParser
 import matplotlib.pyplot as plt
 from cmd_shell import AlisysShell
 
+
 def main(args, options):
     """The main analysis which will be executed after the arguments are parsed"""
 
     if options.shell:
-        AlisysShell()
+        shell = AlisysShell()
+        # shell.start_shell()
+
 
     elif options.configfile and os.path.exists(os.path.normpath(options.configfile)):
         configs = create_dictionary(os.path.normpath(options.configfile), "")
         do_with_config_file(configs)
-        plt.show() # Just in case the plot show has never been shown
+        plt.show()  # Just in case the plot show has never been shown
 
     elif options.filepath and os.path.exists(os.path.normpath(options.filepath)):
-        pass # Todo: include the option to start the analysis with a passed file and config file
+        pass  # Todo: include the option to start the analysis with a passed file and config file
 
     else:
-        print ("No valid path parsed! Exiting")
+        print("No valid path parsed! Exiting")
         exit(1)
+
 
 if __name__ == "__main__":
     # Parse some options to the main analysis
@@ -40,7 +44,7 @@ if __name__ == "__main__":
                       )
 
     parser.add_option("--shell",
-                      dest="shell", action="store_true", default = False,
+                      dest="shell", action="store_true", default=False,
                       help="Runs the shell interface for the anlysis",
                       )
 
