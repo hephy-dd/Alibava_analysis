@@ -7,17 +7,18 @@ import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from nb_analysisFunction import nb_noise_calc
-from utilities import import_h5, gaussian
+from utilities import import_h5, gaussian, read_binary
+from .nb_analysis_funcs import nb_noise_calc
 
 
 class NoiseAnalysis:
     """This class contains all calculations and data concerning pedestals in
     ALIBAVA files"""
 
-    def __init__(self, path="", usejit=False, configs=None):
+    def __init__(self, path, data_type, configs=None):
         """
         :param path: Path to pedestal file
+        :param data_type: binary or hdf5 format supported
         """
 
         self.log = logging.getLogger(__class__.__name__)
@@ -29,72 +30,81 @@ class NoiseAnalysis:
             console_handler.setFormatter(formatter)
             self.log.addHandler(console_handler)
 
-        # Init parameters
+        # import raw data
         self.log.info("Loading pedestal file(s) from: %s", path)
-        self.data = import_h5(path)
+        try:
+            if data_type == "hdf5":
+                self.data = import_h5(path)
+            elif data_type == "binary":
+                self.data = read_binary(path)
+        except ImportError as err:
+            self.log.warning(err)
+            self.log.warning("An error occured while importing the "
+                             "pedestal file. Skipping pedestal run...")
 
-        if self.data:
-            # Some of the declaration may seem unecessary but it clears things
-            # up when you need to know how big some arrays are
-            self.data = self.data[0]  # Since I always get back a list
-            self.numchan = len(self.data["header/pedestal"][0])
-            self.numevents = len(self.data["events/signal"])
-            self.pedestal = np.zeros(self.numchan, dtype=np.float32)
-            self.noise = np.zeros(self.numchan, dtype=np.float32)
-            # Only use events with good timing, here always the case
-            self.goodevents = np.nonzero(self.data['/events/time'][:] >= 0)
-            self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float32)
-            self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float32)
-            # Variable needed for noise calculations
-            self.score = np.zeros((len(self.goodevents[0]), self.numchan),
-                                  dtype=np.float32)
-            self.configs = configs
+        # Init parameters
+        # Some of the declaration may seem unecessary but it clears things
+        # up when you need to know how big some arrays are
 
-            # Calculate pedestal
-            self.log.info("Calculating pedestal and Noise...")
-            self.pedestal = np.mean(self.data['/events/signal'][0:], axis=0)
-            self.signal = np.array(self.data['/events/signal'][:],
-                                   dtype=np.float32)
+        # COMMENT:
+        # self.data = self.data[0]  # Since I always get back a list
+        # this is not the case with read_binary. if so, then change the import_h5 function
+        self.numchan = len(self.data["header/pedestal"][0])
+        self.numevents = len(self.data["events/signal"])
+        self.pedestal = np.zeros(self.numchan, dtype=np.float32)
+        self.noise = np.zeros(self.numchan, dtype=np.float32)
+        # Only use events with good timing, here always the case
+        self.goodevents = np.nonzero(self.data['/events/time'][:] >= 0)
+        self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float32)
+        self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float32)
+        # Variable needed for noise calculations
+        self.score = np.zeros((len(self.goodevents[0]), self.numchan),
+                              dtype=np.float32)
+        # self.configs = configs
+        self.noise_cut = configs.get("Noise_cut", 5.)
+        self.optimize = configs.get("optimize", False)
 
-            # Noise Calculations
-            if not usejit:
-                start = time()
-                self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(\
-                        self.signal, self.pedestal[:],
-                        self.numevents, self.numchan)
-                self.noise = np.std(self.score_raw, axis=0)
-                self.noisy_strips, self.good_strips = self.detect_noisy_strips(\
-                        self.noise, configs.get("Noise_cut", 5.))
-                #self.noise_corr = np.std(self.score, axis=0)
-                self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(\
-                        self.signal[:, self.good_strips],
-                        self.pedestal[self.good_strips], self.numevents,
-                        len(self.good_strips))
-                end = time()
-                self.log.info("Process time: %s seconds",
-                              str(round(abs(end - start), 2)))
-            else:
-                self.log.warning("Jit version used!!! No progress bar "
-                                 "can be shown")
-                start = time()
-                self.score_raw, self.CMnoise, self.CMsig = nb_noise_calc(\
-                        self.signal, self.pedestal)
-                # Calculate the actual noise for every channel by building the
-                # mean of all noise from every event
-                self.noise = np.std(self.score_raw, axis=0)
-                self.noisy_strips, self.good_strips = self.detect_noisy_strips(\
-                        self.noise, configs.get("Noise_cut", 5.))
-                self.score, self.CMnoise, self.CMsig = nb_noise_calc(\
-                        self.signal[:, self.good_strips],
-                        self.pedestal[self.good_strips])
-                #self.noise_corr = np.std(self.score, axis=0)
-                end = time()
-                self.log.info("Process time: %s seconds",
-                              str(round(abs(end - start), 2)))
-            self.total_noise = np.concatenate(self.score, axis=0)
+        # Calculate pedestal
+        self.log.info("Calculating pedestal and Noise...")
+        self.pedestal = np.mean(self.data['/events/signal'][0:], axis=0)
+        self.signal = np.array(self.data['/events/signal'][:],
+                               dtype=np.float32)
 
+        # Noise Calculations
+        if not self.optimize:
+            start = time()
+            self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(\
+                    self.signal, self.pedestal[:],
+                    self.numevents, self.numchan)
+            self.noise = np.std(self.score_raw, axis=0)
+            self.noisy_strips, self.good_strips = self.detect_noisy_strips(\
+                    self.noise, self.noise_cut)
+            #self.noise_corr = np.std(self.score, axis=0)
+            self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(\
+                    self.signal[:, self.good_strips],
+                    self.pedestal[self.good_strips], self.numevents,
+                    len(self.good_strips))
+            end = time()
+            self.log.info("Process time: %s seconds",
+                          str(round(abs(end - start), 2)))
         else:
-            self.log.warning("No valid file, skipping pedestal run")
+            self.log.info("Jit version used!!! No progress bar can be shown")
+            start = time()
+            self.score_raw, self.CMnoise, self.CMsig = nb_noise_calc(\
+                    self.signal, self.pedestal)
+            # Calculate the actual noise for every channel by building the
+            # mean of all noise from every event
+            self.noise = np.std(self.score_raw, axis=0)
+            self.noisy_strips, self.good_strips = self.detect_noisy_strips(\
+                    self.noise, self.noise_cut)
+            self.score, self.CMnoise, self.CMsig = nb_noise_calc(\
+                    self.signal[:, self.good_strips],
+                    self.pedestal[self.good_strips])
+            #self.noise_corr = np.std(self.score, axis=0)
+            end = time()
+            self.log.info("Process time: %s seconds",
+                          str(round(abs(end - start), 2)))
+        self.total_noise = np.concatenate(self.score, axis=0)
 
     def detect_noisy_strips(self, Noise, Noise_cut):
         """This function detects noisy strips and returns two arrays first
@@ -155,6 +165,7 @@ class NoiseAnalysis:
         noise_plot = fig.add_subplot(221)
         noise_plot.bar(np.arange(self.numchan), self.noise, 1., alpha=0.4,
                        color="b")
+
         # array of non masked strips
         valid_strips = np.ones(self.numchan)
         valid_strips[self.noisy_strips] = 0
@@ -163,15 +174,9 @@ class NoiseAnalysis:
 
         # Plot the threshold for deciding a good channel
         xval = [0, self.numchan]
-        yval = [
-            self.median_noise +
-            self.configs.get(
-                "Noise_cut",
-                5.),
-            self.median_noise +
-            self.configs.get(
-                "Noise_cut",
-                5.)]
+        # COMMENT: used to be [self.median_noise + self.noise_cut, self.median_noise + self.noise_cut] which is wrong i guess?
+        yval = [self.median_noise - self.noise_cut,
+                self.median_noise + self.noise_cut]
         noise_plot.plot(xval, yval, 1., "r--", color="g",
                         label="Threshold for noisy strips")
 
@@ -202,9 +207,9 @@ class NoiseAnalysis:
 
         # Plot Common mode
         CM_plot = fig.add_subplot(223)
-        # COMMENT: pathces unused???
-        n, bins, patches = CM_plot.hist(
-            self.CMnoise, bins=50, density=True, alpha=0.4, color="b")
+        # COMMENT: patches is unused. Conventions demands for use of a '_'
+        n, bins, _ = CM_plot.hist(self.CMnoise, bins=50, density=True,
+                                  alpha=0.4, color="b")
         # Calculate the mean and std
         mu, std = norm.fit(self.CMnoise)
         # Calculate the distribution for plotting in a histogram
@@ -222,8 +227,8 @@ class NoiseAnalysis:
 
         # Plot noise hist
         CM_plot = fig.add_subplot(224)
-        n, bins, patches = CM_plot.hist(
-            self.total_noise, bins=500, density=False, alpha=0.4, color="b")
+        n, bins, _ = CM_plot.hist(self.total_noise, bins=500, density=False,
+                                  alpha=0.4, color="b")
         CM_plot.set_yscale("log", nonposy='clip')
         CM_plot.set_ylim(1.)
 
@@ -244,4 +249,5 @@ class NoiseAnalysis:
         CM_plot.set_title("Noise Histogram")
 
         fig.tight_layout()
-        # plt.draw()
+        plt.draw()
+        plt.show()

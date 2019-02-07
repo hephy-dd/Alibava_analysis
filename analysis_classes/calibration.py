@@ -1,19 +1,15 @@
 """This file contains the class for the ALiBaVa calibration"""
 
 import logging
-import warnings
-from time import time
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import norm
 from scipy.interpolate import CubicSpline
-from scipy.optimize import curve_fit
-import pylandau
 from utilities import get_xy_data, read_file
 
 class Calibration:
     """This class handles all concerning the calibration"""
-    def __init__(self, delay_path="", charge_path=""):
+    def __init__(self, delay_path="", charge_path="", Noise_calc={},
+                 isBinary=False):
         """
         :param delay_path: Path to calibration file
         :param charge_path: Path to calibration file
@@ -32,9 +28,21 @@ class Calibration:
         self.delay_cal = None
         self.delay_data = None
         self.charge_data = None
+        self.pedestal = Noise_calc.pedestal
+        self.noisy_channels = Noise_calc.noisy_strips
+        #self.CMN = np.std(Noise_calc.CMnoise)
+        self.chargecoeff = []
+        self.meancoeff = None # Mean coefficient out of all calibrations curves
+        self.meansig_charge = []  # mean per pulse per channel
+        self.charge_sig = None # Standard deviation of all charge calibartions
+        self.delay_cal = []
+        self.meansig_delay = []  # mean per pulse per channel
+        self.isBinary = isBinary
 
-        self.charge_calibration_calc(charge_path)
-        self.delay_calibration_calc(delay_path)
+        if charge_path != "":
+            self.charge_calibration_calc(charge_path)
+        if delay_path != "":
+            self.delay_calibration_calc(delay_path)
 
     def delay_calibration_calc(self, delay_path):
         # Delay scan
