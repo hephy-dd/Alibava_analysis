@@ -7,13 +7,13 @@ import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from utilities import import_h5, gaussian, read_binary
+from .utilities import import_h5, gaussian, read_binary
 from .nb_analysis_funcs import nb_noise_calc
 
 
 class NoiseAnalysis:
     """This class contains all calculations and data concerning pedestals in
-    ALIBAVA files"""
+	ALIBAVA files"""
 
     def __init__(self, path, data_type, configs=None):
         """
@@ -48,7 +48,7 @@ class NoiseAnalysis:
 
         # COMMENT:
         # self.data = self.data[0]  # Since I always get back a list
-        # this is not the case with read_binary. if so, then change the import_h5 function
+        # this is not the case with read_binary. both functions need to return the same.
         self.numchan = len(self.data["header/pedestal"][0])
         self.numevents = len(self.data["events/signal"])
         self.pedestal = np.zeros(self.numchan, dtype=np.float32)
@@ -63,6 +63,7 @@ class NoiseAnalysis:
         # self.configs = configs
         self.noise_cut = configs.get("Noise_cut", 5.)
         self.optimize = configs.get("optimize", False)
+        self.mask = configs.get("Manual_mask", [])
 
         # Calculate pedestal
         self.log.info("Calculating pedestal and Noise...")
@@ -113,40 +114,31 @@ class NoiseAnalysis:
         good_strips = np.arange(len(Noise))
         # Calculate the
         self.median_noise = np.median(Noise)
-        high_noise_strips = np.nonzero(Noise > self.median_noise + Noise_cut)
+        high_noise_strips = np.nonzero(Noise > self.median_noise + Noise_cut)[0]
+        high_noise_strips = np.append(high_noise_strips, self.mask)
         good_strips = np.delete(good_strips, high_noise_strips)
 
-        return high_noise_strips[0], good_strips
+        return np.array(high_noise_strips, dtype=np.int32), np.array(good_strips, dtype=np.int32)
 
     def noise_calc(self, events, pedestal, numevents, numchannels):
         """Noise calculation, normal noise (NN) and common mode noise (CMN)
-        Uses numpy, can be further optimized by reducing memory access to
-        member variables.
+        Uses numpy, can be further optimized by reducing memory access to member variables.
         But got 36k events per second.
         So fuck it.
         This function is not numba optimized!!!"""
-        # Variable needed for noise calculations
-        score = np.zeros((numevents, numchannels),
-                         dtype=np.float32)
+        score = np.zeros((numevents, numchannels), dtype=np.float32)  # Variable needed for noise calculations
         CMnoise = np.zeros(numevents, dtype=np.float32)
         CMsig = np.zeros(numevents, dtype=np.float32)
 
-        # Loop over all good events
-        for event in tqdm(range(self.goodevents[0].shape[0]),
-                          desc="Events processed:"):
+        for event in tqdm(range(self.goodevents[0].shape[0]), desc="Events processed:"):  # Loop over all good events
 
             # Calculate the common mode noise for every channel
-            # Get the signal from event and subtract pedestal
-            cm = events[event][:] - pedestal
+            cm = events[event][:] - pedestal  # Get the signal from event and subtract pedestal
             CMNsig = np.std(cm)  # Calculate the standard deviation
-            # Now calculate the mean from the cm to get the actual common mode
-            # noise
-            CMN = np.mean(cm)
+            CMN = np.mean(cm)  # Now calculate the mean from the cm to get the actual common mode noise
 
             # Calculate the noise of channels
-            # Subtract the common mode noise --> Signal[arraylike] -
-            # pedestal[arraylike] - Common mode
-            cn = cm - CMN
+            cn = cm - CMN  # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
 
             score[event] = cn
             # Append the common mode values per event into the data arrays
@@ -156,7 +148,7 @@ class NoiseAnalysis:
         return score, CMnoise, CMsig  # Return everything
 
     def plot_data(self):
-        # COMMENT: every plot needs its own method!!!
+		# COMMENT: every plot needs its own method!!!
         """Plots the data calculated by the framework"""
 
         fig = plt.figure("Noise analysis")
@@ -169,8 +161,7 @@ class NoiseAnalysis:
         # array of non masked strips
         valid_strips = np.ones(self.numchan)
         valid_strips[self.noisy_strips] = 0
-        noise_plot.plot(np.arange(self.numchan), valid_strips, 1., color="r",
-                        label="Masked strips")
+        noise_plot.plot(np.arange(self.numchan), valid_strips, 1., color="r", label="Masked strips")
 
         # Plot the threshold for deciding a good channel
         xval = [0, self.numchan]
@@ -187,18 +178,8 @@ class NoiseAnalysis:
 
         # Plot pedestal
         pede_plot = fig.add_subplot(222)
-        pede_plot.bar(
-            np.arange(
-                self.numchan),
-            self.pedestal,
-            1.,
-            yerr=self.noise,
-            error_kw=dict(
-                elinewidth=0.2,
-                ecolor='r',
-                ealpha=0.1),
-            alpha=0.4,
-            color="b")
+        pede_plot.bar(np.arange(self.numchan), self.pedestal, 1., yerr=self.noise,
+                      error_kw=dict(elinewidth=0.2, ecolor='r', ealpha=0.1), alpha=0.4, color="b")
         pede_plot.set_xlabel('Channel [#]')
         pede_plot.set_ylabel('Pedestal [ADC]')
         pede_plot.set_title('Pedestal levels per Channel with noise')
@@ -218,11 +199,8 @@ class NoiseAnalysis:
 
         CM_plot.set_xlabel('Common mode [ADC]')
         CM_plot.set_ylabel('[%]')
-        CM_plot.set_title(r'$\mathrm{Common\ mode\:}\ \mu=' +
-                          str(round(mu, 2)) +
-                          r',\ \sigma=' +
-                          str(round(std, 2)) +
-                          r'$')
+        CM_plot.set_title(
+            r'$\mathrm{Common\ mode\:}\ \mu=' + str(round(mu, 2)) + r',\ \sigma=' + str(round(std, 2)) + r'$')
         # CM_plot.legend()
 
         # Plot noise hist
@@ -234,8 +212,7 @@ class NoiseAnalysis:
 
         # Cut off noise part
         cut = np.max(n) * 0.2  # Find maximum of hist and get the cut
-        # Finds the first element which is higher as threshold optimized
-        ind = np.concatenate(np.argwhere(n > cut))
+        ind = np.concatenate(np.argwhere(n > cut))  # Finds the first element which is higher as threshold optimized
 
         # Calculate the mean and std
         mu, std = norm.fit(bins[ind])

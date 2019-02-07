@@ -1,6 +1,7 @@
 # This module makes the program interact with the command line
 
 import cmd
+<<<<<<< HEAD
 import os
 from threading import Thread
 import matplotlib.pyplot as plt
@@ -8,6 +9,12 @@ import pprint
 import numpy as np
 from analysis_classes import *
 from utilities import *
+=======
+import pprint
+from threading import Thread
+
+from analysis_classes.utilities import *
+>>>>>>> 0479dd927e9aee737a0df5a39b31b4b9011a57cd
 
 np.set_printoptions(threshold=0, precision=2, edgeitems=2)
 
@@ -98,6 +105,7 @@ class AlisysShell(cmd.Cmd):
         """This function runs the analysis with the passed config file"""
         if os.path.exists(os.path.normpath(config_file)):
             configs = create_dictionary(os.path.normpath(config_file), "")
+            # Todo: In new version this will not work anymore
             self.results_obj = do_with_config_file(configs)
             plt.show()
         else:

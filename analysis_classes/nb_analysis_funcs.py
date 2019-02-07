@@ -4,7 +4,6 @@ import numpy as np
 from numba import jit
 from tqdm import tqdm
 from multiprocessing import Manager
-from utilities import *
 
 def event_process_function(start, end, events, pedestal, meanCMN,
                            meanCMsig, noise, numchan, SN_cut, SN_ratio,

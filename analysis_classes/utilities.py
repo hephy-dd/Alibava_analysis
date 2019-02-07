@@ -3,23 +3,40 @@ functions for a more general purpose. Furthermore, these functions are for
 python analysis of ALIBAVA files."""
 # pylint: disable=C0103,R1710,R0903
 
-import sys
+import logging
 import os
-import yaml
-import numpy as np
-from matplotlib.backends.backend_pdf import PdfPages
-import matplotlib.pyplot as plt
-from warnings import warn
-from six.moves import cPickle as pickle #for performance
-# COMMENT: tqdm and h5py are both missing in requirements
-from tqdm import tqdm
-import h5py
 import struct
+import sys
+import numpy as np
+from importlib import import_module
+# COMMENT: tqdm and h5py are both missing in requirements
+import h5py
+import yaml
+from tqdm import tqdm
+from matplotlib.backends.backend_pdf import PdfPages
+from six.moves import cPickle as pickle  # for performance
+#COMMENT: Wildcard imports are always bad!!!
+from .base_analysis import BaseAnalysis
+
+log = logging.getLogger()
+
+
+def load_plugins():
+    # Load all measurement functions
+    # install_directory = os.getcwd() # Obtain the install path of this module
+    all_plugins = {}
+    all_measurement_functions = os.listdir("./analysis_classes/")
+    all_measurement_functions = list(set([modules.split(".")[0] for modules in all_measurement_functions]))
+
+    for modules in all_measurement_functions:  # import all modules from all files in the plugins folder
+        all_plugins.update({modules: import_module("analysis_classes." + modules)})
+    return all_plugins
+
 
 def create_dictionary(file, filepath=os.getcwd()):
-    """Import file with yaml from filepath + file and checks for type dict"""
+    """Creates a dictionary with all values written in the file using yaml"""
     file_string = os.path.join(filepath, file)
-    print("Loading file: " + str(file))
+    log.info("Loading file: " + str(file))
     with open(file_string, "r") as yfile:
         dic = yaml.load(yfile)
         if not isinstance(dic, dict):
@@ -53,10 +70,6 @@ def import_h5(path):
     #     return False
         # Now import all hdf5 files
 
-
-
-
-
 def get_xy_data(data, header=0):
     """This functions takes a list of strings, containing a header and xy data,
     return values are 2D np.array of the data and the header lines"""
@@ -85,7 +98,8 @@ def read_binary(filepath):
         # Data Blocks
         # Read all data Blocks
         # Warning Alibava Binary calibration files have no indicatior how many events are really inside the file
-        # The eventnumber corresponds to the pulse number --> Readout of files have to be done until end of file is reached
+        # The eventnumber corresponds to the pulse number -->
+        # Readout of files have to be done until end of file is reached
         # and the eventnumber must be calculated --> Advantage: Damaged files can be read as well
         #events = Header.split("|")[1].split(";")[0]
         event_data = []
@@ -99,9 +113,10 @@ def read_binary(filepath):
                 blocksize = struct.unpack("I", f.read(4))
                 event_data.append(f.read(blocksize[0]))
             else:
-                print("Warning: While reading data Block {}. Header was not the 0xcafe0002 it was {!s}".format(events, str(blockheader)))
+                log.info("Warning: While reading data Block {}. "
+                      "Header was not the 0xcafe0002 it was {!s}".format(events, str(blockheader)))
                 if not blockheader:
-                    print("Persumably end of binary file reached. Events read: {}".format(events))
+                    log.info("Persumably end of binary file reached. Events read: {}".format(events))
                     eof = True
         # COMMENT: giving variables names like 'dict' that overwrite built-in types/functions is very bad
         dic = {"header": {"noise": Noise,
@@ -161,10 +176,10 @@ def read_file(filepath, binary=False):
             with open(os.path.normpath(filepath), 'r') as f:
                 read_data = f.readlines()
             return read_data
-            return read_binary_Alibava(filepath)
+            return read_binary(filepath)
 
     else:
-        print("No valid path passed: {!s}".format(filepath))
+        log.info("No valid path passed: {!s}".format(filepath))
         return None
 
 def clustering(estimator):
@@ -202,18 +217,18 @@ def save_all_plots(name, folder, figs=None, dpi=200):
     :param dpi: image dpi
     :return: None
     """
-    # COMMENT: dpi unused???'
-    try:
-        pp = PdfPages(os.path.normpath(folder) + "\\" + name + ".pdf")
-    except PermissionError:
-        print("While overwriting the file {!s} a permission error occured, "
-              "please close file if opened!".format(name + ".pdf"))
-        return
-    if figs is None:
-        figs = [plt.figure(n) for n in plt.get_fignums()]
-    for fig in tqdm(figs, desc="Saving plots"):
-        fig.savefig(pp, format='pdf')
-    pp.close()
+    # COMMENT: dpi unused???', plt is not defined!
+    # try:
+    #     pp = PdfPages(os.path.normpath(folder) + "\\" + name + ".pdf")
+    # except PermissionError:
+    #     log.info("While overwriting the file {!s} a permission error occured, "
+    #              "please close file if opened!".format(name + ".pdf"))
+    #     return
+    # if figs is None:
+    #     figs = [plt.figure(n) for n in plt.get_fignums()]
+    # for fig in tqdm(figs, desc="Saving plots"):
+    #     fig.savefig(pp, format='pdf')
+    # pp.close()
 
 class NoStdStreams(object):
     """Surpresses all output of a function when called with with """
@@ -297,11 +312,21 @@ class Bdata:
     Not passing an argument results in """
 
     def __init__(self, data = np.array([]), labels = None):
+
+        self.log = logging.getLogger(__class__.__name__)
+        self.log.setLevel(logging.DEBUG)
+        if self.log.hasHandlers() is False:
+            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+            formatter = logging.Formatter(format_string)
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            self.log.addHandler(console_handler)
+
         self.data = data
         self.labels = labels
 
         if len(self.data) != len(self.labels):
-            warn("Data missmatch!")
+            self.log.warning("Data missmatch!")
 
     def __getitem__(self, arg=None):
         # COMMENT: else returns 'None' is correct?

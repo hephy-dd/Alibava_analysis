@@ -43,6 +43,3 @@
     energyCutOff: 100000 # Define where the high energy cutoff is applied in electrons
     bins: 200 # Define how many bins the Langau plots should have
     fitLangau: True # Fit a langau or not (sometimes the data does not represent a langau at all)
-
-
-
