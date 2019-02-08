@@ -1,20 +1,27 @@
 """This file contains the class for the ALiBaVa calibration"""
 
 import logging
-
+import matplotlib.pyplot as plt
+import numpy as np
 from scipy.interpolate import CubicSpline
-
-from analysis_classes.utilities import *  # import_h5, read_binary_Alibava
-
+from .utilities import read_file, read_binary, import_h5
 
 class Calibration:
     """This class handles all concerning the calibration"""
-
-    def __init__(self, delay_path="", charge_path="", Noise_calc={}, isBinary=False):
+    def __init__(self, delay_path="", charge_path="", Noise_calc={},
+                 isBinary=False):
         """
         :param delay_path: Path to calibration file
         :param charge_path: Path to calibration file
         """
+        self.log = logging.getLogger(__class__.__name__)
+        self.log.setLevel(logging.DEBUG)
+        if self.log.hasHandlers() is False:
+            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+            formatter = logging.Formatter(format_string)
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            self.log.addHandler(console_handler)
 
         # self.charge_cal = None
         self.delay_cal = None
@@ -31,7 +38,6 @@ class Calibration:
         self.meansig_delay = []  # mean per pulse per channel
         self.isBinary = isBinary
         self.ADC_sig = None
-        self.log = logging.getLogger()
 
         if charge_path:
             self.charge_calibration_calc(charge_path)
@@ -42,9 +48,9 @@ class Calibration:
         # Delay scan
         print("Loading delay file: {!s}".format(delay_path))
         if not self.isBinary:
-            self.delay_data = import_h5(delay_path)[0]
+            self.delay_data = import_h5(delay_path)
         else:
-            self.delay_data = read_binary_Alibava(delay_path)
+            self.delay_data = read_binary(delay_path)
 
         pulses = np.array(self.delay_data["scan"]["value"][:])  # aka xdata
 
@@ -74,7 +80,7 @@ class Calibration:
         if not self.isBinary:
             self.charge_data = import_h5(charge_path)[0]
         else:
-            self.charge_data = read_binary_Alibava(charge_path)
+            self.charge_data = read_binary(charge_path)
         if self.charge_data:
             pulses = np.array(self.charge_data["scan"]["value"][:])  # aka xdata
 
@@ -108,7 +114,7 @@ class Calibration:
             offset = self.meansig_charge[0]
             self.meansig_charge = self.meansig_charge - offset
             if np.mean(offset) > 5:
-                warn("Charge offset is greater then 5 ADC! This may be a result of bad calibration!")
+                self.log.warning("Charge offset is greater then 5 ADC! This may be a result of bad calibration!")
 
             # Interpolate and get some extrapolation data from polynomial fit (from alibava)
             data = np.array(self.meansig_charge).transpose()
@@ -181,4 +187,3 @@ class Calibration:
         except Exception as err:
             self.log.error("An error happened while trying to plot calibration data")
             self.log.error(err)
-
