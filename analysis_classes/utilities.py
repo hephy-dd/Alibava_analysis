@@ -38,7 +38,7 @@ def create_dictionary(file, filepath=os.getcwd()):
     file_string = os.path.join(filepath, file)
     log.info("Loading file: " + str(file))
     with open(file_string, "r") as yfile:
-        dic = yaml.load(yfile)
+        dic = yaml.safe_load(yfile)
         if not isinstance(dic, dict):
             raise ImportError("Content of file is not a dictionary.")
         return dic
@@ -177,7 +177,6 @@ def read_file(filepath, binary=False):
             with open(os.path.normpath(filepath), 'r') as f:
                 read_data = f.readlines()
             return read_data
-            return read_binary(filepath)
 
     else:
         log.info("No valid path passed: {!s}".format(filepath))

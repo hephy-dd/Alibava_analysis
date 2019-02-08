@@ -60,7 +60,7 @@ def main(args, options):
     """The main analysis which will be executed after the arguments are parsed"""
 
     if options.shell:
-        shell = AlisysShell()
+        AlisysShell()
         # shell.start_shell()
 
 
