@@ -51,7 +51,7 @@ def import_h5(*pathes):
     """
 
     # Check if a list was passed
-    if isinstance(pathes[0]) == list:
+    if isinstance(pathes[0],list):
         pathes = pathes[0]
 
     # First check if pathes exist and if so import
