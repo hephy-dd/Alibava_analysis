@@ -52,8 +52,9 @@ def import_h5(path):
     return dic
     # COMMENT: That should be done one level above. the func should just import 1 hdf5 file
     # Check if a list was passed
-    # if isinstance(pathes[0]) == list:
-    #     pathes = pathes[0]
+    
+    #if isinstance(pathes[0],list):
+    #    pathes = pathes[0]
 
     # First check if pathes exist and if so import
     # loaded_files = []
