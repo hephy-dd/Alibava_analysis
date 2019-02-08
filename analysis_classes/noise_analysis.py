@@ -40,7 +40,7 @@ class NoiseAnalysis:
             self.log.error("Unkown ALiBaVa data type")
         try:
             if binary is False:
-                self.data = import_h5(path)
+                self.data = import_h5(path)[0]
             elif binary is True:
                 self.data = read_binary(path)
         except ImportError as err:

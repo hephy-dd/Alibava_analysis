@@ -1,4 +1,4 @@
-# This module makes the program interact with the command line
+"""This module makes the program interact with the command line"""
 
 import cmd
 import os

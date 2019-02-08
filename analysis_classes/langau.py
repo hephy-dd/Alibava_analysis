@@ -1,28 +1,31 @@
 """This file contains the class for the Landau-Gauss calculation"""
-
 # pylint: disable=C0103,E1101,R0913
-
 import logging
-import pylandau
 import warnings
-
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
 from tqdm import tqdm
-
-# from nb_analysisFunction import *
+import pylandau
 from analysis_classes.utilities import convert_ADC_to_e
 
 
-class Langau:
+class langau:
     """This class calculates the langau distribution and returns the best values for landau and Gauss fit to the data
     """
 
     def __init__(self, main_analysis):
         """Gets the main analysis class and imports all things needed for its calculations"""
 
-        self.log = logging.getLogger()
+        self.log = logging.getLogger(__class__.__name__)
+        self.log.setLevel(logging.DEBUG)
+        if self.log.hasHandlers() is False:
+            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+            formatter = logging.Formatter(format_string)
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            self.log.addHandler(console_handler)
+
         self.main = main_analysis
         self.data = self.main.outputdata.copy()
         self.results_dict = {}  # Containing all data processed
@@ -68,6 +71,7 @@ class Langau:
                     paramslist.append((cls_ind, valid_events_Signal, valid_events_clusters,
                                        self.main.calibration.charge_cal, self.main.noise))
 
+                # COMMENT: lagau_cluster not defined!!!!
                 # Here multiple cpu calculate the energy of the events per clustersize
                 results = self.pool.starmap(langau_cluster, paramslist,
                                             chunksize=1)
@@ -96,9 +100,15 @@ class Langau:
                         noise_clst_event.append(
                             np.take(noise, valid_events_clusters[ind][y]))  # Get the Noise of an event
 
-                    totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
+                    # COMMENT: axis=1 produces numpy.AxisError?
+                    # totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
+                    totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=0)
+
+                    # eError is a list containing electron signal noise
+                    # totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal),
+                    #                             axis=1))
                     totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal),
-                                                axis=1))  # eError is a list containing electron signal noise
+                                                axis=0))
 
                     # incrementor += 1
 

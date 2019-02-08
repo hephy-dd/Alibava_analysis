@@ -69,20 +69,10 @@ def do_with_config_file(config):
         if config.get("Output_folder", "") and config.get("Output_name", ""):
             save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
             if config.get("Pickle_output", False):
-                save_dict(event_data.outputdata, config["Output_folder"] + "\\" + config["Output_name"] + ".dba")
+                save_dict(event_data.outputdata,
+                          os.path.join(config["Output_folder"],
+                                       config["Output_name"], ".dba"))
         return event_data.outputdata
-
-<<<<<<< HEAD
-=======
-def main(args, options):
-    """The main analysis which will be executed after the arguments are parsed"""
-
-    if options.shell:
-        AlisysShell()
-        # shell.start_shell()
-
->>>>>>> 8c371d1501f0fbdc154c925a41e11dfaecf67cb4
-
 
 
 if __name__ == "__main__":

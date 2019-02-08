@@ -1,8 +1,6 @@
 """This file contains the class for analysing the charge collection
 efficiency"""
-
 import logging
-
 import matplotlib.pyplot as plt
 
 

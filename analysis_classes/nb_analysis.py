@@ -1,8 +1,7 @@
-# This files contains analysis function optimizes by numba jit capabilities
-
+"""This files contains analysis function optimizes by numba jit capabilities"""
+#pyline: disable=E1111
 from numba import jit
 from multiprocessing import Manager
-from analysis_classes.utilities import *
 import numpy as np
 from tqdm import tqdm
 

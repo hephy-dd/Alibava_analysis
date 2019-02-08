@@ -1,13 +1,10 @@
 """This file contains the class for charge sharing analysis"""
-#pylint: disable=C0103
-
-# Import statements
-import numpy as np
+#pylint: disable=C0103,E1111
 import logging
+import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-# from nb_analysisFunction import *
 from analysis_classes.utilities import convert_ADC_to_e
 
 

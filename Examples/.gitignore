@@ -1,1 +1,3 @@
-meas_binary_RUN00251336.dat
+*.dat
+*.h5
+marius_config.yml

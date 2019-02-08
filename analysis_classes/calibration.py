@@ -78,7 +78,7 @@ class Calibration:
         # Charge scan
         self.log.info("Loading charge calibration file: {!s}".format(charge_path))
         if not self.isBinary:
-            self.charge_data = import_h5(charge_path)
+            self.charge_data = import_h5(charge_path)[0]
         else:
             self.charge_data = read_binary(charge_path)
         if self.charge_data:

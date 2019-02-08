@@ -132,7 +132,7 @@ class MainAnalysis:
         # Load all plugins
         # COMMENT: WTF???
         plugins = load_plugins()
-
+        self.log.debug(self.add_analysis)
         for analysis in self.add_analysis:
             self.log.info("Starting analysis: {!s}".format(analysis))
             # Gets the total analysis class, so be aware of changes inside!!!

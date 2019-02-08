@@ -1,5 +1,5 @@
-# This files contains analysis function optimizes by numba jit capabilities
-
+"""This files contains analysis function optimizes by numba jit capabilities"""
+#pylint: disable=E1111
 import numpy as np
 from numba import jit
 from tqdm import tqdm

@@ -1,18 +1,14 @@
 ---
   # Some files to load in, and store data
-  Pedestal_file: '\\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\pedestal_h5.h5'
+  Pedestal_file: ""
   Delay_scan: ''
   #Charge_scan: 'C:\Users\dbloech\Desktop\MedAustron TB\calibration_100V.dat'
-  Charge_scan: '\\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\calibration_m20_h5.h5'
+  Charge_scan: ""
   Measurement_file:
-    - '\\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\200V_20deg.h5'
-    - '\\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\200V_10deg.h5'
-    - '\\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\200V_00deg.h5'
-    - '\\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\200V_m10deg.h5'
-    - '\\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\200V_m20deg.h5'
-
-  Output_folder: 'C:\Users\dbloech\Desktop\Alibava'
-  Output_name: 'm20deg_cal'
+    - ...
+    - ...
+  Output_folder: ""
+  Output_name: ""
   isBinary: False # If the files provided are Alibava binaries (True) or hdf5 (False) file types
 
   # Event analysis parameters
@@ -23,7 +19,7 @@
   SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
   SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
   Noise_cut: 2 # Here the unit is ADC over median of all strips. This discriminates noisy strips.
-  Manual_mask: [38,39,40,41,42] # Manual channel masking
+  Manual_mask: [] # Manual channel masking
   timing:
     - 0 # Minimum timing window
     - 250 # Maximum timing window
