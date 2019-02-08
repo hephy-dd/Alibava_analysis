@@ -25,7 +25,7 @@ if LOG.hasHandlers() is False:
     console_handler.setFormatter(formatter)
     LOG.addHandler(console_handler)
 
-def load_plugins():
+def load_plugins(valid_plugins):
     # Load all measurement functions
     # install_directory = os.getcwd() # Obtain the install path of this module
     all_plugins = {}
@@ -33,7 +33,11 @@ def load_plugins():
     all_measurement_functions = list(set([modules.split(".")[0] for modules in all_measurement_functions]))
 
     for modules in all_measurement_functions:  # import all modules from all files in the plugins folder
-        all_plugins.update({modules: import_module("analysis_classes." + modules)})
+        to_add = import_module("analysis_classes." + modules)
+        names = dir(to_add) # get all modules
+        for plugin in valid_plugins:
+            if plugin in names:
+                all_plugins.update({plugin: to_add})
     return all_plugins
 
 

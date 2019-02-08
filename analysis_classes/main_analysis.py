@@ -130,9 +130,8 @@ class MainAnalysis:
         # Now process additional analysis statet in the config file
 
         # Load all plugins
-        # COMMENT: WTF???
-        plugins = load_plugins()
-        self.log.debug(self.add_analysis)
+        plugins = load_plugins(kwargs["configs"].get("additional_analysis",[]))
+
         for analysis in self.add_analysis:
             self.log.info("Starting analysis: {!s}".format(analysis))
             # Gets the total analysis class, so be aware of changes inside!!!
