@@ -72,6 +72,16 @@ def do_with_config_file(config):
                 save_dict(event_data.outputdata, config["Output_folder"] + "\\" + config["Output_name"] + ".dba")
         return event_data.outputdata
 
+<<<<<<< HEAD
+=======
+def main(args, options):
+    """The main analysis which will be executed after the arguments are parsed"""
+
+    if options.shell:
+        AlisysShell()
+        # shell.start_shell()
+
+>>>>>>> 8c371d1501f0fbdc154c925a41e11dfaecf67cb4
 
 
 

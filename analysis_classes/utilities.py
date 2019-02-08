@@ -44,9 +44,13 @@ def create_dictionary(file, filepath=os.getcwd()):
     file_string = os.path.join(filepath, file)
 
     with open(file_string, "r") as yfile:
+<<<<<<< HEAD
         dic = yaml.load(yfile)
         if not isinstance(dic, dict):
             raise ImportError("Content of file is not a dictionary.")
+=======
+        dic = yaml.safe_load(yfile)
+>>>>>>> 8c371d1501f0fbdc154c925a41e11dfaecf67cb4
         return dic
 
 def import_h5(path):
@@ -58,8 +62,13 @@ def import_h5(path):
     return dic
     # COMMENT: That should be done one level above. the func should just import 1 hdf5 file
     # Check if a list was passed
+<<<<<<< HEAD
     # if isinstance(pathes[0]) == list:
     #     pathes = pathes[0]
+=======
+    if isinstance(pathes[0],list):
+        pathes = pathes[0]
+>>>>>>> 8c371d1501f0fbdc154c925a41e11dfaecf67cb4
 
     # First check if pathes exist and if so import
     # loaded_files = []
@@ -182,7 +191,10 @@ def read_file(filepath, binary=False):
             with open(os.path.normpath(filepath), 'r') as f:
                 read_data = f.readlines()
             return read_data
+<<<<<<< HEAD
             return read_binary(filepath)
+=======
+>>>>>>> 8c371d1501f0fbdc154c925a41e11dfaecf67cb4
 
     else:
         LOG.info("No valid path passed: {!s}".format(filepath))
