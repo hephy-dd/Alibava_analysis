@@ -6,7 +6,7 @@ import gc
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from analysis_classes.nb_analysis import parallel_event_processing
+from analysis_classes.nb_analysis_funcs import parallel_event_processing
 
 class BaseAnalysis:
 

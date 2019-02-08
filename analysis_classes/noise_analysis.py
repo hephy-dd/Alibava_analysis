@@ -7,7 +7,7 @@ import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from analysis_classes.nb_analysis import nb_noise_calc
+from analysis_classes.nb_analysis_funcs import nb_noise_calc
 from analysis_classes.utilities import import_h5, gaussian, read_binary_Alibava
 
 

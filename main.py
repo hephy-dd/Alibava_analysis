@@ -3,8 +3,8 @@
 
 from optparse import OptionParser
 
-from analysis_classes.Calibration import Calibration
-from analysis_classes.NoiseAnalysis import NoiseAnalysis
+from analysis_classes.calibration import Calibration
+from analysis_classes.noise_analysis import NoiseAnalysis
 from analysis_classes.main_loops import MainLoops
 from analysis_classes.utilities import *
 from cmd_shell import AlisysShell

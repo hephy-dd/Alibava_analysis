@@ -4,7 +4,7 @@ run data"""
 
 from multiprocessing import Pool
 
-from analysis_classes.BaseAnalysis import *
+#from analysis_classes.BaseAnalysis import *
 from analysis_classes.utilities import *  # import_h5, Bdata, read_binary_Alibava
 
 
@@ -120,7 +120,7 @@ class MainLoops:
         # Now process additional analysis statet in the config file
 
         # Load all plugins
-        plugins = load_plugins()
+        plugins = load_plugins(kwargs["configs"].get("additional_analysis",[]))
 
         for analysis in self.add_analysis:
             self.log.info("Starting analysis: {!s}".format(analysis))
