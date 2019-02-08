@@ -7,14 +7,16 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from analysis_classes.nb_analysis_funcs import parallel_event_processing
+from .utilities import manage_logger
 
 class BaseAnalysis:
 
     def __init__(self, main, events, timing):
+        self.log = logging.getLogger(__class__.__name__)
+        manage_logger(self.log)
         self.main = main
         self.events = events
         self.timing = timing
-        self.log = logging.getLogger()
 
     def run(self):
         """Does the actual event analysis"""

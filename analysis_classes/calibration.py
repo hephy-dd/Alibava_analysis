@@ -4,7 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
-from .utilities import read_binary_Alibava, import_h5
+from .utilities import read_binary_Alibava, import_h5, manage_logger
 
 class Calibration:
     """This class handles all concerning the calibration"""
@@ -15,13 +15,7 @@ class Calibration:
         :param charge_path: Path to calibration file
         """
         self.log = logging.getLogger(__class__.__name__)
-        self.log.setLevel(logging.DEBUG)
-        if self.log.hasHandlers() is False:
-            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-            formatter = logging.Formatter(format_string)
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            self.log.addHandler(console_handler)
+        manage_logger(self.log)
 
         # self.charge_cal = None
         self.delay_cal = None

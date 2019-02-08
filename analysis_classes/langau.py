@@ -7,7 +7,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from tqdm import tqdm
 import pylandau
-from analysis_classes.utilities import convert_ADC_to_e
+from analysis_classes.utilities import convert_ADC_to_e, manage_logger
 
 
 class langau:
@@ -18,13 +18,7 @@ class langau:
         """Gets the main analysis class and imports all things needed for its calculations"""
 
         self.log = logging.getLogger(__class__.__name__)
-        self.log.setLevel(logging.DEBUG)
-        if self.log.hasHandlers() is False:
-            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-            formatter = logging.Formatter(format_string)
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            self.log.addHandler(console_handler)
+        manage_logger(self.log)
 
         self.main = main_analysis
         self.data = self.main.outputdata.copy()

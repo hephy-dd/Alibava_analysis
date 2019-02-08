@@ -7,23 +7,30 @@ import logging
 import os
 import struct
 import sys
-import numpy as np
 from importlib import import_module
+import numpy as np
 # COMMENT: tqdm and h5py are both missing in requirements
 import h5py
 import yaml
 from tqdm import tqdm
-from matplotlib.backends.backend_pdf import PdfPages
 from six.moves import cPickle as pickle  # for performance
 
+# COMMENT: utilities should not have its own logger. logs/prints should be
+# done in the respective classes
+
+def manage_logger(logger, level=logging.DEBUG):
+    """Sets output level of logging object and checks if object has a
+    StreamHandler"""
+    logger.setLevel(level)
+    if logger.hasHandlers() is False:
+        format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+        formatter = logging.Formatter(format_string)
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+
 LOG = logging.getLogger("utilities")
-LOG.setLevel(logging.DEBUG)
-if LOG.hasHandlers() is False:
-    format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-    formatter = logging.Formatter(format_string)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    LOG.addHandler(console_handler)
+manage_logger(LOG)
 
 def load_plugins(valid_plugins):
     # Load all measurement functions
@@ -39,6 +46,8 @@ def load_plugins(valid_plugins):
             if plugin in names:
                 all_plugins.update({plugin: to_add})
     return all_plugins
+
+
 
 
 def create_dictionary(file, filepath=os.getcwd()):

@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from analysis_classes.nb_analysis_funcs import nb_noise_calc
 from analysis_classes.utilities import import_h5, gaussian, read_binary_Alibava
-
+from analysis_classes.utilities import manage_logger
 
 class NoiseAnalysis:
     """This class contains all calculations and data concerning pedestals in
@@ -19,8 +19,9 @@ class NoiseAnalysis:
         """
         :param path: Path to pedestal file
         """
+        self.log = logging.getLogger(__class__.__name__)
+        manage_logger(self.log)
 
-        self.log = logging.getLogger()
         # Init parameters
         self.log.info("Loading pedestal file: {!s}".format(path))
         if not configs["isBinary"]:

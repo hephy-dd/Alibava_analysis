@@ -8,8 +8,8 @@ from time import time
 from tqdm import tqdm
 import numpy as np
 from .base_analysis import BaseAnalysis
-from .utilities import import_h5, Bdata, read_binary_Alibava, load_plugins
-
+from .utilities import Bdata, read_binary_Alibava, load_plugins
+from .utilities import import_h5, manage_logger
 
 class MainAnalysis:
     # COMMENT: the __init__ should be split up at least into 2 methods
@@ -26,13 +26,7 @@ class MainAnalysis:
 
         # Init parameters
         self.log = logging.getLogger(__class__.__name__)
-        self.log.setLevel(logging.DEBUG)
-        if self.log.hasHandlers() is False:
-            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-            formatter = logging.Formatter(format_string)
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            self.log.addHandler(console_handler)
+        manage_logger(self.log)
 
         if not path_list:
             self.log.info("No file to analyse passed...")
