@@ -178,7 +178,7 @@ class Calibration:
 
             fig.tight_layout()
             plt.draw()
-            plt.show()
+            # plt.show() # COMMENT: Otherwise stop here
         except Exception as err:
             self.log.error("An error happened while trying to plot calibration data")
             self.log.error(err)

@@ -44,6 +44,7 @@ class NoiseAnalysis:
                                   dtype=np.float32)  # Variable needed for noise calculations
             self.configs = configs
             self.median_noise = None
+            self.usejit = configs.get("optimize",False)
 
             # Calculate pedestal
             self.log.info("Calculating pedestal and Noise...")
@@ -51,7 +52,7 @@ class NoiseAnalysis:
             self.signal = np.array(self.data["events"]["signal"][:], dtype=np.float32)
 
             # Noise Calculations
-            if not usejit:
+            if not self.usejit:
                 start = time()
                 self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(self.signal, self.pedestal[:],
                                                                            self.numevents, self.numchan)

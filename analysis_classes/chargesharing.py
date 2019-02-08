@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-from analysis_classes.utilities import convert_ADC_to_e
+from analysis_classes.utilities import convert_ADC_to_e, manage_logger
 
 
 class ChargeSharing:

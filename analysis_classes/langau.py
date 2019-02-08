@@ -10,7 +10,7 @@ import pylandau
 from analysis_classes.utilities import convert_ADC_to_e, manage_logger
 
 
-class langau:
+class Langau:
     """This class calculates the langau distribution and returns the best values for landau and Gauss fit to the data
     """
 
@@ -96,13 +96,12 @@ class langau:
 
                     # COMMENT: axis=1 produces numpy.AxisError?
                     # totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
-                    totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=0)
+                    totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
 
                     # eError is a list containing electron signal noise
                     # totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal),
                     #                             axis=1))
-                    totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal),
-                                                axis=0))
+                    totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal), axis=1))
 
                     # incrementor += 1
 

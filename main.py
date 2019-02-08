@@ -4,20 +4,17 @@ import os
 import logging
 # COMMENT: switch to argparse
 from optparse import OptionParser
-<<<<<<< HEAD
-=======
-
 from analysis_classes.calibration import Calibration
 from analysis_classes.noise_analysis import NoiseAnalysis
-from analysis_classes.main_loops import MainLoops
+from analysis_classes.main_analysis import MainAnalysis
 from analysis_classes.utilities import *
->>>>>>> 311323df3f8a04cc4f36d964dc03c7f6158ae101
 from cmd_shell import AlisysShell
 from analysis_classes.utilities import create_dictionary, save_all_plots
 from analysis_classes.utilities import save_dict
 from analysis_classes import Calibration
 from analysis_classes import NoiseAnalysis
 from analysis_classes import MainAnalysis
+import matplotlib.pyplot as plt
 
 log = logging.getLogger("main")
 log.setLevel(logging.INFO)
@@ -41,7 +38,7 @@ def main(args, options):
         configs = create_dictionary(os.path.normpath(options.configfile), "")
         do_with_config_file(configs)
         # COMMETN: plt not defined!!!
-        # plt.show()  # Just in case the plot show has never been shown
+        plt.show()  # Just in case the plot show has never been shown
 
     elif options.filepath and os.path.exists(os.path.normpath(options.filepath)):
         pass  # Todo: include the option to start the analysis with a passed file and config file
