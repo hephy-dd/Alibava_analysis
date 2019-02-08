@@ -1,19 +1,18 @@
 """This file contains the class for analysing the charge collection
 efficiency"""
-
 import logging
-
 import matplotlib.pyplot as plt
-
+from .utilities import manage_logger
 
 class CCE:
     """This function has actually plots the the CCE plot"""
 
     def __init__(self, main_analysis):
         """Initialize some important parameters"""
+        self.log = logging.getLogger(__class__.__name__)
+        manage_logger(self.log)
         self.main = main_analysis
         self.data = self.main.outputdata.copy()
-        self.log = logging.getLogger()
 
     def run(self):
         pass

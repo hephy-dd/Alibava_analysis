@@ -2,11 +2,14 @@
 run data"""
 #pylint: disable=R0902,R0915,C0103
 
+import logging
 from multiprocessing import Pool
-
-#from analysis_classes.BaseAnalysis import *
-from analysis_classes.utilities import *  # import_h5, Bdata, read_binary_Alibava
-
+from time import time
+from tqdm import tqdm
+import numpy as np
+from .base_analysis import BaseAnalysis
+from .utilities import Bdata, read_binary_Alibava, load_plugins
+from .utilities import import_h5, manage_logger
 
 class MainAnalysis:
     # COMMENT: the __init__ should be split up at least into 2 methods
@@ -22,7 +25,8 @@ class MainAnalysis:
         """
 
         # Init parameters
-        self.log = logging.getLogger()
+        self.log = logging.getLogger(__class__.__name__)
+        manage_logger(self.log)
 
         if not path_list:
             self.log.info("No file to analyse passed...")
@@ -154,4 +158,3 @@ class MainAnalysis:
 
         self.Pool.close()
         self.Pool.join()
-

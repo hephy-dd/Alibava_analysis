@@ -1,13 +1,10 @@
 """This file contains the class for charge sharing analysis"""
-#pylint: disable=C0103
-
-# Import statements
-import numpy as np
+#pylint: disable=C0103,E1111
 import logging
+import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-# from nb_analysisFunction import *
 from analysis_classes.utilities import convert_ADC_to_e
 
 
@@ -17,11 +14,13 @@ class ChargeSharing:
 
     def __init__(self, main_analysis):
         """Initialize some important parameters"""
+        self.log = logging.getLogger(__class__.__name__)
+        manage_logger(self.log)
+
         self.main = main_analysis
         self.clustersize = 2  # Other thing would not make sense for interstrip analysis
         self.data = self.main.outputdata.copy()
         self.results_dict = {}  # Containing all data processed
-        self.log = logging.getLogger()
 
     def run(self):
         """Runs the analysis"""

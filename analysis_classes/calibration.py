@@ -1,10 +1,10 @@
 """This file contains the class for the ALiBaVa calibration"""
-
+#pylint: disable=C0103
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
-from .utilities import read_file, read_binary, import_h5
+from .utilities import read_binary_Alibava, import_h5, manage_logger
 
 class Calibration:
     """This class handles all concerning the calibration"""
@@ -15,13 +15,7 @@ class Calibration:
         :param charge_path: Path to calibration file
         """
         self.log = logging.getLogger(__class__.__name__)
-        self.log.setLevel(logging.DEBUG)
-        if self.log.hasHandlers() is False:
-            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-            formatter = logging.Formatter(format_string)
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            self.log.addHandler(console_handler)
+        manage_logger(self.log)
 
         # self.charge_cal = None
         self.delay_cal = None
@@ -46,11 +40,11 @@ class Calibration:
 
     def delay_calibration_calc(self, delay_path):
         # Delay scan
-        print("Loading delay file: {!s}".format(delay_path))
+        self.log.info("Loading delay file: {!s}".format(delay_path))
         if not self.isBinary:
             self.delay_data = import_h5(delay_path)
         else:
-            self.delay_data = read_binary(delay_path)
+            self.delay_data = read_binary_Alibava(delay_path)
 
         pulses = np.array(self.delay_data["scan"]["value"][:])  # aka xdata
 
@@ -80,7 +74,7 @@ class Calibration:
         if not self.isBinary:
             self.charge_data = import_h5(charge_path)[0]
         else:
-            self.charge_data = read_binary(charge_path)
+            self.charge_data = read_binary_Alibava(charge_path)
         if self.charge_data:
             pulses = np.array(self.charge_data["scan"]["value"][:])  # aka xdata
 
@@ -183,7 +177,8 @@ class Calibration:
                 gain_hist.legend()
 
             fig.tight_layout()
-            # plt.draw()
+            plt.draw()
+            plt.show()
         except Exception as err:
             self.log.error("An error happened while trying to plot calibration data")
             self.log.error(err)
