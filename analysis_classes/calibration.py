@@ -1,10 +1,10 @@
 """This file contains the class for the ALiBaVa calibration"""
-
+#pylint: disable=C0103
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
-from .utilities import read_file, read_binary, import_h5
+from .utilities import read_binary, import_h5
 
 class Calibration:
     """This class handles all concerning the calibration"""
@@ -72,7 +72,7 @@ class Calibration:
         # Charge scan
         self.log.info("Loading charge calibration file: {!s}".format(charge_path))
         if not self.isBinary:
-            self.charge_data = import_h5(charge_path)[0]
+            self.charge_data = import_h5(charge_path)
         else:
             self.charge_data = read_binary(charge_path)
         if self.charge_data:
@@ -167,7 +167,8 @@ class Calibration:
                 gain_hist.legend()
 
             fig.tight_layout()
-            # plt.draw()
+            plt.draw()
+            plt.show()
         except Exception as err:
             self.log.error("An error happened while trying to plot calibration data")
             self.log.error(err)

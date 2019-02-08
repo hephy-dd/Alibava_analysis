@@ -1,20 +1,13 @@
 # This module makes the program interact with the command line
 
 import cmd
-<<<<<<< HEAD
 import os
+import pprint
 from threading import Thread
 import matplotlib.pyplot as plt
-import pprint
 import numpy as np
-from analysis_classes import *
-from utilities import *
-=======
-import pprint
-from threading import Thread
-
-from analysis_classes.utilities import *
->>>>>>> 0479dd927e9aee737a0df5a39b31b4b9011a57cd
+from main import do_with_config_file
+from analysis_classes.utilities import create_dictionary
 
 np.set_printoptions(threshold=0, precision=2, edgeitems=2)
 

@@ -15,7 +15,7 @@ class NoiseAnalysis:
     """This class contains all calculations and data concerning pedestals in
 	ALIBAVA files"""
 
-    def __init__(self, path, data_type, configs=None):
+    def __init__(self, path, binary=None, configs=None):
         """
         :param path: Path to pedestal file
         :param data_type: binary or hdf5 format supported
@@ -33,14 +33,20 @@ class NoiseAnalysis:
         # import raw data
         self.log.info("Loading pedestal file(s) from: %s", path)
         try:
-            if data_type == "hdf5":
+            if binary is None:
+                binary = configs["isBinary"]
+        except KeyError as err:
+            self.log.error(err)
+            self.log.error("Unkown ALiBaVa data type")
+        try:
+            if binary is False:
                 self.data = import_h5(path)
-            elif data_type == "binary":
+            elif binary is True:
                 self.data = read_binary(path)
         except ImportError as err:
-            self.log.warning(err)
-            self.log.warning("An error occured while importing the "
-                             "pedestal file. Skipping pedestal run...")
+            self.log.error(err)
+            self.log.error("An error occured while importing the "
+                           "pedestal file. Skipping pedestal run...")
 
         # Init parameters
         # Some of the declaration may seem unecessary but it clears things

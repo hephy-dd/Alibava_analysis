@@ -2,10 +2,13 @@
 run data"""
 #pylint: disable=R0902,R0915,C0103
 
+import logging
 from multiprocessing import Pool
-
-from analysis_classes.BaseAnalysis import *
-from analysis_classes.utilities import *  # import_h5, Bdata, read_binary_Alibava
+from time import time
+from tqdm import tqdm
+import numpy as np
+from .base_analysis import BaseAnalysis
+from .utilities import import_h5, Bdata, read_binary, load_plugins
 
 
 class MainAnalysis:
@@ -22,7 +25,14 @@ class MainAnalysis:
         """
 
         # Init parameters
-        self.log = logging.getLogger()
+        self.log = logging.getLogger(__class__.__name__)
+        self.log.setLevel(logging.DEBUG)
+        if self.log.hasHandlers() is False:
+            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+            formatter = logging.Formatter(format_string)
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            self.log.addHandler(console_handler)
 
         if not path_list:
             self.log.info("No file to analyse passed...")
@@ -36,7 +46,7 @@ class MainAnalysis:
         else:
             self.data = []
             for path in path_list:
-                self.data.append(read_binary_Alibava(path))
+                self.data.append(read_binary(path))
 
         self.numchan = len(self.data[0]["events"]["signal"][0])
         self.numevents = len(self.data[0]["events"]["signal"])
@@ -120,6 +130,7 @@ class MainAnalysis:
         # Now process additional analysis statet in the config file
 
         # Load all plugins
+        # COMMENT: WTF???
         plugins = load_plugins()
 
         for analysis in self.add_analysis:
@@ -154,4 +165,3 @@ class MainAnalysis:
 
         self.Pool.close()
         self.Pool.join()
-

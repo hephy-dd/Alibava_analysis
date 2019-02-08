@@ -1,23 +1,17 @@
-# This file is the main analysis file here all processes will be started
+"""This file is the main analysis file here all processes will be started"""
 
-<<<<<<< HEAD
 import os
-=======
-
->>>>>>> 0479dd927e9aee737a0df5a39b31b4b9011a57cd
+import logging
+# COMMENT: switch to argparse
 from optparse import OptionParser
-
-from analysis_classes.Calibration import Calibration
-from analysis_classes.NoiseAnalysis import NoiseAnalysis
-from analysis_classes.main_loops import MainLoops
-from analysis_classes.utilities import *
 from cmd_shell import AlisysShell
-from utilities import create_dictionary, save_all_plots, save_dict
-from analysis_classes.calibration import Calibration
-from analysis_classes.noise_analysis import NoiseAnalysis
-from analysis_classes.main_analysis import MainAnalysis
+from analysis_classes.utilities import create_dictionary, save_all_plots
+from analysis_classes.utilities import save_dict
+from analysis_classes import Calibration
+from analysis_classes import NoiseAnalysis
+from analysis_classes import MainAnalysis
 
-log = logging.getLogger()
+log = logging.getLogger("main")
 log.setLevel(logging.INFO)
 if log.hasHandlers() is False:
     format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
@@ -26,12 +20,34 @@ if log.hasHandlers() is False:
     console_handler.setFormatter(formatter)
     log.addHandler(console_handler)
 
+
+def main(args, options):
+    """The main analysis which will be executed after the arguments are parsed"""
+
+    if options.shell:
+        shell = AlisysShell()
+        # shell.start_shell()
+
+    elif options.configfile and os.path.exists(os.path.normpath(options.configfile)):
+        log.info("Loading file: %s", os.path.normpath(options.configfile))
+        configs = create_dictionary(os.path.normpath(options.configfile), "")
+        do_with_config_file(configs)
+        # COMMETN: plt not defined!!!
+        # plt.show()  # Just in case the plot show has never been shown
+
+    elif options.filepath and os.path.exists(os.path.normpath(options.filepath)):
+        pass  # Todo: include the option to start the analysis with a passed file and config file
+
+    else:
+        log.error("No valid path parsed! Exiting")
+        exit(1)
+
 def do_with_config_file(config):
     """Starts analysis with a config file"""
 
     # Look if a pedestal file is specified
     if "Pedestal_file" in config:
-        noise_data = NoiseAnalysis(config["Pedestal_file"], usejit=config.get("optimize", False), configs=config)
+        noise_data = NoiseAnalysis(config["Pedestal_file"], configs=config)
         noise_data.plot_data()
 
     # Look if a calibration file is specified
@@ -47,8 +63,8 @@ def do_with_config_file(config):
         config.update({"calibration": config_data,
                        "noise_analysis": noise_data})
 
-        event_data = MainLoops(config["Measurement_file"],
-                                   configs=config)  # Is adictionary containing all keys and values for configuration
+        event_data = MainAnalysis(config["Measurement_file"],
+                                  configs=config)  # Is adictionary containing all keys and values for configuration
         # Save the plots if specified
         if config.get("Output_folder", "") and config.get("Output_name", ""):
             save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
@@ -56,60 +72,7 @@ def do_with_config_file(config):
                 save_dict(event_data.outputdata, config["Output_folder"] + "\\" + config["Output_name"] + ".dba")
         return event_data.outputdata
 
-def main(args, options):
-    """The main analysis which will be executed after the arguments are parsed"""
 
-    if options.shell:
-        shell = AlisysShell()
-        # shell.start_shell()
-
-
-    elif options.configfile and os.path.exists(os.path.normpath(options.configfile)):
-        configs = create_dictionary(os.path.normpath(options.configfile), "")
-        do_with_config_file(configs)
-        plt.show()  # Just in case the plot show has never been shown
-
-    elif options.filepath and os.path.exists(os.path.normpath(options.filepath)):
-        pass  # Todo: include the option to start the analysis with a passed file and config file
-
-    else:
-        print("No valid path parsed! Exiting")
-        exit(1)
-
-def do_with_config_file(config):
-    """Starts analysis with a config file"""
-
-    # Look if a pedestal file is specified
-    if "Pedestal_file" in config:
-        noise_data = NoiseAnalysis(config["Pedestal_file"],
-                                   usejit=config.get("optimize", False),
-                                   configs=config)
-        noise_data.plot_data()
-
-    # Look if a calibration file is specified
-    if "Delay_scan" in config or "Charge_scan" in config:
-        config_data = Calibration(config.get("Delay_scan", ""),
-                                  config.get("Charge_scan", ""),
-                                  Noise_calc=noise_data,
-                                  isBinary=config.get("isBinary", False))
-        config_data.plot_data()
-
-    # Look if a pedestal file is specified
-    if "Measurement_file" in config:
-        # TODO: potential call before assignment error !!! with pedestal file
-
-        config.update({"calibration": config_data,
-                       "noise_analysis": noise_data})
-
-        event_data = MainAnalysis(config["Measurement_file"],
-                                  configs=config) # Is adictionary containing all keys and values for configuration
-        # Save the plots if specified
-        if config.get("Output_folder", "") and config.get("Output_name", ""):
-            save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
-            if config.get("Pickle_output", False):
-                save_dict(event_data.outputdata, config["Output_folder"] +
-                          "\\" + config["Output_name"] + ".dba")
-        return event_data.outputdata
 
 
 if __name__ == "__main__":
