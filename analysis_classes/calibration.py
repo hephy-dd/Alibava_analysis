@@ -4,7 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
-from .utilities import read_binary, import_h5
+from .utilities import read_binary_Alibava, import_h5
 
 class Calibration:
     """This class handles all concerning the calibration"""
@@ -46,11 +46,11 @@ class Calibration:
 
     def delay_calibration_calc(self, delay_path):
         # Delay scan
-        print("Loading delay file: {!s}".format(delay_path))
+        self.log.info("Loading delay file: {!s}".format(delay_path))
         if not self.isBinary:
             self.delay_data = import_h5(delay_path)
         else:
-            self.delay_data = read_binary(delay_path)
+            self.delay_data = read_binary_Alibava(delay_path)
 
         pulses = np.array(self.delay_data["scan"]["value"][:])  # aka xdata
 
@@ -80,7 +80,7 @@ class Calibration:
         if not self.isBinary:
             self.charge_data = import_h5(charge_path)[0]
         else:
-            self.charge_data = read_binary(charge_path)
+            self.charge_data = read_binary_Alibava(charge_path)
         if self.charge_data:
             pulses = np.array(self.charge_data["scan"]["value"][:])  # aka xdata
 

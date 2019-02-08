@@ -88,7 +88,7 @@ def get_xy_data(data, header=0):
             np2Darray[i-header] = np.array(list_data)
     return np2Darray
 
-def read_binary(filepath):
+def read_binary_Alibava(filepath):
     """Reads binary alibava files"""
 
     with open(os.path.normpath(filepath), "rb") as f:

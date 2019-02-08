@@ -8,7 +8,7 @@ from time import time
 from tqdm import tqdm
 import numpy as np
 from .base_analysis import BaseAnalysis
-from .utilities import import_h5, Bdata, read_binary, load_plugins
+from .utilities import import_h5, Bdata, read_binary_Alibava, load_plugins
 
 
 class MainAnalysis:
@@ -46,7 +46,7 @@ class MainAnalysis:
         else:
             self.data = []
             for path in path_list:
-                self.data.append(read_binary(path))
+                self.data.append(read_binary_Alibava(path))
 
         self.numchan = len(self.data[0]["events"]["signal"][0])
         self.numevents = len(self.data[0]["events"]["signal"])
