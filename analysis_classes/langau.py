@@ -170,11 +170,11 @@ class Langau:
         lancut = np.max(hist) * 0.33  # Find maximum of hist and get the cut
         # TODO: Bug when using optimized vs non optimized !!!
         try:
-            ind_xmin = np.argwhere(hist > lancut)[0][
-                0]  # Finds the first element which is higher as threshold optimized
+            ind_xmin = np.argwhere(hist > lancut)[0][0]
+            # Finds the first element which is higher as threshold optimized
         except:
-            ind_xmin = np.argwhere(hist > lancut)[
-                0]  # Finds the first element which is higher as threshold non optimized
+            ind_xmin = np.argwhere(hist > lancut)[0]
+            # Finds the first element which is higher as threshold non optimized
 
         mpv, eta, sigma, A = 27000, 1500, 5000, np.max(hist)
 

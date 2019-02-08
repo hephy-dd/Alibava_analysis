@@ -47,6 +47,12 @@ class Calibration:
             self.delay_data = read_binary_Alibava(delay_path)
 
         pulses = np.array(self.delay_data["scan"]["value"][:])  # aka xdata
+
+        # Sometime it happens, that h5py does not read correctly
+        # TODO: write a more pythonic and pretty version of this
+        if not len(pulses):
+            self.log.error("A HDF5 read error! Loaded empty array. Restart python")
+
         signals = np.array(
             self.delay_data["events"]["signal"][:]) - self.pedestal  # signals per pulse, CMN is a single value
         signals = np.delete(signals, self.noisy_channels, axis=1)
@@ -71,6 +77,12 @@ class Calibration:
             self.charge_data = read_binary_Alibava(charge_path)
         if self.charge_data:
             pulses = np.array(self.charge_data["scan"]["value"][:])  # aka xdata
+
+            # Sometime it happens, that h5py does not read correctly
+            #TODO: write a more pythonic and pretty version of this
+            if not len(pulses):
+                self.log.error("A HDF5 read error! Loaded empty array. Restart python")
+
             signals = np.array(self.charge_data["events"]["signal"][:]) - self.pedestal  # signals per pulse
             signals = np.delete(signals, self.noisy_channels, axis=1)
 

@@ -90,6 +90,7 @@ class ChargeSharing:
             plot.set_title('Charge distribution interstrip')
 
             plot = fig.add_subplot(222)
+            counts, edges, im = plot.hist(data["eta"], bins=300, range=(0, 1), alpha=0.4, color="b")
             # left = stats.norm.pdf(data["fits"][2][:100], loc=data["fits"][0][0], scale=data["fits"][0][1])
             # right = stats.norm.pdf(data["fits"][2], loc=data["fits"][1][0], scale=data["fits"][1][1])
             # plot.plot(data["fits"][2][:100], left,"r--", color="r")
@@ -99,6 +100,7 @@ class ChargeSharing:
             plot.set_title('Eta distribution')
 
             plot = fig.add_subplot(223)
+            counts, edges, im = plot.hist(data["theta"] / np.pi, bins=300, alpha=0.4, color="b", range=(0, 0.5))
             plot.set_xlabel('theta/Pi')
             plot.set_ylabel('entries')
             plot.set_title('Theta distribution')
