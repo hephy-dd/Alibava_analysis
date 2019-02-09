@@ -9,7 +9,7 @@ from analysis_classes.noise_analysis import NoiseAnalysis
 from analysis_classes.main_analysis import MainAnalysis
 from analysis_classes.utilities import *
 from cmd_shell import AlisysShell
-from analysis_classes.utilities import create_dictionary, save_all_plots
+from analysis_classes.utilities import create_dictionary, save_all_plots, save_configs
 from analysis_classes.utilities import save_dict
 from analysis_classes import Calibration
 from analysis_classes import NoiseAnalysis
@@ -73,6 +73,7 @@ def do_with_config_file(config):
         # Save the plots if specified
         if config.get("Output_folder", "") and config.get("Output_name", ""):
             save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
+            save_configs(config, config["Output_name"], config["Output_folder"])
             if config.get("Pickle_output", False):
                 save_dict(event_data.outputdata,
                           os.path.join(config["Output_folder"],

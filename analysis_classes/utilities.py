@@ -335,6 +335,13 @@ def get_size(obj, seen=None):
         size += sum([get_size(i, seen) for i in obj])
     return size
 
+def save_configs(configs, name, path):
+    """This function saves the configs of the current run"""
+    try:
+        yaml.safe_dump(configs, path=os.path.normpath(path + "\\" + name))
+    except OSError as err:
+        LOG.error("Failed to save configs.", exc_info=True)
+
 
 class Bdata:
     """Creates an object which can handle numpy arrays. By passing lables you
