@@ -11,9 +11,9 @@ from .utilities import manage_logger
 
 class BaseAnalysis:
 
-    def __init__(self, main, events, timing):
-        self.log = logging.getLogger(__class__.__name__)
-        manage_logger(self.log)
+    def __init__(self, main, events, timing, logger = None):
+        self.log = logger or logging.getLogger(__class__.__name__)
+        #manage_logger(self.log)
         self.main = main
         self.events = events
         self.timing = timing

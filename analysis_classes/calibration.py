@@ -9,13 +9,13 @@ from .utilities import read_binary_Alibava, import_h5, manage_logger
 class Calibration:
     """This class handles all concerning the calibration"""
     def __init__(self, delay_path="", charge_path="", Noise_calc={},
-                 isBinary=False):
+                 isBinary=False, logger = None):
         """
         :param delay_path: Path to calibration file
         :param charge_path: Path to calibration file
         """
-        self.log = logging.getLogger(__class__.__name__)
-        manage_logger(self.log)
+        self.log = logger or logging.getLogger(__class__.__name__)
+        #manage_logger(self.log)
 
         # self.charge_cal = None
         self.delay_cal = None

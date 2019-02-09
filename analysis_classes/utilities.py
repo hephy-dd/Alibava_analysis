@@ -4,19 +4,37 @@ python analysis of ALIBAVA files."""
 # pylint: disable=C0103,R1710,R0903
 
 import logging
+import logging.config
 import os
 import struct
 import sys
 from importlib import import_module
 import numpy as np
+import yaml
 # COMMENT: tqdm and h5py are both missing in requirements
 import h5py
 import yaml
 from tqdm import tqdm
 from six.moves import cPickle as pickle  # for performance
+import matplotlib.pyplot as plt
 
-# COMMENT: utilities should not have its own logger. logs/prints should be
-# done in the respective classes
+# COMMENT: The python way of doing things is always, as simple as possible. If you
+# really want to have differen logger types lets do it this way, as it is suggested it a multitude of
+# examples
+
+def init_logger(path='logger.yml', default_level=logging.INFO, env_key='LOG_CFG'):
+    """Loads a logger file and initiates logger"""
+    value = os.getenv(env_key, None)
+    if value:
+        path = value
+    if os.path.exists(os.path.normpath(path)):
+        with open(path, 'rt') as f:
+            config = yaml.safe_load(f.read())
+        logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
+
+
 
 def manage_logger(logger, level=logging.DEBUG):
     """Sets output level of logging object and checks if object has a
@@ -30,7 +48,7 @@ def manage_logger(logger, level=logging.DEBUG):
         logger.addHandler(console_handler)
 
 LOG = logging.getLogger("utilities")
-manage_logger(LOG)
+#manage_logger(LOG)
 
 def load_plugins(valid_plugins):
     # Load all measurement functions
@@ -233,17 +251,17 @@ def save_all_plots(name, folder, figs=None, dpi=200):
     :return: None
     """
     # COMMENT: dpi unused???', plt is not defined!
-    # try:
-    #     pp = PdfPages(os.path.normpath(folder) + "\\" + name + ".pdf")
-    # except PermissionError:
-    #     log.info("While overwriting the file {!s} a permission error occured, "
-    #              "please close file if opened!".format(name + ".pdf"))
-    #     return
-    # if figs is None:
-    #     figs = [plt.figure(n) for n in plt.get_fignums()]
-    # for fig in tqdm(figs, desc="Saving plots"):
-    #     fig.savefig(pp, format='pdf')
-    # pp.close()
+    try:
+        pp = plt.PdfPages(os.path.normpath(folder) + "\\" + name + ".pdf")
+    except PermissionError:
+        print("While overwriting the file {!s} a permission error occured, "
+                 "please close file if opened!".format(name + ".pdf"))
+        return
+    if figs is None:
+        figs = [plt.figure(n) for n in plt.get_fignums()]
+    for fig in tqdm(figs, desc="Saving plots"):
+        fig.savefig(pp, format='pdf')
+    pp.close()
 
 class NoStdStreams(object):
     """Surpresses all output of a function when called with with """
@@ -266,7 +284,7 @@ class NoStdStreams(object):
         self.devnull.close()
 
 def gaussian(x, mu, sig, a):
-    """Doc of function"""
+    """Simple but fast implementation of as gaussian distribution"""
     return a*np.exp(-np.power(x - mu, 2.) / (2. * np.power(sig, 2.)))
 
 def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters,
@@ -278,7 +296,6 @@ def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters,
     # Loop over the clustersize to get total deposited energy
     incrementor = 0
     for ind in tqdm(cls_ind, desc="(langau) Processing event"):
-        # TODO: make this work for multiple cluster in one event
         # Signal calculations
         signal_clst_event = np.take(valid_events_Signal[ind],
                                     valid_events_clusters[ind][0])
@@ -328,17 +345,19 @@ class Bdata:
 
     def __init__(self, data = np.array([]), labels = None):
 
-        self.log = logging.getLogger(__class__.__name__)
-        self.log.setLevel(logging.DEBUG)
-        if self.log.hasHandlers() is False:
-            format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-            formatter = logging.Formatter(format_string)
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-            self.log.addHandler(console_handler)
+        # Has nothing to do here, this is a Data type not a typical class
+        #self.log = logging.getLogger(__class__.__name__)
+        #self.log.setLevel(logging.DEBUG)
+        #if self.log.hasHandlers() is False:
+        #    format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+        #    formatter = logging.Formatter(format_string)
+        #    console_handler = logging.StreamHandler()
+        #    console_handler.setFormatter(formatter)
+        #    self.log.addHandler(console_handler)
 
         self.data = data
         self.labels = labels
+        self.log = LOG
 
         if len(self.data) != len(self.labels):
             self.log.warning("Data missmatch!")
@@ -368,5 +387,9 @@ def load_dict(filename_):
     return ret_di
 
 
+# Here the logger will be initialized!
+init_logger(path='logger.yml')
+
+
 if __name__ == "__main__":
-    read_file('C:\\Users\\dbloech\\Desktop\\run002_1E4.dat', True)
+    pass

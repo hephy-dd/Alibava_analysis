@@ -15,12 +15,12 @@ class NoiseAnalysis:
     """This class contains all calculations and data concerning pedestals in
 	ALIBAVA files"""
 
-    def __init__(self, path="", usejit=False, configs=None):
+    def __init__(self, path="", configs=None, logger = None):
         """
         :param path: Path to pedestal file
         """
-        self.log = logging.getLogger(__class__.__name__)
-        manage_logger(self.log)
+        self.log = logger or logging.getLogger(__class__.__name__)
+        #manage_logger(self.log)
 
         # Init parameters
         self.log.info("Loading pedestal file: {!s}".format(path))

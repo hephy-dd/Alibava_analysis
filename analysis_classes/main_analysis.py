@@ -18,15 +18,15 @@ class MainAnalysis:
 
     """This class analyses measurement files per event and conducts additional defined analysis"""
 
-    def __init__(self, path_list=None, **kwargs):
+    def __init__(self, path_list=None, logger = None, **kwargs):
         """
         :param path_list: List of pathes to analyse
         :param kwargs: kwargs if further data should be used, possible kwargs=calibration,noise
         """
 
         # Init parameters
-        self.log = logging.getLogger(__class__.__name__)
-        manage_logger(self.log)
+        self.log = logger or logging.getLogger(__class__.__name__)
+        #manage_logger(self.log)
 
         if not path_list:
             self.log.info("No file to analyse passed...")

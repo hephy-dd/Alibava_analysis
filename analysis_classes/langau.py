@@ -14,11 +14,11 @@ class Langau:
     """This class calculates the langau distribution and returns the best values for landau and Gauss fit to the data
     """
 
-    def __init__(self, main_analysis):
+    def __init__(self, main_analysis, logger = None):
         """Gets the main analysis class and imports all things needed for its calculations"""
 
-        self.log = logging.getLogger(__class__.__name__)
-        manage_logger(self.log)
+        self.log = logger or logging.getLogger(__class__.__name__)
+        #manage_logger(self.log)
 
         self.main = main_analysis
         self.data = self.main.outputdata.copy()
