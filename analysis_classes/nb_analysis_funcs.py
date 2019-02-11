@@ -1,5 +1,5 @@
 """This files contains analysis function optimizes by numba jit capabilities"""
-#pyline: disable=E1111
+#pylint: disable=E1111
 from numba import jit
 from multiprocessing import Manager
 import numpy as np
@@ -163,11 +163,11 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
 
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
-def nb_noise_calc(events, pedestal):
+def nb_noise_calc(events, pedestal, tot_noise=False):
     """Noise calculation, normal noise (NN) and common mode noise (CMN)
     Uses numpy"""
     # Calculate the common mode noise for every channel
-    cm = np.subtract(events,pedestal, dtype=np.float32)  # Get the signal from event and subtract pedestal
+    cm = np.subtract(events, pedestal, dtype=np.float32)  # Get the signal from event and subtract pedestal
     CMsig = np.std(cm, axis=1)  # Calculate the standard deviation
     CMnoise = np.mean(cm, axis=1)  # Now calculate the mean from the cm to get the actual common mode noise
     # Calculate the noise of channels
@@ -175,8 +175,10 @@ def nb_noise_calc(events, pedestal):
                                                                 # Signal[arraylike] - pedestal[arraylike] - Common mode
     # This is a trick with the dimensions of ndarrays, score = shape[ (x,y) - x,1 ]
     # is possible otherwise a loop is the only way
-
-    return np.array(score, dtype=np.float32), np.array(CMnoise, dtype=np.float32), np.array(CMsig, dtype=np.float32)  # Return everything
+    noise = np.std(score, axis=0)
+    if tot_noise is False:
+        return noise, CMnoise, CMsig
+    return noise, CMnoise, CMsig, np.concatenate(score, axis=0)
 
 
 def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
