@@ -53,6 +53,8 @@ class NoiseAnalysis:
             self.pedestal = np.mean(self.data["events"]["signal"][0:], axis=0)
             # complete signal matrix (event vs. channel)
             self.signal = np.array(self.data["events"]["signal"][:], dtype=np.float32)
+            # canvas for plotting the data
+            self.fig = plt.figure("Noise analysis")
 
             # Noise Calculations
             if not usejit:
@@ -135,64 +137,84 @@ class NoiseAnalysis:
         return noise, CMnoise, CMsig, np.concatenate(score, axis=0)
 
 
-    def plot_data(self):
-		# COMMENT: every plot needs its own method!!!
-        """Plots the data calculated by the framework"""
+    def plot_data(self, show=True):
+        """Plots the data calculated by the framework. Surpress drawing and
+        showing the canvas by setting "show" to False.
+        Returns matplotlib.pyplot.figure object.
+        """
+        self.plot_noise_ch(self.fig)
+        self.plot_noise_hist(self.fig)
+        self.plot_CM(self.fig)
+        self.plot_pedestal(self.fig)
+        self.fig.tight_layout()
+        if show:
+            plt.draw()
+            plt.show()
+        return self.fig
 
-        fig = plt.figure("Noise analysis")
 
-        # Plot noisedata
-        noise_plot = fig.add_subplot(221)
-        noise_plot.bar(np.arange(self.numchan), self.noise, 1., alpha=0.4, color="b")
-        # array of non masked strips
+    def plot_noise_ch(self, fig=None):
+        """plot noise per channel"""
+        noise_plot = handle_sub_plots(fig, 221)
+        noise_plot.bar(np.arange(self.numchan), self.noise, 1.,
+                       alpha=0.4, color="b")
+        # plot line idicating masked and unmasked channels
         valid_strips = np.ones(self.numchan)
         valid_strips[self.noisy_strips] = 0
-        noise_plot.plot(np.arange(self.numchan), valid_strips, 1., color="r", label="Masked strips")
+        noise_plot.plot(np.arange(self.numchan), valid_strips, 1., color="r",
+                        label="Masked strips")
 
         # Plot the threshold for deciding a good channel
         xval = [0, self.numchan]
         # COMMENT: Again, this should be -/+ noise_cut not +/+ or I dont get it at all
         yval = [self.median_noise - self.noise_cut,
                 self.median_noise + self.noise_cut]
-        noise_plot.plot(xval, yval, 1., "r--", color="g", label="Threshold for noisy strips")
+        noise_plot.plot(xval, yval, 1., "r--", color="g",
+                        label="Threshold for noisy strips")
 
         noise_plot.set_xlabel('Channel [#]')
         noise_plot.set_ylabel('Noise [ADC]')
         noise_plot.set_title('Noise levels per Channel')
-        noise_plot.legend()
+        # noise_plot.legend()
+        return noise_plot
 
-        # Plot pedestal
-        pede_plot = fig.add_subplot(222)
+    def plot_pedestal(self, fig=None):
+        """Plot pedestal and noise per channel"""
+        pede_plot = handle_sub_plots(fig, 222)
         pede_plot.bar(np.arange(self.numchan), self.pedestal, 1., yerr=self.noise,
-                      error_kw=dict(elinewidth=0.2, ecolor='r', ealpha=0.1), alpha=0.4, color="b")
+                      error_kw=dict(elinewidth=0.2, ecolor='r', ealpha=0.1),
+                      alpha=0.4, color="b")
         pede_plot.set_xlabel('Channel [#]')
         pede_plot.set_ylabel('Pedestal [ADC]')
         pede_plot.set_title('Pedestal levels per Channel with noise')
         pede_plot.set_ylim(bottom=min(self.pedestal) - 50.)
-        # pede_plot.legend()
+        return pede_plot
 
-        # Plot Common mode
-        CM_plot = fig.add_subplot(223)
-        n, bins, patches = CM_plot.hist(self.CMnoise, bins=50, density=True, alpha=0.4, color="b")
+    def plot_CM(self, fig=None):
+        """Plot the CM distribution"""
+        plot = handle_sub_plots(fig, 223)
+        _, bins, _ = plot.hist(self.CMnoise, bins=50, density=True, alpha=0.4, color="b")
         # Calculate the mean and std
         mu, std = norm.fit(self.CMnoise)
         # Calculate the distribution for plotting in a histogram
         p = norm.pdf(bins, loc=mu, scale=std)
-        CM_plot.plot(bins, p, "r--", color="g")
+        plot.plot(bins, p, "r--", color="g")
 
-        CM_plot.set_xlabel('Common mode [ADC]')
-        CM_plot.set_ylabel('[%]')
-        CM_plot.set_title(
-            r'$\mathrm{Common\ mode\:}\ \mu=' + str(round(mu, 2)) + r',\ \sigma=' + str(round(std, 2)) + r'$')
-        # CM_plot.legend()
+        plot.set_xlabel('Common mode [ADC]')
+        plot.set_ylabel('[%]')
+        plot.set_title(r'$\mathrm{Common\ mode\:}\ \mu=' + str(round(mu, 2)) \
+                       + r',\ \sigma=' + str(round(std, 2)) + r'$')
+        return plot
 
-        # Plot noise hist
-        CM_plot = fig.add_subplot(224)
-        n, bins, patches = CM_plot.hist(self.total_noise, bins=500, density=False, alpha=0.4, color="b")
-        CM_plot.set_yscale("log", nonposy='clip')
-        CM_plot.set_ylim(1.)
+    def plot_noise_hist(self, fig=None):
+        """Plot total noise distribution. Find an appropriate Gaussian while
+        excluding the "ungaussian" parts of the distribution"""
+        plot = handle_sub_plots(fig, 224)
+        n, bins, _ = plot.hist(self.total_noise, bins=500, density=False, alpha=0.4, color="b")
+        plot.set_yscale("log", nonposy='clip')
+        plot.set_ylim(1.)
 
-        # Cut off noise part
+        # Cut off "ungaussian" noise
         cut = np.max(n) * 0.2  # Find maximum of hist and get the cut
         ind = np.concatenate(np.argwhere(n > cut))  # Finds the first element which is higher as threshold optimized
 
@@ -201,12 +223,17 @@ class NoiseAnalysis:
         # Calculate the distribution for plotting in a histogram
         plotrange = np.arange(-35, 35)
         p = gaussian(plotrange, mu, std, np.max(n))
-        CM_plot.plot(plotrange, p, "r--", color="g")
+        plot.plot(plotrange, p, "r--", color="g")
+        plot.set_xlabel('Noise')
+        plot.set_ylabel('count')
+        plot.set_title("Noise Histogram")
+        return plot
 
-        CM_plot.set_xlabel('Noise')
-        CM_plot.set_ylabel('count')
-        CM_plot.set_title("Noise Histogram")
-
-        fig.tight_layout()
-        plt.draw()
-        plt.show()
+def handle_sub_plots(fig, index):
+    """Adds subplot to existing figure or creates a new one if fig
+    non-existing"""
+    if fig is None:
+        plot = plt.figure()
+    else:
+        plot = fig.add_subplot(index)
+    return plot
