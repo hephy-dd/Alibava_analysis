@@ -132,17 +132,17 @@ class NoiseAnalysis:
 
         # Plot noisedata
         noise_plot = fig.add_subplot(221)
-        noise_plot.bar(np.arange(self.numchan), self.noise, 1., alpha=0.4, color="b")
+        noise_plot.bar(np.arange(self.numchan), self.noise, 1., alpha=0.4, color="b", label="Noise level per strip")
         # array of non masked strips
         valid_strips = np.ones(self.numchan)
         valid_strips[self.noisy_strips] = 0
-        noise_plot.plot(np.arange(self.numchan), valid_strips, 1., color="r", label="Masked strips")
+        noise_plot.plot(np.arange(self.numchan), valid_strips, color="r", label="Masked strips")
 
         # Plot the threshold for deciding a good channel
         xval = [0, self.numchan]
         yval = [self.median_noise + self.configs.get("Noise_cut", 5.),
                 self.median_noise + self.configs.get("Noise_cut", 5.)]
-        noise_plot.plot(xval, yval, 1., "r--", color="g", label="Threshold for noisy strips")
+        noise_plot.plot(xval, yval, "r--", color="g", label="Threshold for noisy strips")
 
         noise_plot.set_xlabel('Channel [#]')
         noise_plot.set_ylabel('Noise [ADC]')
