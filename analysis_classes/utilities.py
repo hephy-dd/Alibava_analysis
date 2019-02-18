@@ -261,6 +261,9 @@ def save_all_plots(name, folder, figs=None, dpi=200):
     if figs is None:
         figs = [plt.figure(n) for n in plt.get_fignums()]
     for fig in tqdm(figs, desc="Saving plots"):
+        #fig = plt.figure()
+        fig.set_figheight(9)
+        fig.set_figwidth(16)
         fig.savefig(pp, format='pdf')
     pp.close()
 

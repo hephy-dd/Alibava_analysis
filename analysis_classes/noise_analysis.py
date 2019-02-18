@@ -166,19 +166,20 @@ class NoiseAnalysis:
         mu, std = norm.fit(self.CMnoise)
         # Calculate the distribution for plotting in a histogram
         p = norm.pdf(bins, loc=mu, scale=std)
-        CM_plot.plot(bins, p, "r--", color="g")
+        CM_plot.plot(bins, p, "r--", color="g", label='mu=' + str(round(mu, 2)) +  "\n" +
+                                                      'sigma=' + str(round(std, 2)))
 
         CM_plot.set_xlabel('Common mode [ADC]')
         CM_plot.set_ylabel('[%]')
-        CM_plot.set_title(
-            r'$\mathrm{Common\ mode\:}\ \mu=' + str(round(mu, 2)) + r',\ \sigma=' + str(round(std, 2)) + r'$')
-        # CM_plot.legend()
+        CM_plot.set_title('Common mode Noise')
+        CM_plot.legend()
 
         # Plot noise hist
-        CM_plot = fig.add_subplot(224)
-        n, bins, patches = CM_plot.hist(self.total_noise, bins=500, density=False, alpha=0.4, color="b")
-        CM_plot.set_yscale("log", nonposy='clip')
-        CM_plot.set_ylim(1.)
+        NH_plot = fig.add_subplot(224)
+        n, bins, patches = NH_plot.hist(self.total_noise, bins=500, density=False, alpha=0.4, color="b")
+        NH_plot.set_yscale("log", nonposy='clip')
+        #NH_plot.set_yscale("log")
+        NH_plot.set_ylim(1.)
 
         # Cut off noise part
         cut = np.max(n) * 0.2  # Find maximum of hist and get the cut
@@ -189,11 +190,13 @@ class NoiseAnalysis:
         # Calculate the distribution for plotting in a histogram
         plotrange = np.arange(-35, 35)
         p = gaussian(plotrange, mu, std, np.max(n))
-        CM_plot.plot(plotrange, p, "r--", color="g")
+        NH_plot.plot(plotrange, p, "r--", color="g",label='mu=' + str(round(mu, 2)) +  "\n" +
+                                                      'sigma=' + str(round(std, 2)))
 
-        CM_plot.set_xlabel('Noise')
-        CM_plot.set_ylabel('count')
-        CM_plot.set_title("Noise Histogram")
+        NH_plot.set_xlabel('Noise')
+        NH_plot.set_ylabel('count')
+        NH_plot.set_title("Noise Histogram")
+        NH_plot.legend()
 
         fig.tight_layout()
         # plt.draw()
