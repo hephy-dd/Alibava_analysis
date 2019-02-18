@@ -19,7 +19,7 @@ loggers:
     handlers: [default]
     level: ERROR
     propagate: False
-    
+
 root:
   level: DEBUG
   handlers: [default]

@@ -7,7 +7,7 @@ from analysis_classes import NoiseAnalysis
 from analysis_classes import MainAnalysis
 from analysis_classes.utilities import save_all_plots, save_dict
 
-CFG = create_dictionary("marius_config.yml", os.path.join(os.getcwd(), "Examples"))
+CFG = create_dictionary("config.yml", os.path.join(os.getcwd(), "Examples"))
 
 PED_DATA = NoiseAnalysis(os.path.join(os.getcwd(), "Examples",
                                       "pedestal_h5.h5"),

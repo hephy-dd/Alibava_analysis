@@ -17,6 +17,7 @@ import yaml
 from tqdm import tqdm
 from six.moves import cPickle as pickle  # for performance
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 # COMMENT: The python way of doing things is always, as simple as possible. If you
 # really want to have differen logger types lets do it this way, as it is suggested it a multitude of
@@ -252,7 +253,7 @@ def save_all_plots(name, folder, figs=None, dpi=200):
     """
     # COMMENT: dpi unused???', plt is not defined!
     try:
-        pp = plt.PdfPages(os.path.normpath(folder) + "\\" + name + ".pdf")
+        pp = PdfPages(os.path.normpath(folder) + "\\" + name + ".pdf")
     except PermissionError:
         print("While overwriting the file {!s} a permission error occured, "
                  "please close file if opened!".format(name + ".pdf"))
@@ -338,7 +339,7 @@ def get_size(obj, seen=None):
 def save_configs(configs, name, path):
     """This function saves the configs of the current run"""
     try:
-        yaml.safe_dump(configs, path=os.path.normpath(path + "\\" + name))
+        yaml.safe_dump(configs, os.path.normpath(path + "\\" + name))
     except OSError as err:
         LOG.error("Failed to save configs.", exc_info=True)
 
