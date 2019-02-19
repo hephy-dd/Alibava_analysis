@@ -10,7 +10,6 @@ import struct
 import sys
 from importlib import import_module
 import numpy as np
-import yaml
 # COMMENT: tqdm and h5py are both missing in requirements
 import h5py
 import yaml

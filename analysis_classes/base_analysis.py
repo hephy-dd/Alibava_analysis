@@ -1,13 +1,12 @@
 """This file contains the basis analysis class for the ALiBaVa analysis"""
 #pylint: disable=C0103
 import logging
-from time import time
 import gc
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from analysis_classes.nb_analysis_funcs import parallel_event_processing
-from .utilities import manage_logger
+#from .utilities import manage_logger
 
 class BaseAnalysis:
 
