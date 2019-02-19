@@ -32,13 +32,13 @@ class BaseAnalysis:
 
         if not self.main.usejit:
             # Non jitted version
-            iter = 0
+            it = 0
             for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"):  # Loop over all good events
                 # Event and Cluster Calculations
-                iter += 1
-                if iter == 1000:
+                it += 1
+                if it == 1000:
                     gc.collect()
-                    iter = 0
+                    it = 0
                 signal, SN, CMN, CMsig = self.process_event(self.events[event], self.main.pedestal, meanCMN, meanCMsig,
                                                             self.main.noise, self.main.numchan)
                 channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN, self.main.noise)
@@ -212,8 +212,8 @@ class BaseAnalysis:
 
             # Plot Number of clusters
             numclusters_plot = fig.add_subplot(221)
-            bin, counts = np.unique(data["base"]["Numclus"], return_counts=True)
-            numclusters_plot.bar(bin, counts, alpha=0.4, color="b")
+            bins, counts = np.unique(data["base"]["Numclus"], return_counts=True)
+            numclusters_plot.bar(bins, counts, alpha=0.4, color="b")
             numclusters_plot.set_xlabel('Number of clusters [#]')
             numclusters_plot.set_ylabel('Occurance [#]')
             numclusters_plot.set_title('Number of clusters')
@@ -221,8 +221,8 @@ class BaseAnalysis:
 
             # Plot clustersizes
             clusters_plot = fig.add_subplot(222)
-            bin, counts = np.unique(np.concatenate(data["base"]["Clustersize"]), return_counts=True)
-            clusters_plot.bar(bin, counts, alpha=0.4, color="b")
+            bins, counts = np.unique(np.concatenate(data["base"]["Clustersize"]), return_counts=True)
+            clusters_plot.bar(bins, counts, alpha=0.4, color="b")
             clusters_plot.set_xlabel('Clustersize [#]')
             clusters_plot.set_ylabel('Occurance [#]')
             clusters_plot.set_title('Clustersizes')

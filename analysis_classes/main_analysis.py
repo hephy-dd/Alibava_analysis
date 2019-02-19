@@ -127,7 +127,7 @@ class MainAnalysis:
         plugins = load_plugins(kwargs["configs"].get("additional_analysis",[]))
 
         for analysis in self.add_analysis:
-            self.log.info("Starting analysis: {!s}".format(analysis))
+            #self.log.info("\nStarting analysis: {!s}".format(analysis))
             # Gets the total analysis class, so be aware of changes inside!!!
             add_analysis = getattr(plugins[analysis], str(analysis))(self)
             results = add_analysis.run()
@@ -141,7 +141,6 @@ class MainAnalysis:
               "            Analysis report:                                             \n"
               "            ~~~~~~~~~~~~~~~~                                             \n"
               "                                                                         \n"
-              "            Automasked hits:   {automasked!s}                            \n"
               "            Events processed:  {events!s}                                \n"
               "            Total events:      {total_events!s}                          \n"
               "            Time taken:        {time!s}                                  \n"

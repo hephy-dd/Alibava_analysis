@@ -5,6 +5,7 @@ import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
+from scipy import integrate
 from tqdm import tqdm
 import pylandau
 from analysis_classes.utilities import convert_ADC_to_e, manage_logger
@@ -36,7 +37,7 @@ class Langau:
 
         # Which clusters need to be considered
         clustersize_list = self.main.kwargs["configs"].get("langau", {}).get("clustersize", [-1])
-        if type(clustersize_list) != list:
+        if isinstance(clustersize_list, list):
             clustersize_list = list(clustersize_list)
 
         if clustersize_list[0] == -1:
@@ -44,7 +45,10 @@ class Langau:
                 range(1, self.main.kwargs["configs"]["max_cluster_size"] + 1))  # If nothing is specified
 
         # Go over all datafiles
-        for data in tqdm(self.data, desc="(langau) Processing file:"):
+        #self.log.info("Doing Langau over all files:")
+        for i, data in enumerate(self.data):
+            print("") # Otherwise progress bar will be crippled
+            #self.log.info("Processing file {!s} of {!s}".format(i+1, len(self.data)))
             self.results_dict[data] = {}
             indNumClus = self.get_num_clusters(self.data[data],
                                                self.numClusters)  # Here events with only one cluster are choosen
@@ -86,7 +90,7 @@ class Langau:
 
                     signal_clst_event = []
                     noise_clst_event = []
-                    for i, ind in tqdm(enumerate(ClusInd[0]), desc="(langau) Processing event"):
+                    for i, ind in enumerate(tqdm(ClusInd[0], desc="(langau) Processing event")):
                         y = ClusInd[1][i]
                         # Signal calculations
                         signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][y]))
@@ -141,7 +145,7 @@ class Langau:
                     if signal[seed_cut_channels[i]].any():
                         seedcutADC.append(signal[seed_cut_channels[i]])
 
-                self.log.info("Converting ADC to electrons...")
+                self.log.info("Converting ADC to electrons for SC Langau...")
                 converted = convert_ADC_to_e(seedcutADC, charge_cal)
                 for conv in converted:
                     finalE.append(sum(conv))
@@ -183,11 +187,11 @@ class Langau:
 
         # Fit with constrains
         converged = False
-        iter = 0
+        it = 0
         oldmpv = 0
         diff = 100
         while not converged:
-            iter += 1
+            it += 1
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 # create a text trap and redirect stdout
@@ -201,7 +205,7 @@ class Langau:
                 oldmpv = mpv
             else:
                 converged = True
-            if iter > 50:
+            if it > 50:
                 converged = True
                 warnings.warn("Langau has not converged after 50 attempts!")
 
@@ -226,14 +230,14 @@ class Langau:
         errorBins = np.zeros(len(bins) - 1)
         binsize = bins[1] - bins[0]
 
-        iter = 0
+        it = 0
         for ind in bins:
             if ind != bins[-1]:
                 ind_where_bin = np.where((x >= ind) & (x < (binsize + ind)))[0]
                 # mu, std = norm.fit(self.CMnoise)
                 if ind_where_bin.any():
-                    errorBins[iter] = np.mean(np.take(errors, ind_where_bin))
-                iter += 1
+                    errorBins[it] = np.mean(np.take(errors, ind_where_bin))
+                it += 1
 
         return errorBins
 
@@ -247,7 +251,7 @@ class Langau:
             plot = fig.add_subplot(111)
             hist, edges = np.histogram(data["signal"], bins=self.bins)
             plot.hist(data["signal"], bins=self.bins, density=False, alpha=0.4, color="b", label="All clusters")
-            plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
+            #plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
             if self.plotfit:
                 plot.plot(data["langau_data"][0], data["langau_data"][1], "r--",
                             color="g",
@@ -256,6 +260,9 @@ class Langau:
                             eta=data["langau_coeff"][1],
                             sigma=data["langau_coeff"][2],
                             A=data["langau_coeff"][3]))
+                plot.errorbar(data["langau_data"][0], data["langau_data"][1],
+                              np.sqrt(pylandau.langau(data["langau_data"][0], *data["langau_coeff"])),
+                              fmt=".", color="r", label="Error of Fit")
 
             plot.set_xlabel('electrons [#]')
             plot.set_ylabel('Count [#]')
@@ -289,6 +296,9 @@ class Langau:
                             mpv=data["langau_coeff_SC"][0], eta=data["langau_coeff_SC"][1],
                             sigma=data["langau_coeff_SC"][2],
                             A=data["langau_coeff_SC"][3]))
+                    plot.errorbar(data["langau_data_SC"][0], data["langau_data_SC"][1],
+                                  np.sqrt(pylandau.langau(data["langau_data_SC"][0], *data["langau_coeff_SC"])),
+                                  fmt=".", color="r", label="Error of Fit")
                 plot.set_xlabel('electrons [#]')
                 plot.set_ylabel('Count [#]')
                 plot.set_title('Seed cut Langau from file: {!s}'.format(file))
