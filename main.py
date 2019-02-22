@@ -58,7 +58,7 @@ def do_with_config_file(config):
     # Look if a calibration file is specified
     if "Delay_scan" in config or "Charge_scan" in config:
         config_data = Calibration(config.get("Delay_scan", ""), config.get("Charge_scan", ""), Noise_calc=noise_data,
-                                  isBinary=config.get("isBinary", False))
+                                  isBinary=config.get("isBinary", False), configs=config)
         config_data.plot_data()
 
     # Look if a pedestal file is specified
