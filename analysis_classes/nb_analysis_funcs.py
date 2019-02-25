@@ -4,6 +4,7 @@ from numba import jit
 from multiprocessing import Manager
 import numpy as np
 from tqdm import tqdm
+#from joblib import Parallel, delayed
 
 def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise,
                            numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,

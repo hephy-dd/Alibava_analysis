@@ -9,6 +9,8 @@ from scipy import integrate
 from tqdm import tqdm
 import pylandau
 from analysis_classes.utilities import convert_ADC_to_e, manage_logger
+#from joblib import Parallel, delayed
+from time import time
 
 
 class Langau:
@@ -222,7 +224,6 @@ class Langau:
         for clus in num_cluster:
             events.append(
                 np.nonzero(data["base"]["Numclus"] == clus)[0])  # Indizes of events with the desired clusternumbers
-
         return events
 
     def calc_hist_errors(self, x, errors, bins):

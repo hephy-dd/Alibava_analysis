@@ -17,6 +17,8 @@ from tqdm import tqdm
 from six.moves import cPickle as pickle  # for performance
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from joblib import Parallel, delayed
+from time import time
 
 # COMMENT: The python way of doing things is always, as simple as possible. If you
 # really want to have differen logger types lets do it this way, as it is suggested it a multitude of
@@ -64,9 +66,6 @@ def load_plugins(valid_plugins):
             if plugin in names:
                 all_plugins.update({plugin: to_add})
     return all_plugins
-
-
-
 
 def create_dictionary(file, filepath=os.getcwd()):
     """Creates a dictionary with all values written in the file using yaml"""
@@ -230,7 +229,6 @@ def count_sub_length(ndarray):
             results[i] = len(ndarray[i][0])
     return results
 
-
 def convert_ADC_to_e(signal, interpolation_function):
     """Gets the signal in ADC, the interpolatrion function and returns an
     array with the interpolated singal in electorns
@@ -298,7 +296,9 @@ def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters,
     totalNoise = np.zeros(len(cls_ind))
     # Loop over the clustersize to get total deposited energy
     incrementor = 0
-    for ind in tqdm(cls_ind, desc="(langau) Processing event"):
+    start = time()
+    #for ind in tqdm(cls_ind, desc="(langau) Processing event"):
+    def collector(ind, incrementor):
         # Signal calculations
         signal_clst_event = np.take(valid_events_Signal[ind],
                                     valid_events_clusters[ind][0])
@@ -310,10 +310,13 @@ def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters,
         # Get the Noise of an event
         noise_clst_event = np.take(noise, valid_events_clusters[ind][0])
         # eError is a list containing electron signal noise
-        totalNoise[incrementor] = np.sqrt(np.sum(\
-                convert_ADC_to_e(noise_clst_event, charge_cal)))
+        totalNoise[incrementor] = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal)))
 
         incrementor += 1
+
+    Parallel(n_jobs=2, require='sharedmem')(delayed(collector)(ind, 0)for ind in cls_ind)
+
+    print("*********************************************" + time()-start)
 
     preresults = {"signal": totalE, "noise": totalNoise}
     return preresults
@@ -344,7 +347,6 @@ def save_configs(configs, name, path):
         yaml.safe_dump(configs, os.path.normpath(path + "\\" + name))
     except OSError as err:
         LOG.error("Failed to save configs.", exc_info=True)
-
 
 class Bdata:
     """Creates an object which can handle numpy arrays. By passing lables you
@@ -395,7 +397,6 @@ def load_dict(filename_):
     with open(os.path.normpath(filename_), 'rb') as f:
         ret_di = pickle.load(f)
     return ret_di
-
 
 # Here the logger will be initialized!
 init_logger(path='logger.yml')
