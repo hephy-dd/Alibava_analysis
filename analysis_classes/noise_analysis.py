@@ -1,5 +1,5 @@
 """Noise analysis of ALiBaVa files"""
-# pylint: disable=C0103,R0902,C0301,R0914
+# pylint: disable=C0103,R0902,C0301,R0914,R0913
 import logging
 from time import time
 import numpy as np
@@ -53,8 +53,8 @@ class NoiseAnalysis:
             self.pedestal = np.mean(self.data["events"]["signal"][0:], axis=0)
             # complete signal matrix (event vs. channel)
             self.signal = np.array(self.data["events"]["signal"][:], dtype=np.float32)
-            # canvas for plotting the data
-            self.fig = plt.figure("Noise analysis")
+            # canvas for plotting the data [width, height (inches)]
+            self.fig = plt.figure("Noise analysis", figsize=[10, 8])
 
             # Noise Calculations
             if not usejit:
@@ -64,10 +64,10 @@ class NoiseAnalysis:
                                     self.numevents, self.numchan)
                 self.noisy_strips, self.good_strips = \
                     self.detect_noisy_strips(self.noise, self.noise_cut)
-                self.noise_corr, self.CMnoise, self.CMsig = \
+                self.noise_corr, self.CMnoise, self.CMsig, self.total_noise = \
                     self.noise_calc(self.signal[:, self.good_strips],
                                     self.pedestal[self.good_strips],
-                                    self.numevents, len(self.good_strips))
+                                    self.numevents, len(self.good_strips), True)
                 end = time()
                 self.log.info("Time taken: %s seconds",
                               str((round(abs(end - start), 2))))
@@ -84,7 +84,6 @@ class NoiseAnalysis:
                 end = time()
                 self.log.info("Time taken: %s seconds",
                               str(round(abs(end - start), 2)))
-            # self.total_noise = np.concatenate(self.score, axis=0)
         else:
             self.log.warning("No valid file, skipping pedestal run")
 
@@ -133,7 +132,8 @@ class NoiseAnalysis:
         noise = np.std(score, axis=0)
 
         if tot_noise is False:
-            return noise, CMnoise, CMsig  # Return everything
+            return noise, CMnoise, CMsig
+        # convert score matrix into an 1-d array --> np.concatenate(score, axis=0))
         return noise, CMnoise, CMsig, np.concatenate(score, axis=0)
 
 
@@ -157,7 +157,7 @@ class NoiseAnalysis:
         """plot noise per channel"""
         noise_plot = handle_sub_plots(fig, 221)
         noise_plot.bar(np.arange(self.numchan), self.noise, 1.,
-                       alpha=0.4, color="b")
+                       alpha=0.4, color="b", label="Noise")
         # plot line idicating masked and unmasked channels
         valid_strips = np.ones(self.numchan)
         valid_strips[self.noisy_strips] = 0
@@ -166,8 +166,7 @@ class NoiseAnalysis:
 
         # Plot the threshold for deciding a good channel
         xval = [0, self.numchan]
-        # COMMENT: Again, this should be -/+ noise_cut not +/+ or I dont get it at all
-        yval = [self.median_noise - self.noise_cut,
+        yval = [self.median_noise + self.noise_cut,
                 self.median_noise + self.noise_cut]
         noise_plot.plot(xval, yval, 1., "r--", color="g",
                         label="Threshold for noisy strips")
@@ -175,7 +174,7 @@ class NoiseAnalysis:
         noise_plot.set_xlabel('Channel [#]')
         noise_plot.set_ylabel('Noise [ADC]')
         noise_plot.set_title('Noise levels per Channel')
-        # noise_plot.legend()
+        noise_plot.legend(loc='upper right')
         return noise_plot
 
     def plot_pedestal(self, fig=None):
@@ -183,34 +182,37 @@ class NoiseAnalysis:
         pede_plot = handle_sub_plots(fig, 222)
         pede_plot.bar(np.arange(self.numchan), self.pedestal, 1., yerr=self.noise,
                       error_kw=dict(elinewidth=0.2, ecolor='r', ealpha=0.1),
-                      alpha=0.4, color="b")
+                      alpha=0.4, color="b", label="Pedestal")
         pede_plot.set_xlabel('Channel [#]')
         pede_plot.set_ylabel('Pedestal [ADC]')
         pede_plot.set_title('Pedestal levels per Channel with noise')
         pede_plot.set_ylim(bottom=min(self.pedestal) - 50.)
+        pede_plot.legend(loc='upper right')
         return pede_plot
 
     def plot_CM(self, fig=None):
         """Plot the CM distribution"""
         plot = handle_sub_plots(fig, 223)
-        _, bins, _ = plot.hist(self.CMnoise, bins=50, density=True, alpha=0.4, color="b")
+        _, bins, _ = plot.hist(self.CMnoise, bins=50, density=True,
+                               alpha=0.4, color="b", label="Common mode")
         # Calculate the mean and std
         mu, std = norm.fit(self.CMnoise)
         # Calculate the distribution for plotting in a histogram
         p = norm.pdf(bins, loc=mu, scale=std)
-        plot.plot(bins, p, "r--", color="g")
-
+        plot.plot(bins, p, "r--", color="g", label="Fit")
         plot.set_xlabel('Common mode [ADC]')
         plot.set_ylabel('[%]')
         plot.set_title(r'$\mathrm{Common\ mode\:}\ \mu=' + str(round(mu, 2)) \
                        + r',\ \sigma=' + str(round(std, 2)) + r'$')
+        plot.legend(loc='upper right')
         return plot
 
     def plot_noise_hist(self, fig=None):
         """Plot total noise distribution. Find an appropriate Gaussian while
         excluding the "ungaussian" parts of the distribution"""
         plot = handle_sub_plots(fig, 224)
-        n, bins, _ = plot.hist(self.total_noise, bins=500, density=False, alpha=0.4, color="b")
+        n, bins, _ = plot.hist(self.total_noise, bins=500, density=False,
+                               alpha=0.4, color="b", label="Noise")
         plot.set_yscale("log", nonposy='clip')
         plot.set_ylim(1.)
 
@@ -223,7 +225,7 @@ class NoiseAnalysis:
         # Calculate the distribution for plotting in a histogram
         plotrange = np.arange(-35, 35)
         p = gaussian(plotrange, mu, std, np.max(n))
-        plot.plot(plotrange, p, "r--", color="g")
+        plot.plot(plotrange, p, "r--", color="g", label="Fit")
         plot.set_xlabel('Noise')
         plot.set_ylabel('count')
         plot.set_title("Noise Histogram")
