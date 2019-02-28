@@ -1,6 +1,5 @@
 """Noise analysis of ALiBaVa files"""
-# pylint: disable=C0103, R0902
-
+# pylint: disable=C0103,R0902,C0301,R0914,R0913
 import logging
 from time import time
 import numpy as np
@@ -9,179 +8,214 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from analysis_classes.nb_analysis_funcs import nb_noise_calc
 from analysis_classes.utilities import import_h5, gaussian, read_binary_Alibava
-#from analysis_classes.utilities import manage_logger
 
 class NoiseAnalysis:
     """This class contains all calculations and data concerning pedestals in
 	ALIBAVA files"""
 
-    def __init__(self, path="", configs=None, logger = None):
+    def __init__(self, path="", configs=None, logger=None):
         """
         :param path: Path to pedestal file
         """
         self.log = logger or logging.getLogger(__class__.__name__)
-        #manage_logger(self.log)
 
-        # Init parameters
-        self.log.info("Loading pedestal file: {!s}".format(path))
+        self.log.info("Loading pedestal file: %s", path)
         if not configs["isBinary"]:
             self.data = import_h5(path)[0]
         else:
             self.data = read_binary_Alibava(path)
 
         if self.data:
-            # Some of the declaration may seem unecessary but it clears things up when you need to know how big some arrays are
-            # self.data=self.data[0]# Since I always get back a list
+            # Some of the declaration may seem unecessary but it clears things
+            # up when you need to know how big some arrays are
+
+            # self.data["events"]["signal"][0] -> array of signals of 0th event of all channels
             self.numchan = len(self.data["events"]["signal"][0])
             self.numevents = len(self.data["events"]["signal"])
             self.pedestal = np.zeros(self.numchan, dtype=np.float32)
             self.noise = np.zeros(self.numchan, dtype=np.float32)
-            self.goodevents = np.nonzero(
-                self.data["events"]["time"][:] >= 0)  # Only use events with good timing, here always the case
+            self.noise_cut = configs.get("Noise_cut", 5.)
+            self.mask = configs.get("Manual_mask", [])
+            # self.goodevents -> array containing indicies of events with good timing
+            self.goodevents = np.nonzero(self.data["events"]["time"][:] >= 0)
             self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float32)
             self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float32)
+            # array for noise calculations: score per channel = signal - pedestal - CM
             self.score = np.zeros((len(self.goodevents[0]), self.numchan),
-                                  dtype=np.float32)  # Variable needed for noise calculations
-            self.configs = configs
+                                  dtype=np.float32)
             self.median_noise = None
-            self.usejit = configs.get("optimize",False)
+            usejit = configs.get("optimize", False)
 
             # Calculate pedestal
             self.log.info("Calculating pedestal and Noise...")
+            # mean signal per channel over all events
             self.pedestal = np.mean(self.data["events"]["signal"][0:], axis=0)
+            # complete signal matrix (event vs. channel)
             self.signal = np.array(self.data["events"]["signal"][:], dtype=np.float32)
+            # canvas for plotting the data [width, height (inches)]
+            self.fig = plt.figure("Noise analysis", figsize=[10, 8])
 
             # Noise Calculations
-            if not self.usejit:
+            if not usejit:
                 start = time()
-                self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(self.signal, self.pedestal[:],
-                                                                           self.numevents, self.numchan)
-                self.noise = np.std(self.score_raw, axis=0)
-                self.noisy_strips, self.good_strips = self.detect_noisy_strips(self.noise, configs.get("Noise_cut", 5.))
-                # self.noise_corr = np.std(self.score, axis=0)
-                self.score_raw, self.CMnoise, self.CMsig = self.noise_calc(self.signal[:, self.good_strips],
-                                                                           self.pedestal[self.good_strips],
-                                                                           self.numevents,
-                                                                           len(self.good_strips))
+                self.noise, self.CMnoise, self.CMsig = \
+                    self.noise_calc(self.signal, self.pedestal[:],
+                                    self.numevents, self.numchan)
+                self.noisy_strips, self.good_strips = \
+                    self.detect_noisy_strips(self.noise, self.noise_cut)
+                self.noise_corr, self.CMnoise, self.CMsig, self.total_noise = \
+                    self.noise_calc(self.signal[:, self.good_strips],
+                                    self.pedestal[self.good_strips],
+                                    self.numevents, len(self.good_strips), True)
                 end = time()
-                self.log.warning("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
+                self.log.info("Time taken: %s seconds",
+                              str((round(abs(end - start), 2))))
             else:
-                self.log.warning("Jit version used!!! No progress bar can be shown")
+                self.log.info("Jit version used!!! No progress bar can be shown")
                 start = time()
-                self.score_raw, self.CMnoise, self.CMsig = nb_noise_calc(self.signal, self.pedestal)
-                self.noise = np.std(self.score_raw,
-                                    axis=0)  # Calculate the actual noise for every channel by building the mean of all
-                                             # noise from every event
-                self.noisy_strips, self.good_strips = self.detect_noisy_strips(self.noise, configs.get("Noise_cut", 5.))
-                self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.signal[:, self.good_strips],
-                                                                     self.pedestal[self.good_strips])
-                self.noise_corr = np.std(self.score, axis=0)
+                self.noise, self.CMnoise, self.CMsig = \
+                    nb_noise_calc(self.signal, self.pedestal)
+                self.noisy_strips, self.good_strips = \
+                        self.detect_noisy_strips(self.noise, self.noise_cut)
+                self.noise_corr, self.CMnoise, self.CMsig, self.total_noise = \
+                        nb_noise_calc(self.signal[:, self.good_strips],
+                                      self.pedestal[self.good_strips], True)
                 end = time()
-                self.log.warning("Time taken: {!s} seconds".format(round(abs(end - start), 2)))
-            self.total_noise = np.concatenate(self.score, axis=0)
-
-
+                self.log.info("Time taken: %s seconds",
+                              str(round(abs(end - start), 2)))
         else:
             self.log.warning("No valid file, skipping pedestal run")
 
     def detect_noisy_strips(self, Noise, Noise_cut):
-        """This function detects noisy strips and returns two arrays first
-        array noisy strips, second array good strips"""
+        """Detect noisy strips (Noise > self.median_noise + Noise_cut) and
+        includes the masking given by the user.
+        Returns: noisy strips (np.array), good strips (np.array)"""
 
         good_strips = np.arange(len(Noise))
-        # Calculate the
+        # Calculate the median noise over all channels
         self.median_noise = np.median(Noise)
         high_noise_strips = np.nonzero(Noise > self.median_noise + Noise_cut)[0]
-        high_noise_strips = np.append(high_noise_strips, self.configs.get("Manual_mask", []))
+        high_noise_strips = np.append(high_noise_strips, self.mask)
         good_strips = np.delete(good_strips, high_noise_strips)
 
-        return np.array(high_noise_strips, dtype=np.int32), np.array(good_strips, dtype=np.int32)
+        return high_noise_strips, good_strips
 
-    def noise_calc(self, events, pedestal, numevents, numchannels):
-        """Noise calculation, normal noise (NN) and common mode noise (CMN)
+    def noise_calc(self, events, pedestal, numevents,
+                   numchannels, tot_noise=False):
+        """Noise calculation of normal noise (NN) and common mode noise (CMN).
         Uses numpy, can be further optimized by reducing memory access to member variables.
         But got 36k events per second.
         So fuck it.
         This function is not numba optimized!!!"""
-        score = np.zeros((numevents, numchannels), dtype=np.float32)  # Variable needed for noise calculations
+        score = np.zeros((numevents, numchannels), dtype=np.float32)
+        noise = score
         CMnoise = np.zeros(numevents, dtype=np.float32)
         CMsig = np.zeros(numevents, dtype=np.float32)
 
-        for event in tqdm(range(self.goodevents[0].shape[0]), desc="Events processed:"):  # Loop over all good events
-
+        # Loop over all good events
+        for event in tqdm(range(self.goodevents[0].shape[0]), desc="Events processed:"):
             # Calculate the common mode noise for every channel
             cm = events[event][:] - pedestal  # Get the signal from event and subtract pedestal
             CMNsig = np.std(cm)  # Calculate the standard deviation
             CMN = np.mean(cm)  # Now calculate the mean from the cm to get the actual common mode noise
 
             # Calculate the noise of channels
-            cn = cm - CMN  # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
-
+            # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
+            cn = cm - CMN
             score[event] = cn
-            # Append the common mode values per event into the data arrays
+            # Append the common mode values per event to the data arrays
             CMnoise[event] = CMN
             CMsig[event] = CMNsig
 
-        return score, CMnoise, CMsig  # Return everything
+        # get noise per channel from score value per channel
+        noise = np.std(score, axis=0)
 
-    def plot_data(self):
-		# COMMENT: every plot needs its own method!!!
-        """Plots the data calculated by the framework"""
+        if tot_noise is False:
+            return noise, CMnoise, CMsig
+        # convert score matrix into an 1-d array --> np.concatenate(score, axis=0))
+        return noise, CMnoise, CMsig, np.concatenate(score, axis=0)
 
-        fig = plt.figure("Noise analysis")
 
-        # Plot noisedata
-        noise_plot = fig.add_subplot(221)
-        noise_plot.bar(np.arange(self.numchan), self.noise, 1., alpha=0.4, color="b", label="Noise level per strip")
-        # array of non masked strips
+    def plot_data(self, show=True):
+        """Plots the data calculated by the framework. Surpress drawing and
+        showing the canvas by setting "show" to False.
+        Returns matplotlib.pyplot.figure object.
+        """
+        self.plot_noise_ch(self.fig)
+        self.plot_noise_hist(self.fig)
+        self.plot_CM(self.fig)
+        self.plot_pedestal(self.fig)
+        self.fig.tight_layout()
+        if show:
+            plt.draw()
+            plt.show()
+        return self.fig
+
+
+    def plot_noise_ch(self, fig=None):
+        """plot noise per channel"""
+        noise_plot = handle_sub_plots(fig, 221)
+        noise_plot.bar(np.arange(self.numchan), self.noise, 1.,
+                       alpha=0.4, color="b", label="Noise level per strip")
+        # plot line idicating masked and unmasked channels
         valid_strips = np.ones(self.numchan)
         valid_strips[self.noisy_strips] = 0
-        noise_plot.plot(np.arange(self.numchan), valid_strips, color="r", label="Masked strips")
+        noise_plot.plot(np.arange(self.numchan), valid_strips, color="r",
+                        label="Masked strips")
 
         # Plot the threshold for deciding a good channel
         xval = [0, self.numchan]
-        yval = [self.median_noise + self.configs.get("Noise_cut", 5.),
-                self.median_noise + self.configs.get("Noise_cut", 5.)]
-        noise_plot.plot(xval, yval, "r--", color="g", label="Threshold for noisy strips")
+        yval = [self.median_noise + self.noise_cut,
+                self.median_noise + self.noise_cut]
+        noise_plot.plot(xval, yval, "r--", color="g",
+                        label="Threshold for noisy strips")
 
         noise_plot.set_xlabel('Channel [#]')
         noise_plot.set_ylabel('Noise [ADC]')
         noise_plot.set_title('Noise levels per Channel')
-        noise_plot.legend()
+        noise_plot.legend(loc='upper right')
+        return noise_plot
 
-        # Plot pedestal
-        pede_plot = fig.add_subplot(222)
+    def plot_pedestal(self, fig=None):
+        """Plot pedestal and noise per channel"""
+        pede_plot = handle_sub_plots(fig, 222)
         pede_plot.bar(np.arange(self.numchan), self.pedestal, 1., yerr=self.noise,
-                      error_kw=dict(elinewidth=0.2, ecolor='r', ealpha=0.1), alpha=0.4, color="b")
+                      error_kw=dict(elinewidth=0.2, ecolor='r', ealpha=0.1),
+                      alpha=0.4, color="b", label="Pedestal")
         pede_plot.set_xlabel('Channel [#]')
         pede_plot.set_ylabel('Pedestal [ADC]')
         pede_plot.set_title('Pedestal levels per Channel with noise')
         pede_plot.set_ylim(bottom=min(self.pedestal) - 50.)
-        # pede_plot.legend()
+        pede_plot.legend(loc='upper right')
+        return pede_plot
 
-        # Plot Common mode
-        CM_plot = fig.add_subplot(223)
-        n, bins, patches = CM_plot.hist(self.CMnoise, bins=50, density=True, alpha=0.4, color="b")
+    def plot_CM(self, fig=None):
+        """Plot the CM distribution"""
+        plot = handle_sub_plots(fig, 223)
+        _, bins, _ = plot.hist(self.CMnoise, bins=50, density=True,
+                               alpha=0.4, color="b", label="Common mode")
         # Calculate the mean and std
         mu, std = norm.fit(self.CMnoise)
         # Calculate the distribution for plotting in a histogram
         p = norm.pdf(bins, loc=mu, scale=std)
-        CM_plot.plot(bins, p, "r--", color="g", label='mu=' + str(round(mu, 2)) +  "\n" +
-                                                      'sigma=' + str(round(std, 2)))
+        plot.plot(bins, p, "r--", color="g", label="Fit")
+        plot.set_xlabel('Common mode [ADC]')
+        plot.set_ylabel('[%]')
+        plot.set_title(r'$\mathrm{Common\ mode\:}\ \mu=' + str(round(mu, 2)) \
+                       + r',\ \sigma=' + str(round(std, 2)) + r'$')
+        plot.legend(loc='upper right')
+        return plot
 
-        CM_plot.set_xlabel('Common mode [ADC]')
-        CM_plot.set_ylabel('[%]')
-        CM_plot.set_title('Common mode Noise')
-        CM_plot.legend()
+    def plot_noise_hist(self, fig=None):
+        """Plot total noise distribution. Find an appropriate Gaussian while
+        excluding the "ungaussian" parts of the distribution"""
+        plot = handle_sub_plots(fig, 224)
+        n, bins, _ = plot.hist(self.total_noise, bins=500, density=False,
+                               alpha=0.4, color="b", label="Noise")
+        plot.set_yscale("log", nonposy='clip')
+        plot.set_ylim(1.)
 
-        # Plot noise hist
-        NH_plot = fig.add_subplot(224)
-        n, bins, patches = NH_plot.hist(self.total_noise, bins=500, density=False, alpha=0.4, color="b")
-        NH_plot.set_yscale("log", nonposy='clip')
-        #NH_plot.set_yscale("log")
-        NH_plot.set_ylim(1.)
-
-        # Cut off noise part
+        # Cut off "ungaussian" noise
         cut = np.max(n) * 0.2  # Find maximum of hist and get the cut
         ind = np.concatenate(np.argwhere(n > cut))  # Finds the first element which is higher as threshold optimized
 
@@ -190,13 +224,17 @@ class NoiseAnalysis:
         # Calculate the distribution for plotting in a histogram
         plotrange = np.arange(-35, 35)
         p = gaussian(plotrange, mu, std, np.max(n))
-        NH_plot.plot(plotrange, p, "r--", color="g",label='mu=' + str(round(mu, 2)) +  "\n" +
-                                                      'sigma=' + str(round(std, 2)))
+        plot.plot(plotrange, p, "r--", color="g", label="Fit")
+        plot.set_xlabel('Noise')
+        plot.set_ylabel('count')
+        plot.set_title("Noise Histogram")
+        return plot
 
-        NH_plot.set_xlabel('Noise')
-        NH_plot.set_ylabel('count')
-        NH_plot.set_title("Noise Histogram")
-        NH_plot.legend()
-
-        fig.tight_layout()
-        # plt.draw()
+def handle_sub_plots(fig, index):
+    """Adds subplot to existing figure or creates a new one if fig
+    non-existing"""
+    if fig is None:
+        plot = plt.figure()
+    else:
+        plot = fig.add_subplot(index)
+    return plot

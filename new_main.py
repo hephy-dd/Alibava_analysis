@@ -15,12 +15,12 @@ PED_DATA = NoiseAnalysis(os.path.join(os.getcwd(), "Examples",
 # PED_DATA = NoiseAnalysis(os.path.join(os.getcwd(), "Examples",
 #                                       "ped_binary_RUN00251334.dat"),
 #                          configs=CFG)
-# PED_DATA.plot_data()
+PED_DATA.plot_data()
 
 CAL_DATA = Calibration(charge_path=os.path.join(os.getcwd(), "Examples",
                                                 "calibration_h5.h5"),
                        Noise_calc=PED_DATA)
-# CAL_DATA.plot_data()
+CAL_DATA.plot_data()
 
 CFG.update({"calibration": CAL_DATA,
             "noise_analysis": PED_DATA})
