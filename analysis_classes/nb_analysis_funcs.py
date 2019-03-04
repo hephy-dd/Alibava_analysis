@@ -2,11 +2,10 @@
 #pyline: disable=E1111
 from numba import jit, prange
 import numpy as np
-from joblib import Parallel, delayed
 
 gil=True # Use gil or not
 Fast=True # Use fastmath
-parallel=True 
+parallel=True
 
 jit(nogil=gil, cache=True, nopython=True, fastmath=Fast)
 def event_process_function_multithread(args):
