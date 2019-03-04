@@ -30,37 +30,9 @@ class BaseAnalysis:
         # Warning: If you have a RS and pulseshape recognition enabled the
         # timing window has to be set accordingly
 
-        if not self.main.usejit:
-            # Non jitted version
-            it = 0
-            for event in tqdm(range(gtime[0].shape[0]), desc="Events processed:"):  # Loop over all good events
-                # Event and Cluster Calculations
-                it += 1
-                if it == 1000:
-                    gc.collect()
-                    it = 0
-                signal, SN, CMN, CMsig = self.process_event(self.events[event], self.main.pedestal, meanCMN, meanCMsig,
-                                                            self.main.noise, self.main.numchan)
-                channels_hit, clusters, numclus, clustersize = self.clustering(signal, SN, self.main.noise)
-                for channel in channels_hit:
-                    hitmap[int(channel)] += 1
-
-                prodata.append([
-                    signal,
-                    SN,
-                    CMN,
-                    CMsig,
-                    hitmap,
-                    channels_hit,
-                    clusters,
-                    numclus,
-                    clustersize]
-                )
-
-        else:
-            # This should, in theory, use parallelization of the loop over event
-            # but i did not see any performance boost, maybe you can find the bug =)?
-            data, automasked_hits = parallel_event_processing(gtime,
+        # This should, in theory, use parallelization of the loop over event
+        # but i did not see any performance boost, maybe you can find the bug =)?
+        data, automasked_hits = parallel_event_processing(gtime,
                                                               self.events,
                                                               self.main.pedestal,
                                                               meanCMN,
@@ -76,113 +48,10 @@ class BaseAnalysis:
                                                               poolsize=self.main.process_pool,
                                                               Pool=self.main.Pool,
                                                               noisy_strips=self.main.noise_analysis.noisy_strips)
-            prodata = data
-            self.main.automasked_hit = automasked_hits
+        prodata = data
+        self.main.automasked_hit = automasked_hits
 
         return prodata
-
-    def clustering(self, event, SN, Noise):
-        """Looks for cluster in a event"""
-        # Only channels which have a signal/Noise higher then the signal/Noise cut
-        channels = np.nonzero(np.abs(SN) > self.main.SN_cut)[0]
-        valid_ind = np.arange(len(event))
-
-        if self.main.masking:
-            if self.main.material:
-                # So only negative values are considered
-                masked_ind = np.nonzero(np.take(event, channels) > 0)[0]
-                # Find out which index are negative so we dont count them accidently
-                valid_ind = np.nonzero(event < 0)[0]
-                if len(masked_ind):
-                    channels = np.delete(channels, masked_ind)
-                    self.main.automasked_hit += len(masked_ind)
-            else:
-                # So only positive values are considered
-                masked_ind = np.nonzero(np.take(event, channels) < 0)[0]
-                valid_ind = np.nonzero(event > 0)[0]
-                if len(masked_ind):
-                    channels = np.delete(channels, masked_ind)
-                    self.main.automasked_hit += len(masked_ind)
-
-        used_channels = np.zeros(self.main.numchan)  # To keep track which channel have been used already
-        numclus = 0  # The number of found clusters
-        clusters_list = []
-        clustersize = np.array([])
-        # Loop over all left channels which are a hit, here from "left" to "right"
-        for ch in channels:
-            if not used_channels[ch]:  # Make sure we dont count everything twice
-                used_channels[ch] = 1  # So now the channel is used
-                cluster = [ch]  # Keep track of the individual clusters
-                size = 1
-
-                right_stop = False
-                left_stop = False
-                # Now make a loop to find neighbouring hits of cluster,
-                # we must go into both directions
-                offset = int(self.main.max_clustersize * 0.5)
-                for i in range(1, offset + 1):  # Search plus minus the channel found Todo: first entry useless
-                    if 0 < ch - i and ch + i < self.main.numchan:  # To exclude overrun
-                        if np.abs(SN[ch + i]) > self.main.SN_cut * self.main.SN_ratio and not used_channels[
-                            ch + i] and ch + i in valid_ind and not right_stop:
-                            cluster.append(ch + i)
-                            used_channels[ch + i] = 1
-                            size += 1
-                        elif np.abs(SN[ch + i]) < self.main.SN_cut * self.main.SN_ratio:
-                            right_stop = True  # Prohibits search for to long clusters
-
-                        if np.abs(SN[ch - i]) > self.main.SN_cut * self.main.SN_ratio and not used_channels[
-                            ch - i] and ch - i in valid_ind and not left_stop:
-                            cluster.append(ch - i)
-                            used_channels[ch - i] = 1
-                            size += 1
-                        elif np.abs(SN[ch - i]) < self.main.SN_cut * self.main.SN_ratio:
-                            left_stop = True  # Prohibits search for to long clusters
-
-                # Now make a loop to find neighbouring hits of cluster, we must go into both directions
-                # TODO huge clusters can be misinterpreted!!! Takes huge amount of cpu, vectorize
-                # offset = int(self.max_clustersize / 2)
-                # for i in range(ch-offset, ch+offset): # Search plus minus the channel found
-                #    if 0 < i < self.numchan: # To exclude overrun
-                #            if np.abs(SN[i]) > self.SN_cut * self.SN_ratio and not used_channels[i] and i in valid_ind:
-                #                cluster.append(i)
-                #                used_channels[i] = 1
-                #                # Append the channel which is also hit after this estimation
-                #                size += 1
-
-                # Look if the cluster SN is big enough to be counted as clusters
-                Scluster = np.abs(np.sum(np.take(event, cluster)))
-                Ncluster = np.sqrt(np.abs(np.sum(np.take(Noise, cluster))))
-                SNcluster = Scluster / Ncluster  # Actual signal to noise of cluster
-                if SNcluster > self.main.SN_cluster:
-                    numclus += 1
-                    clusters_list.append(cluster)
-                    clustersize = np.append(clustersize, size)
-
-        # warning channels are only the channels which are above SN
-        return channels, clusters_list, numclus, clustersize
-
-    def process_event(self, event, pedestal, meanCMN, meanCMsig, noise, numchan=256):
-        """Processes single events"""
-
-        # Calculate the common mode noise for every channel
-        signal = event - pedestal  # Get the signal from event and subtract pedestal
-
-        # Mask noisy strips, by setting every noisy channel to 0 --> SN is always 0
-        signal[self.main.noise_analysis.noisy_strips] = 0
-
-        # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
-        prosignal = np.take(signal, np.nonzero(signal < (5 * meanCMsig + meanCMN)))  # Processed signal
-
-        if prosignal.any():
-            cmpro = np.mean(prosignal)
-            sigpro = np.std(prosignal)
-
-            corrsignal = signal - cmpro
-            SN = corrsignal / noise
-
-            return corrsignal, SN, cmpro, sigpro
-        else:
-            return np.zeros(numchan), np.zeros(numchan), 0, 0  # A default value return if everything fails
 
     def plot_data(self, single_event=-1):
         """This function plots all data processed"""

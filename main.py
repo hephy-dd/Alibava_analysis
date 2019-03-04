@@ -2,7 +2,6 @@
 
 import os
 import logging
-# COMMENT: switch to argparse
 from optparse import OptionParser
 #from analysis_classes.calibration import Calibration
 #from analysis_classes.noise_analysis import NoiseAnalysis
@@ -17,13 +16,13 @@ from analysis_classes import MainAnalysis
 import matplotlib.pyplot as plt
 
 log = logging.getLogger("main")
-log.setLevel(logging.INFO)
-if log.hasHandlers() is False:
-    format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-    formatter = logging.Formatter(format_string)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    log.addHandler(console_handler)
+#log.setLevel(logging.INFO)
+#if log.hasHandlers() is False:
+#    format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+#    formatter = logging.Formatter(format_string)
+#    console_handler = logging.StreamHandler()
+#    console_handler.setFormatter(formatter)
+#    log.addHandler(console_handler)
 
 
 def main(args, options):
@@ -37,8 +36,7 @@ def main(args, options):
         log.info("Loading file: %s", os.path.normpath(options.configfile))
         configs = create_dictionary(os.path.normpath(options.configfile), "")
         do_with_config_file(configs)
-        # COMMETN: plt not defined!!!
-        plt.show()  # Just in case the plot show has never been shown
+        plt.show()  # Just in case the plot show has never been shown, it gets the plot items from the env
 
     elif options.filepath and os.path.exists(os.path.normpath(options.filepath)):
         pass  # Todo: include the option to start the analysis with a passed file and config file

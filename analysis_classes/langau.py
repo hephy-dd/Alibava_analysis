@@ -64,7 +64,7 @@ class Langau:
             self.results_dict[data]["Clustersize"] = []
 
             # General langau, where all clustersizes are considered
-            if self.main.usejit and self.poolsize > 1:
+            if self.poolsize > 1:
                 paramslist = []
                 for size in clustersize_list:
                     cls_ind = np.nonzero(valid_events_clustersize == size)[0]
@@ -73,10 +73,7 @@ class Langau:
 
                 # COMMENT: lagau_cluster not defined!!!!
                 # Here multiple cpu calculate the energy of the events per clustersize
-                results = self.pool.starmap(langau_cluster, paramslist,
-                                            chunksize=1)
-
-
+                results = self.pool.starmap(langau_cluster, paramslist,chunksize=1)
                 self.results_dict[data]["Clustersize"] = results
 
             else:

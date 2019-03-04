@@ -87,7 +87,6 @@ class MainAnalysis:
         self.masking = kwargs["configs"].get("automasking", False)
         self.max_clustersize = kwargs["configs"].get("max_cluster_size", 5)
         self.SN_ratio = kwargs["configs"].get("SN_ratio", 0.5)
-        self.usejit = kwargs["configs"].get("optimize", False)
         self.SN_cluster = kwargs["configs"].get("SN_cluster", 6)
 
         # Create a pool for multiprocessing
