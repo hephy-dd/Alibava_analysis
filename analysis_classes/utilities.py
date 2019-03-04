@@ -50,7 +50,6 @@ def manage_logger(logger, level=logging.DEBUG):
         logger.addHandler(console_handler)
 
 LOG = logging.getLogger("utilities")
-#manage_logger(LOG)
 
 def load_plugins(valid_plugins):
     # Load all measurement functions
