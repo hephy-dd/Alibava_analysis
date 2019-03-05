@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from joblib import Parallel, delayed
 from time import time
+from numba import jit
 
 # COMMENT: The python way of doing things is always, as simple as possible. If you
 # really want to have differen logger types lets do it this way, as it is suggested it a multitude of
@@ -113,6 +114,7 @@ def get_xy_data(data, header=0):
             np2Darray[i-header] = np.array(list_data)
     return np2Darray
 
+#@jit(nopython=False)
 def read_binary_Alibava(filepath):
     """Reads binary alibava files"""
 
