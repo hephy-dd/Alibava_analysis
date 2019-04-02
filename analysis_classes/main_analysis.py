@@ -1,12 +1,13 @@
 """This file contains the main loop class that loops over the complete
 run data"""
-#pylint: disable=R0902,R0915,C0103
+#pylint: disable=R0902,R0915,C0103,C0301
 
 import logging
 from multiprocessing import Pool
 from time import time
 from tqdm import tqdm
 import numpy as np
+import matplotlib.pyplot as plt
 from .base_analysis import BaseAnalysis
 from .utilities import Bdata, read_binary_Alibava, load_plugins
 from .utilities import import_h5, manage_logger
@@ -119,10 +120,7 @@ class MainAnalysis:
                                                   labels=["Signal", "SN", "CMN", "CMsig", "Hitmap", "Channel_hit",
                                                           "Clusters", "Numclus", "Clustersize"])
 
-        object.plot_data(single_event=kwargs["configs"].get("Plot_single_event",
-                                                            15))  # Not very pythonic, loop inside analysis (legacy)
         # Now process additional analysis statet in the config file
-
         # Load all plugins
         plugins = load_plugins(kwargs["configs"].get("additional_analysis",[]))
 
@@ -157,3 +155,95 @@ class MainAnalysis:
 
         self.Pool.close()
         self.Pool.join()
+
+    def plot_data(self, single_event=-1, show=True):
+        """This function plots all data processed
+           name (str) :
+        """
+
+        for name, data in self.outputdata.items():
+            if name != "noise":
+                self.plot_hitmap(name, data)
+                self.plot_cluster_analysis(name, data)
+                if show:
+                    plt.draw()
+                    plt.show()
+            # Plot a single event from every file
+            # if single_event > 0:
+            #     self.plot_single_event(single_event, name)
+
+
+    def plot_cluster_analysis(self, name, data, fig=None):
+        # Plot Clustering results
+        if fig is None:
+            fig = plt.figure("Clustering Analysis on file: {!s}".format(name))
+            numclusters_plot = fig.add_subplot(221)
+            clusters_plot = fig.add_subplot(222)
+
+        # Plot Number of clusters
+        # numclusters_plot = fig.add_subplot(221)
+        bins, counts = np.unique(data["base"]["Numclus"], return_counts=True)
+        numclusters_plot.bar(bins, counts, alpha=0.4, color="b")
+        numclusters_plot.set_xlabel('Number of clusters [#]')
+        numclusters_plot.set_ylabel('Occurance [#]')
+        numclusters_plot.set_title('Number of clusters')
+        # numclusters_plot.set_yscale("log", nonposy='clip')
+
+        # Plot clustersizes
+        bins, counts = np.unique(np.concatenate(data["base"]["Clustersize"]), return_counts=True)
+        clusters_plot.bar(bins, counts, alpha=0.4, color="b")
+        clusters_plot.set_xlabel('Clustersize [#]')
+        clusters_plot.set_ylabel('Occurance [#]')
+        clusters_plot.set_title('Clustersizes')
+        # clusters_plot.set_yscale("log", nonposy='clip')
+
+        fig.suptitle('Cluster analysis from file {!s}'.format(name))
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.88)
+
+    def plot_hitmap(self, name, data, fig=None):
+        # Plot Analysis results
+        if fig is None:
+            fig = plt.figure("Analysis file: {!s}".format(name))
+            channel_plot = fig.add_subplot(111)
+
+        # Plot Hitmap
+        # channel_plot = fig.add_subplot(211)
+        channel_plot.bar(np.arange(self.numchan),
+                         data["base"]["Hitmap"][len(data["base"]["Hitmap"]) - 1], 1.,
+                         alpha=0.4, color="b")
+        channel_plot.set_xlabel('channel [#]')
+        channel_plot.set_ylabel('Hits [#]')
+        channel_plot.set_title('Hitmap from file: {!s}'.format(name))
+
+        fig.tight_layout()
+
+    def plot_single_event(self, eventnum, file):
+        """ Plots a single event and its data"""
+
+        data = self.outputdata[file]
+
+        fig = plt.figure("Event number {!s}, from file: {!s}".format(eventnum, file))
+
+        # Plot signal
+        channel_plot = fig.add_subplot(211)
+        channel_plot.bar(np.arange(self.numchan),
+                         data["base"]["Signal"][eventnum], 1.,
+                         alpha=0.4, color="b")
+        channel_plot.set_xlabel('channel [#]')
+        channel_plot.set_ylabel('Signal [ADC]')
+        channel_plot.set_title('Signal')
+
+        # Plot signal/Noise
+        SN_plot = fig.add_subplot(212)
+        SN_plot.bar(np.arange(self.numchan),
+                    data["base"]["SN"][eventnum], 1.,
+                    alpha=0.4, color="b")
+        SN_plot.set_xlabel('channel [#]')
+        SN_plot.set_ylabel('Signal/Noise [ADC]')
+        SN_plot.set_title('Signal/Noise')
+
+        fig.suptitle('Single event analysis from file {!s}, with event: {!s}'.format(file, eventnum))
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.88)
+        # plt.draw()
