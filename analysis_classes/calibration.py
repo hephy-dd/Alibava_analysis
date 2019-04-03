@@ -6,7 +6,24 @@ from scipy.interpolate import CubicSpline
 from .utilities import read_binary_Alibava, import_h5, manage_logger
 
 class Calibration:
-    """This class handles all concerning the calibration"""
+    """This class handles everything concerning the calibration.
+
+    Charge Scan Details:
+        - Each channel of the beetle chip is connected to a calibration
+          capacitor which can inject a certain amount of charge (test pulse)
+          into the channel. Each pulse generates a signal which is given in
+          ADCs.
+        - The charge scan is a sequence of injected test pulses with different
+          pulse hights (charge values) for each channel.
+        - The generated signal must be adjusted by subtracting the
+          pedestal. Since alibava uses alternating pulses (pos/neg) in the
+          course of the sequence (channel 1 -->pos, channel 2 -->neg, ...), one
+          needs to calculate the absolute difference between pedestal and
+          raw signal for each channel to obtain the 'real signal'.
+        - The gain is the conversion factor between ADCs and electrons. It is
+          defined as the gradient of the signal in ADCs vs. pulse height
+          characteristic for each channel.
+    """
     def __init__(self, file_path="", Noise_calc={},
                  isBinary=False, logger=None, configs={}):
         """
@@ -22,10 +39,12 @@ class Calibration:
         self.pedestal = Noise_calc.pedestal
         self.noisy_channels = Noise_calc.noisy_strips
         # self.CMN = np.std(Noise_calc.CMnoise)
-        self.chargecoeff = []
-        self.gain = []
+        self.coeff_per_ch = []
+        self.mean_sig_all_ch = [] # mean signal per pulse over all channels
+        self.gains_per_pulse = []
+        self.pulses = [] # list of injected test pulses
         self.meancoeff = None  # Mean coefficient out of all calibrations curves
-        self.meansig_charge = []  # mean per pulse per channel
+        self.meansig_charge = []  # mean signal per channel per pulse
         self.charge_sig = None  # Standard deviation of all charge calibartions
         self.delay_cal = []
         self.meansig_delay = []  # mean per pulse per channel
@@ -89,114 +108,97 @@ class Calibration:
         else:
             self.charge_data = read_binary_Alibava(charge_path)
         if self.charge_data:
-            pulses = np.array(self.charge_data["scan"]["value"][:])  # aka xdata
+            # list of injected test pulse values aka x-data
+            self.pulses = np.array(self.charge_data["scan"]["value"][:])
 
             # Sometime it happens, that h5py does not read correctly
-            #TODO: write a more pythonic and pretty version of this
-            if not len(pulses):
-                self.log.error("A HDF5 read error! Loaded empty array. Restart python")
+            if not len(self.pulses):
+                self.log.error("A HDF5 read error! Loaded empty array. "
+                               "Restart python")
 
-            signals = np.array(self.charge_data["events"]["signal"][:]) - self.pedestal  # signals per pulse
+            # signals per pulse subtracted by pedestals and excluding noisy channels
+            signals = np.array(self.charge_data["events"]["signal"][:]) - self.pedestal
             signals = np.delete(signals, self.noisy_channels, axis=1)
-
-            # Sometimes it happens that alibava is not writing the value of the calibration
-            # Usually happens when you do not use 32 pulses
-            #if not pulses:
-            #    pulses = np.arange(0, 101376, 1024) # TODO: This is not the way we do it!!! Ugly and hard coded!!!
-            # Warning it seem that alibava calibrates in this order:
-            # 1) Alternating pulses (pos/neg) on strips --> Strip 1-->pos, Strip2-->neg
-            # 2) Next time other way round.
-            # 3) Repeat until samplesize is is filled
-
-            sigppulse = int(len(signals) / len(pulses))  # How many signals per pulses
+            # Calculate size of pulse group to obtain number of injected signals per pulse step
+            sigppulse = int(len(signals) / len(self.pulses))
 
             start = 0
+            # summerize signals of each pulse group by calculating the mean
+            # signals of each pulse group per channel
             for i in range(sigppulse, len(signals) + sigppulse, sigppulse):
-                # Calculate the absolute value of the difference of each strip to the pedestal and mean it
                 raw = np.mean(np.abs(signals[start:i]), axis=0)
                 self.meansig_charge.append(raw)
                 start = i
-
-            # Set the zero value to a real 0 size otherwise a non physical error happens (Offset corretion)
+            # For a pulse height of 0 one often finds non-zero values in meansig_charge
+            # Use signals of 0 pulse as offset values and adjust rest accordingly
             offset = self.meansig_charge[0]
             self.meansig_charge = self.meansig_charge - offset
+            for i, pul in enumerate(self.meansig_charge):
+                for j, val in enumerate(pul):
+                    if val < 0:
+                        self.meansig_charge[i][j] = 0
             if np.mean(offset) > 5:
                 self.log.warning("Charge offset is greater then 5 ADC! This may be a result of bad calibration!")
 
-            # Interpolate and get some extrapolation data from polynomial fit (from alibava)
+            # transpose matrix from signal per channel per pulse to signal per pulse per channel
             data = np.array(self.meansig_charge).transpose()
-            # datamoffset = data-data[0]
+            self.mean_sig_all_ch = np.mean(self.meansig_charge, axis=1)
             for pul in data:
-                self.chargecoeff.append(np.polyfit(pul, pulses, deg=4, full=False))
-            self.meancoeff = np.polyfit(np.mean(self.meansig_charge, axis=1), pulses, deg=4, full=False)
-            self.log.info("Coefficients of charge fit: %s", self.meancoeff)
-            self.ADC_sig = np.std(data, axis=0)
-            self.charge_sig = np.polyval(self.meancoeff, self.ADC_sig)
-            self.chargecoeff = np.array(self.chargecoeff)
-            self.gain_calc()
+                self.coeff_per_ch.append(np.polyfit(self.pulses, pul, deg=5, full=False))
+                # self.chargecoeff.append(np.polyfit(pul, pulses, deg=1, full=False))
+            self.log.info("Calculated fit coefficients per channel")
+            self.meancoeff = np.polyfit(self.pulses, np.mean(self.meansig_charge, axis=1), deg=5, full=False)
+            self.log.info("Mean fit coefficients over all channels: %s", self.meancoeff)
+            # coeff_test(data, self.pulses, self.coeff_per_ch, self.meancoeff)
+
+            # print(np.polyval(self.meancoeff, 10000))
+            # self.ADC_sig = np.std(data, axis=0)
+            # print(len(data), len(self.ADC_sig))
+            # self.charge_sig = np.polyval(self.meancoeff, self.ADC_sig)
+            # self.chargecoeff = np.array(self.chargecoeff)
+            # print(self.ADC_sig)
+            # self.gain_calc()
 
     def charge_cal(self, x):
         return np.polyval(self.meancoeff, x)
 
-    def gain_calc(self):
-        for coeff in self.chargecoeff:
-            self.gain.append(np.polyval(coeff, 100.))
+    def gain_calc(self, cut=1.5):
+        """Calculates the gain per channel per pulse. Ignores values for
+        pulses below 'cut'. Beetle chip is not sensitive enough for low test
+        pulse values"""
+        # calculate gain of test pulses and prevent 'dividing by 0' warning
+        for adc_all_ch, pulse in zip(self.meansig_charge, self.pulses):
+            self.gains_per_pulse.append(
+                [pulse/adc if adc > 0 else 0 for adc in adc_all_ch])
+        gain_lst = []
+        # concatenate gain lists
+        for gain_ch in self.gains_per_pulse:
+            gain_lst += gain_ch
+        init_len = len(gain_lst)
+        mean = np.mean(gain_lst)
+        # exclude zeros and gains above 'cut'
+        gain_lst = [gain for gain in gain_lst if 0 < gain < cut*mean]
+        mean = np.mean(gain_lst)
+        ex_ratio = round(1 - len(gain_lst)/init_len, 2)
+        return gain_lst, mean, ex_ratio
 
-    # def plot_data(self):
-    #     """Plots the processed data"""
-    #     if not self.configs["use_charge_cal"]:
-    #         try:
-    #             fig = plt.figure("Calibration")
-    #
-    #             # Plot delay
-    #             if self.delay_data:
-    #                 delay_plot = fig.add_subplot(222)
-    #                 delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay, 1., alpha=0.4, color="b")
-    #                 #delay_plot.bar(self.delay_data["scan"]["value"][:], self.meansig_delay[:,60], 1., alpha=0.4, color="b")
-    #                 delay_plot.set_xlabel('time [ns]')
-    #                 delay_plot.set_ylabel('Signal [ADC]')
-    #                 delay_plot.set_title('Delay plot')
-    #
-    #             # Plot charge
-    #             if self.charge_data:
-    #                 charge_plot = fig.add_subplot(221)
-    #                 charge_plot.set_xlabel('Charge [e-]')
-    #                 charge_plot.set_ylabel('Signal [ADC]')
-    #                 charge_plot.set_title('Charge plot')
-    #                 charge_plot.bar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge, axis=1), 1000.,
-    #                                 alpha=0.4, color="b", label="Mean of all gains")
-    #                 cal_range = np.array(np.arange(1., 450., 10.))
-    #                 charge_plot.plot(np.polyval(self.meancoeff, cal_range), cal_range, "r--", color="g")
-    #                 charge_plot.errorbar(self.charge_data["scan"]["value"][:], np.mean(self.meansig_charge, axis=1),
-    #                                      xerr=self.charge_sig, yerr=self.ADC_sig, fmt='o', markersize=1, color="red",
-    #                                      label="Error")
-    #                 charge_plot.legend()
-    #
-    #                 # Gain per Strip at ADC 100
-    #                 gain_plot = fig.add_subplot(223)
-    #                 gain_plot.set_xlabel('Channel [#]')
-    #                 gain_plot.set_ylabel('Gain [e- at 100 ADC]')
-    #                 gain_plot.set_title('Gain per Channel')
-    #                 gain_plot.set_ylim(0, 70000)
-    #                 gain = []
-    #                 for coeff in self.chargecoeff:
-    #                     gain.append(np.polyval(coeff, 100.))
-    #
-    #                 gain_plot.bar(np.arange(len(self.pedestal) - len(self.noisy_channels)), gain, alpha=0.4, color="b",
-    #                               label="Only non masked channels")
-    #                 gain_plot.legend()
-    #
-    #                 # Gain hist per Strip at ADC 100
-    #                 gain_hist = fig.add_subplot(224)
-    #                 gain_hist.set_ylabel('Count [#]')
-    #                 gain_hist.set_xlabel('Gain [e- at 100 ADC]')
-    #                 gain_hist.set_title('Gain Histogram')
-    #                 gain_hist.hist(gain, alpha=0.4, bins=20, color="b", label="Only non masked channels")
-    #                 gain_hist.legend()
-    #
-    #             fig.tight_layout()
-    #             plt.draw()
-    #             # plt.show() # COMMENT: Otherwise stop here
-    #         except Exception as err:
-    #             self.log.error("An error happened while trying to plot calibration data")
-    #             self.log.error(err)
+def coeff_test(data, pulses, coeff_per_ch, mean_coeff):
+    """Tests fit coefficients vs. signals generated by pulses. Compares mean
+    vs. per channel coefficients.
+    Args:
+        - data (2D numpy array): signals per pulse per channel
+        - pulses (numpy array): list of all test pulse values, e.g.
+                                pulses[10] = 10240,
+                                pulses[20] = 20480,
+                                pulses[30] = 30720, ...
+    """
+    for pulse_seq, coeff in zip(data, coeff_per_ch):
+        mean = []
+        frac_mean = []
+        frac = []
+        pulse_val = 10240
+        idx = 10
+        mean.append(pulse_seq[idx])
+        frac.append(np.polyval(coeff, pulse_val)/pulse_seq[idx])
+        frac_mean.append(np.polyval(mean_coeff, pulse_val)/pulse_seq[idx])
+    # print(np.mean(mean), np.mean(frac), np.mean(frac_mean))

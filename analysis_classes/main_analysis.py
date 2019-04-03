@@ -16,10 +16,7 @@ class MainAnalysis:
     # COMMENT: the __init__ should be split up at least into 2 methods
     """This class analyses measurement files per event and conducts additional
     defined analysis"""
-
-    """This class analyses measurement files per event and conducts additional defined analysis"""
-
-    def __init__(self, path_list=None, logger = None, **kwargs):
+    def __init__(self, path=None, logger=None, **kwargs):
         """
         :param path_list: List of pathes to analyse
         :param kwargs: kwargs if further data should be used, possible kwargs=calibration,noise
@@ -39,9 +36,7 @@ class MainAnalysis:
         if not kwargs["configs"].get("isBinary", False):
             self.data = import_h5(path_list)
         else:
-            self.data = []
-            for path in path_list:
-                self.data.append(read_binary_Alibava(path))
+            self.data = read_binary_Alibava(path)
 
         self.numchan = len(self.data[0]["events"]["signal"][0])
         self.numevents = len(self.data[0]["events"]["signal"])
