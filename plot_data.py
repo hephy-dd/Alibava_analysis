@@ -17,11 +17,12 @@ class PlotData:
                           self.plot_pedestal,
                           self.plot_cm,
                           self.plot_noise_hist]
-        # self.cal_plots = [self.plot_scan, self.plot_gain_hist,
-        #                   self.plot_gain_strip]
         self.cal_plots = [self.plot_signal_conversion_fit,
                           self.plot_signal_conversion_fit_detail,
                           self.plot_gain_hist]
+        self.main_plots = [self.plot_cluster_analysis,
+                           self.plot_hitmap,
+                           self.plot_single_event]
 
     def plot_data(self, obj, group="all"):
         """Plots the data calculated by the framework. Surpress drawing and
@@ -40,6 +41,9 @@ class PlotData:
             self.cal_fig.tight_layout()
         if group == "main":
             self.main_fig = plt.figure("Main analysis", figsize=[10, 8])
+            for func in self.main_plots:
+                func(obj, self.main_fig)
+            self.main_fig.tight_layout()
 
     def show_plots(self):
         """Draw and show plots"""
@@ -131,7 +135,8 @@ class PlotData:
     def plot_signal_conversion_fit(self, obj, fig):
         """Plots test pulses as a function of ADC singals. Shows conversion
         fit that is used to convert ADC signals to e signals."""
-        plot = fig.add_subplot(221)
+        # plot = fig.add_subplot(221)
+        plot = handle_sub_plots(fig, 221)
         plot.set_xlabel('Mean Signal [ADC]')
         plot.set_ylabel('Test Pulse Charge [e]')
         plot.set_title('Signal Fit - ADC Signal vs. e Signal')
@@ -146,7 +151,8 @@ class PlotData:
                                           upper_lim_y=30000):
         """Zooms into the the important region of the signal conversion plot
         to see if the fit is sufficient there"""
-        plot = fig.add_subplot(223)
+        plot = handle_sub_plots(fig, 223)
+        # plot = fig.add_subplot(223)
         plot.set_xlabel('Mean Signal [ADC]')
         plot.set_ylabel('Test Pulse Charge [e]')
         plot.set_title('Signal Fit Detail - ADC Signal vs. e Signal')
@@ -163,6 +169,7 @@ class PlotData:
     def plot_gain_hist(self, obj, fig, cut=1.5):
         """Plot histogram of gain according to mean signal of all channels"""
         gain_hist = fig.add_subplot(222)
+        gain_hist = handle_sub_plots(fig, 222)
         gain_hist.set_ylabel('Count [#]')
         gain_hist.set_xlabel('Gain [e-]')
         gain_hist.set_title('Gain Histogram - Gain of Test Pulses')
@@ -183,58 +190,97 @@ class PlotData:
         gain_hist.legend()
         return gain_hist
 
-    def plot_scan(self, obj, fig):
-        """Plot delay or charge scan"""
-        if not obj.configs["use_charge_cal"]:
-            plot = fig.add_subplot(222)
-            plot.bar(obj.delay_data["scan"]["value"][:],
-                     obj.meansig_delay, 1., alpha=0.4, color="b")
-            # plot.bar(obj.delay_data["scan"]["value"][:],
-            #                obj.meansig_delay[:,60], 1., alpha=0.4, color="b")
-            plot.set_xlabel('time [ns]')
-            plot.set_ylabel('Signal [ADC]')
-            plot.set_title('Delay plot')
-        else:
-            plot = fig.add_subplot(221)
-            plot.set_xlabel('Test Pulse Charge [e-]')
-            plot.set_ylabel('Signal [ADC]')
-            plot.set_title('Charge Scan')
-            plot.bar(obj.charge_data["scan"]["value"][:],
-                     np.mean(obj.meansig_charge, axis=1), 1000.,
-                     alpha=0.4, color="b", label="Mean of all gains")
-            cal_range = np.array(np.arange(1., 450., 10.))
-            plot.plot(np.polyval(obj.meancoeff, cal_range),
-                      cal_range, "r--", color="g")
-            plot.errorbar(obj.charge_data["scan"]["value"][:],
-                          np.mean(obj.meansig_charge, axis=1),
-                          xerr=obj.charge_sig, yerr=obj.ADC_sig,
-                          fmt='o', markersize=1, color="red",
-                          label="Error")
-            plot.legend()
-        return plot
+    # def plot_scan(self, obj, fig):
+    #     """Plot delay or charge scan"""
+    #     if not obj.configs["use_charge_cal"]:
+    #         plot = fig.add_subplot(222)
+    #         plot.bar(obj.delay_data["scan"]["value"][:],
+    #                  obj.meansig_delay, 1., alpha=0.4, color="b")
+    #         # plot.bar(obj.delay_data["scan"]["value"][:],
+    #         #                obj.meansig_delay[:,60], 1., alpha=0.4, color="b")
+    #         plot.set_xlabel('time [ns]')
+    #         plot.set_ylabel('Signal [ADC]')
+    #         plot.set_title('Delay plot')
+    #     else:
+    #         plot = fig.add_subplot(221)
+    #         plot.set_xlabel('Test Pulse Charge [e-]')
+    #         plot.set_ylabel('Signal [ADC]')
+    #         plot.set_title('Charge Scan')
+    #         plot.bar(obj.charge_data["scan"]["value"][:],
+    #                  np.mean(obj.meansig_charge, axis=1), 1000.,
+    #                  alpha=0.4, color="b", label="Mean of all gains")
+    #         cal_range = np.array(np.arange(1., 450., 10.))
+    #         plot.plot(np.polyval(obj.meancoeff, cal_range),
+    #                   cal_range, "r--", color="g")
+    #         plot.errorbar(obj.charge_data["scan"]["value"][:],
+    #                       np.mean(obj.meansig_charge, axis=1),
+    #                       xerr=obj.charge_sig, yerr=obj.ADC_sig,
+    #                       fmt='o', markersize=1, color="red",
+    #                       label="Error")
+    #         plot.legend()
+    #     return plot
 
-    def plot_gain_strip_100(self, obj, fig):
-        """Plot gain per Strip at 100 ADC"""
-        gain_plot = fig.add_subplot(223)
-        gain_plot.set_xlabel('Channel [#]')
-        gain_plot.set_ylabel('Gain [e- at 100 ADC]')
-        gain_plot.set_title('Gain per Channel')
-        gain_plot.set_ylim(0, 70000)
-        gain_plot.bar(np.arange(len(obj.pedestal) - len(obj.noisy_channels)),
-                      obj.gain, alpha=0.4, color="b",
-                      label="Only non masked channels")
-        gain_plot.legend()
-        return gain_plot
 
-    def plot_gain_hist_100(self, obj, fig):
-        """Plot histogram of gain per strip at 100 ADC"""
-        gain_hist = fig.add_subplot(224)
-        gain_hist.set_ylabel('Count [#]')
-        gain_hist.set_xlabel('Gain [e- at 100 ADC]')
-        gain_hist.set_title('Gain Histogram')
-        gain_hist.hist(obj.gain, alpha=0.4, bins=20, color="b",
-                       label="Only non masked channels")
-        gain_hist.legend()
-        return gain_hist
+    ### Main Plots ###
+    def plot_cluster_analysis(self, obj, fig=None):
+        # Plot Clustering results
+        numclusters_plot = handle_sub_plots(fig, 331)
+        clusters_plot = handle_sub_plots(fig, 332)
 
-    ### Analysis Plots ###
+        # Plot Number of clusters
+        bins, counts = np.unique(obj.outputdata["base"]["Numclus"],
+                                 return_counts=True)
+        numclusters_plot.bar(bins, counts, alpha=0.4, color="b")
+        numclusters_plot.set_xlabel('Number of clusters [#]')
+        numclusters_plot.set_ylabel('Occurance [#]')
+        numclusters_plot.set_title('Number of clusters')
+        # numclusters_plot.set_yscale("log", nonposy='clip')
+
+        # Plot clustersizes
+        bins, counts = np.unique(np.concatenate(obj.outputdata["base"]["Clustersize"]),
+                                 return_counts=True)
+        clusters_plot.bar(bins, counts, alpha=0.4, color="b")
+        clusters_plot.set_xlabel('Clustersize [#]')
+        clusters_plot.set_ylabel('Occurance [#]')
+        clusters_plot.set_title('Clustersizes')
+        # clusters_plot.set_yscale("log", nonposy='clip')
+
+        # fig.suptitle('Cluster analysis from file {!s}'.format(name))
+        # fig.tight_layout()
+        # fig.subplots_adjust(top=0.88)
+
+    def plot_hitmap(self, obj, fig=None):
+        # Plot Analysis results
+        channel_plot = handle_sub_plots(fig, 333)
+
+        # Plot Hitmap
+        channel_plot.bar(np.arange(obj.numchan),
+                         obj.outputdata["base"]["Hitmap"][len(obj.outputdata["base"]["Hitmap"]) - 1],
+                         1., alpha=0.4, color="b")
+        channel_plot.set_xlabel('channel [#]')
+        channel_plot.set_ylabel('Hits [#]')
+        # channel_plot.set_title('Hitmap from file: {!s}'.format(name))
+
+    def plot_single_event(self, obj, fig, eventnum=1000):
+        """ Plots a single event and its data"""
+        # fig = plt.figure("Event number {!s}, from file: {!s}".format(eventnum, file))
+        channel_plot = handle_sub_plots(fig, 334)
+
+        channel_plot.bar(np.arange(obj.numchan),
+                         obj.outputdata["base"]["Signal"][eventnum], 1.,
+                         alpha=0.4, color="b")
+        channel_plot.set_xlabel('channel [#]')
+        channel_plot.set_ylabel('Signal [ADC]')
+        channel_plot.set_title('Signal of event #%d' %eventnum)
+
+        # Plot signal/Noise
+        SN_plot = fig.add_subplot(335)
+        SN_plot.bar(np.arange(obj.numchan),
+                    obj.outputdata["base"]["SN"][eventnum], 1.,
+                    alpha=0.4, color="b")
+        SN_plot.set_xlabel('channel [#]')
+        SN_plot.set_ylabel('Signal/Noise [ADC]')
+        SN_plot.set_title('Signal/Noise of event #%d' %eventnum)
+
+        # fig.suptitle('Single event analysis from file {!s}, with event: {!s}'.format(file, eventnum))
+        # fig.subplots_adjust(top=0.88)

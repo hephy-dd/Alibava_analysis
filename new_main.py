@@ -36,13 +36,13 @@ if __name__ == "__main__":
 
         CAL_DATA = Calibration(CAL, Noise_calc=PED_DATA,
                                isBinary=False, configs=CFG)
-        PLOT.plot_data(CAL_DATA, "calibration")
+        # PLOT.plot_data(CAL_DATA, "calibration")
 
         CFG.update({"calibration": CAL_DATA,
                     "noise_analysis": PED_DATA})
 
         RUN_DATA = MainAnalysis(MAIN, configs=CFG)
-        # RUN_DATA.plot_data()
+        PLOT.plot_data(RUN_DATA, group="main")
 
     # if CFG.get("Output_folder", "") and CFG.get("Output_name", ""):
     #     save_all_plots(CFG["Output_name"], CFG["Output_folder"], dpi=300)

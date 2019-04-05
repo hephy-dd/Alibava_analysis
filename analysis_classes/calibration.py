@@ -163,7 +163,9 @@ class Calibration:
     def convert_ADC_to_e(self, x):
         """Convert an ADC signal or an array of ADC signals to electron
         signal"""
-        return np.polyval(self.meancoeff, x)
+        if isinstance(x, (list, np.array)):
+            return np.absolute(np.polyval(self.meancoeff, x))
+        return abs(np.polyval(self.meancoeff, x))
 
     def gain_calc(self, cut=1.5):
         """Calculates the gain per channel per pulse. Ignores values for

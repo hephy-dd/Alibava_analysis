@@ -8,7 +8,7 @@ import logging.config
 import os
 import struct
 import sys
-from importlib import import_module
+from pydoc import locate
 import numpy as np
 import h5py
 import yaml
@@ -40,31 +40,20 @@ def init_logger(path='logger.yml', default_level=logging.INFO, env_key='LOG_CFG'
     else:
         logging.basicConfig(level=default_level)
 
-def manage_logger(logger, level=logging.DEBUG):
-    """Sets output level of logging object and checks if object has a
-    StreamHandler"""
-    logger.setLevel(level)
-    if logger.hasHandlers() is False:
-        format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-        formatter = logging.Formatter(format_string)
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
 LOG = logging.getLogger("utilities")
 
 def load_plugins(valid_plugins):
-    # Load all measurement functions
-    # install_directory = os.getcwd() # Obtain the install path of this module
+    """Load additional analysis functions. File names are expected to be all
+    lower case while class names are capitalized.
+    Args:
+        - valid_plugins (str): class names"""
     all_plugins = {}
-    all_measurement_functions = os.listdir("./analysis_classes/")
-    all_measurement_functions = list(set([modules.split(".")[0] for modules in all_measurement_functions]))
-    for modules in all_measurement_functions:  # import all modules from all files in the plugins folder
-        to_add = import_module("analysis_classes." + modules)
-        names = dir(to_add) # get all modules
+    all_analysis_files = os.listdir("./analysis_classes/")
+    for file in all_analysis_files:
         for plugin in valid_plugins:
-            if plugin in names:
-                all_plugins.update({plugin: to_add})
+            if os.path.splitext(file)[0] == plugin.lower():
+                all_plugins[plugin] = \
+                    locate("analysis_classes." + plugin.lower() + "." + plugin)
     return all_plugins
 
 def create_dictionary(file, filepath=os.getcwd()):
@@ -216,16 +205,6 @@ def count_sub_length(ndarray):
         if len(ndarray[i]) == 1:
             results[i] = len(ndarray[i][0])
     return results
-
-def convert_ADC_to_e(signal, interpolation_function):
-    """Gets the signal in ADC, the interpolatrion function and returns an
-    array with the interpolated singal in electorns
-
-    :param signal: Singnal array which should be converted, basically the singal from every strip
-    :param interpolation_function: the interpolation function
-    :return: Returns array with the electron count
-    """
-    return interpolation_function(np.abs(signal))
 
 def save_all_plots(name, folder, figs=None, dpi=200):
     """
