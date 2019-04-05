@@ -32,11 +32,10 @@ if __name__ == "__main__":
     # PED_DATA = NoiseAnalysis(os.path.join(os.getcwd(), "Examples",
     #                                       "ped_binary_RUN00251334.dat"),
     #                          configs=CFG)
-        PLOT.plot_data(PED_DATA, group="pedestal")
+        # PLOT.plot_data(PED_DATA, group="pedestal")
 
         CAL_DATA = Calibration(CAL, Noise_calc=PED_DATA,
                                isBinary=False, configs=CFG)
-        # print(CAL_DATA.charge_cal())
         PLOT.plot_data(CAL_DATA, "calibration")
 
         CFG.update({"calibration": CAL_DATA,

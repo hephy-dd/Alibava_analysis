@@ -13,11 +13,15 @@ class PlotData:
         self.cal_fig = None
         self.main_fig = None
 
-        self.ped_plots = [self.plot_noise_ch, self.plot_pedestal, self.plot_cm,
+        self.ped_plots = [self.plot_noise_ch,
+                          self.plot_pedestal,
+                          self.plot_cm,
                           self.plot_noise_hist]
         # self.cal_plots = [self.plot_scan, self.plot_gain_hist,
         #                   self.plot_gain_strip]
-        self.cal_plots = [self.plot_charge_scan, self.plot_gain_hist]
+        self.cal_plots = [self.plot_signal_conversion_fit,
+                          self.plot_signal_conversion_fit_detail,
+                          self.plot_gain_hist]
 
     def plot_data(self, obj, group="all"):
         """Plots the data calculated by the framework. Surpress drawing and
@@ -124,16 +128,36 @@ class PlotData:
         return plot
 
     ### Calibration Plots ###
-    def plot_charge_scan(self, obj, fig):
+    def plot_signal_conversion_fit(self, obj, fig):
+        """Plots test pulses as a function of ADC singals. Shows conversion
+        fit that is used to convert ADC signals to e signals."""
         plot = fig.add_subplot(221)
-        plot.set_xlabel('Test Pulse Charge [e]')
-        plot.set_ylabel('Mean Signal [ADC]')
-        plot.set_title('Charge Scan - Mean over all Channels')
-        # gain_plot.set_ylim(0, 70000)
-        plot.plot(obj.pulses, obj.mean_sig_all_ch, label="Charge Scan")
-        fit_x = np.arange(0, obj.pulses[-1], 500)
-        fit_y = np.polyval(obj.meancoeff, fit_x)
-        plot.plot(fit_x, fit_y, linestyle="--", color="r", label="Fit")
+        plot.set_xlabel('Mean Signal [ADC]')
+        plot.set_ylabel('Test Pulse Charge [e]')
+        plot.set_title('Signal Fit - ADC Signal vs. e Signal')
+        plot.plot(obj.mean_sig_all_ch, obj.pulses,
+                  label="Mean signal over all channels")
+        plot.plot(obj.mean_sig_all_ch,
+                  obj.convert_ADC_to_e(obj.mean_sig_all_ch),
+                  linestyle="--", color="r", label="Conversion fit")
+        plot.legend()
+
+    def plot_signal_conversion_fit_detail(self, obj, fig, upper_lim_x=250,
+                                          upper_lim_y=30000):
+        """Zooms into the the important region of the signal conversion plot
+        to see if the fit is sufficient there"""
+        plot = fig.add_subplot(223)
+        plot.set_xlabel('Mean Signal [ADC]')
+        plot.set_ylabel('Test Pulse Charge [e]')
+        plot.set_title('Signal Fit Detail - ADC Signal vs. e Signal')
+        plot.plot(obj.mean_sig_all_ch,
+                  obj.pulses,
+                  label="Mean signal over all channels")
+        plot.plot(obj.mean_sig_all_ch,
+                  obj.convert_ADC_to_e(obj.mean_sig_all_ch),
+                  linestyle="--", color="r", label="Conversion fit")
+        plot.set_xlim(right=upper_lim_x)
+        plot.set_ylim(top=upper_lim_y)
         plot.legend()
 
     def plot_gain_hist(self, obj, fig, cut=1.5):
