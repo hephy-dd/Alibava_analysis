@@ -1,9 +1,11 @@
 """PlotData Class"""
-# pylint: disable=R0201,C0103
+# pylint: disable=R0201,C0103,E0401
 import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+# import pylandau
 from analysis_classes.utilities import handle_sub_plots, gaussian
+# from analysis_classes.utilities import read_file
 
 class PlotData:
     """Plots for ALiBaVa Analysis"""
@@ -12,6 +14,8 @@ class PlotData:
         self.ped_fig = None
         self.cal_fig = None
         self.main_fig = None
+
+        # self.cfg = read_file("plot_cfg.yml")
 
         self.ped_plots = [self.plot_noise_ch,
                           self.plot_pedestal,
@@ -22,7 +26,9 @@ class PlotData:
                           self.plot_gain_hist]
         self.main_plots = [self.plot_cluster_analysis,
                            self.plot_hitmap,
-                           self.plot_single_event]
+                           self.plot_single_event,
+                           self.plot_langau_per_clustersize,
+                           self.plot_seed_signal_e]
 
     def plot_data(self, obj, group="all"):
         """Plots the data calculated by the framework. Surpress drawing and
@@ -33,23 +39,22 @@ class PlotData:
             self.ped_fig = plt.figure("Pedestal analysis", figsize=[10, 8])
             for func in self.ped_plots:
                 func(obj, self.ped_fig)
-            self.ped_fig.tight_layout()
+            # self.ped_fig.tight_layout()
         if group == "calibration":
             self.cal_fig = plt.figure("calibration analysis", figsize=[10, 8])
             for func in self.cal_plots:
                 func(obj, self.cal_fig)
-            self.cal_fig.tight_layout()
+            # self.cal_fig.tight_layout()
         if group == "main":
-            self.main_fig = plt.figure("Main analysis", figsize=[10, 8])
+            # self.main_fig = plt.figure("Main analysis", figsize=[10, 8])
             for func in self.main_plots:
-                func(obj, self.main_fig)
-            self.main_fig.tight_layout()
+                func(obj)
+            # self.main_fig.tight_layout()
 
     def show_plots(self):
         """Draw and show plots"""
         plt.draw()
         plt.show()
-
 
     ### Pedestal Plots ###
     def plot_noise_ch(self, obj, fig=None):
@@ -223,6 +228,7 @@ class PlotData:
 
     ### Main Plots ###
     def plot_cluster_analysis(self, obj, fig=None):
+        """Plots cluster size distribution of all event clusters"""
         # Plot Clustering results
         numclusters_plot = handle_sub_plots(fig, 331)
         clusters_plot = handle_sub_plots(fig, 332)
@@ -245,27 +251,25 @@ class PlotData:
         clusters_plot.set_title('Clustersizes')
         # clusters_plot.set_yscale("log", nonposy='clip')
 
-        # fig.suptitle('Cluster analysis from file {!s}'.format(name))
         # fig.tight_layout()
         # fig.subplots_adjust(top=0.88)
 
     def plot_hitmap(self, obj, fig=None):
-        # Plot Analysis results
-        channel_plot = handle_sub_plots(fig, 333)
-
-        # Plot Hitmap
-        channel_plot.bar(np.arange(obj.numchan),
+        """Plots the hitmap of the measurement."""
+        hitmap_plot = handle_sub_plots(fig, 333)
+        hitmap_plot.set_title("Event Hitmap")
+        hitmap_plot.bar(np.arange(obj.numchan),
                          obj.outputdata["base"]["Hitmap"][len(obj.outputdata["base"]["Hitmap"]) - 1],
                          1., alpha=0.4, color="b")
-        channel_plot.set_xlabel('channel [#]')
-        channel_plot.set_ylabel('Hits [#]')
-        # channel_plot.set_title('Hitmap from file: {!s}'.format(name))
+        hitmap_plot.set_xlabel('channel [#]')
+        hitmap_plot.set_ylabel('Hits [#]')
+        if fig is None:
+            hitmap_plot.set_title('Hitmap')
 
-    def plot_single_event(self, obj, fig, eventnum=1000):
+    def plot_single_event(self, obj, fig=None, eventnum=1000):
         """ Plots a single event and its data"""
         # fig = plt.figure("Event number {!s}, from file: {!s}".format(eventnum, file))
         channel_plot = handle_sub_plots(fig, 334)
-
         channel_plot.bar(np.arange(obj.numchan),
                          obj.outputdata["base"]["Signal"][eventnum], 1.,
                          alpha=0.4, color="b")
@@ -274,7 +278,7 @@ class PlotData:
         channel_plot.set_title('Signal of event #%d' %eventnum)
 
         # Plot signal/Noise
-        SN_plot = fig.add_subplot(335)
+        SN_plot = handle_sub_plots(fig, 335)
         SN_plot.bar(np.arange(obj.numchan),
                     obj.outputdata["base"]["SN"][eventnum], 1.,
                     alpha=0.4, color="b")
@@ -282,5 +286,82 @@ class PlotData:
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise of event #%d' %eventnum)
 
-        # fig.suptitle('Single event analysis from file {!s}, with event: {!s}'.format(file, eventnum))
         # fig.subplots_adjust(top=0.88)
+
+    def plot_langau_per_clustersize(self, obj, fig=None, fit_langau=True):
+        """Plots the data calculated so the energy data and the langau"""
+        data = obj.outputdata["Langau"]
+        # fig = plt.figure("Langau from file: {!s}".format(file))
+        # Plot delay
+        plot = handle_sub_plots(fig, 335)
+        plot.set_title("Signals of different cluster sizes")
+        # hist, edges = np.histogram(data["signal"], bins=obj.bins)
+        plot.hist(data["signal"], bins=data["bins"], density=False,
+                  alpha=0.4, color="b", label="All clusters")
+        #plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
+        if fit_langau:
+            plot.plot(data["langau_data"][0], data["langau_data"][1], "r--",
+                      color="g")
+                      # label="Langau: \n mpv: {mpv!s} \n eta: {eta!s} \n sigma: {sigma!s} \n A: {A!s} \n".format(
+                      #     mpv=data["langau_coeff"][0],
+                      #     eta=data["langau_coeff"][1],
+                      #     sigma=data["langau_coeff"][2],
+                      #     A=data["langau_coeff"][3]))
+            # plot.errorbar(data["langau_data"][0], data["langau_data"][1],
+            #               np.sqrt(pylandau.langau(data["langau_data"][0], *data["langau_coeff"])),
+            #               fmt=".", color="r", label="Error of Fit")
+
+        plot.set_xlabel('Cluster Signal [e]')
+        plot.set_ylabel('Events [#]')
+        # plot.set_title('All clusters Langau from file: {!s}'.format(file))
+
+        # Plot the different clustersizes as well into the langau plot
+        colour = ['green', 'red', 'orange', 'cyan', 'black', 'pink', 'magenta']
+        for i, cls in enumerate(data["Clustersize"]):
+            if i < 7:
+                plot.hist(cls["signal"], bins=data["bins"], density=False,
+                          alpha=0.3, color=colour[i],
+                          label="Clustersize: {!s}".format(i + 1))
+            else:
+                # self.log.warning(
+                #     "To many histograms for this plot. "
+                #     "Colorscheme only supports seven different histograms. Extend if need be!")
+                continue
+
+        plot.legend()
+
+    def plot_seed_signal_e(self, obj, fig=None, seed_cut=True, fit_langau=True):
+        """Plots seed signal and langau distribution"""
+        if seed_cut:
+            # fig = plt.figure("Seed cut langau from file: {!s}".format(file))
+            # Plot Seed cut langau
+            plot = handle_sub_plots(fig, 336)
+            # indizes = np.nonzero(data["signal_SC"] > 0)[0]
+            data = obj.outputdata["Langau"]
+            plot.hist(data["signal_SC"],
+                      bins=data["bins"], density=False,
+                      alpha=0.4, color="b", label="Signals")
+            if fit_langau:
+                plot.plot(data["langau_data_SC"][0], data["langau_data_SC"][1],
+                          "r--", color="g",
+                          label="Fit")
+                textstr = '\n'.join((
+                    "mpv = %.f" %(data["langau_coeff_SC"][0]),
+                    "eta = %.2f" %(data["langau_coeff_SC"][1]),
+                    "sigma = %.2f" %(data["langau_coeff_SC"][2]),
+                    "A = %.2f" %(data["langau_coeff_SC"][3])))
+                                     # "entries = %.f" %(len(gain_lst))))
+                plot.text(0.6, 0.85, textstr, transform=plot.transAxes,
+                          fontsize=10,
+                          verticalalignment='top',
+                          bbox=dict(boxstyle='round',
+                                    facecolor='white',
+                                    alpha=0.5))
+                # plot.errorbar(data["langau_data_SC"][0], data["langau_data_SC"][1],
+                #               np.sqrt(pylandau.langau(data["langau_data_SC"][0], *data["langau_coeff_SC"])),
+                #               fmt=".", color="r", label="Error of Fit")
+            plot.set_xlabel('Seed Signal [e]')
+            plot.set_ylabel('Events [#]')
+            if fig is None:
+                plot.set_title('Seed Signal in e')
+            plot.legend()

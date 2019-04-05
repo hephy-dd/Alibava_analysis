@@ -5,9 +5,7 @@ run data"""
 import logging
 from multiprocessing import Pool
 from time import time
-from tqdm import tqdm
 import numpy as np
-import matplotlib.pyplot as plt
 from .base_analysis import BaseAnalysis
 from .utilities import Bdata, read_binary_Alibava, load_plugins
 from .utilities import import_h5
@@ -93,10 +91,10 @@ class MainAnalysis:
             file = str(self.data)
         self.outputdata = {}
         # Todo: Make this loop work in a pool of processes/threads whichever is easier and better
-        object = BaseAnalysis(self, events,
-                              timing)  # you get back a list with events, containing the event processed data -->
-                                       # np array makes it easier to slice
-        results = object.run()
+        # you get back a list with events, containing the event processed data
+        # --> np array makes it easier to slice
+        _object = BaseAnalysis(self, events, timing)
+        results = _object.run()
 
         self.outputdata["base"] = Bdata(results,
                                         labels=["Signal", "SN", "CMN", "CMsig",
@@ -107,10 +105,9 @@ class MainAnalysis:
         # Now process additional analysis statet in the config file
         # Load all plugins
         plugins = load_plugins(configs.get("additional_analysis", []))
-        for plugin in plugins.values():
+        for name, plugin in plugins.items():
             analysis = plugin(self, configs)
-            analysis.run()
-            self.outputdata[plugin] = results
+            self.outputdata[name] = analysis.run()
 
         # In the end give a round up of all you have done
         print(\

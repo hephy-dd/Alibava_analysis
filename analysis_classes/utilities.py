@@ -1,8 +1,7 @@
 """This file contains functions and classes which can be classified as utilitie
 functions for a more general purpose. Furthermore, these functions are for
 python analysis of ALIBAVA files."""
-# pylint: disable=C0103,R1710,R0903
-
+# pylint: disable=C0103,R1710,R0903,E0401
 import logging
 import logging.config
 import os
@@ -23,7 +22,8 @@ def handle_sub_plots(fig, index):
     """Adds subplot to existing figure or creates a new one if fig
     non-existing"""
     if fig is None:
-        plot = plt.figure()
+        fig = plt.figure()
+        plot = fig.add_subplot(111)
     else:
         plot = fig.add_subplot(index)
     return plot
@@ -254,39 +254,6 @@ class NoStdStreams(object):
 def gaussian(x, mu, sig, a):
     """Simple but fast implementation of as gaussian distribution"""
     return a*np.exp(-np.power(x - mu, 2.) / (2. * np.power(sig, 2.)))
-
-def langau_cluster(cls_ind, valid_events_Signal, valid_events_clusters,
-                   charge_cal, noise):
-    """Calculates the energy of events, clustersize independend"""
-    # for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
-    totalE = np.zeros(len(cls_ind))
-    totalNoise = np.zeros(len(cls_ind))
-    # Loop over the clustersize to get total deposited energy
-    incrementor = 0
-    start = time()
-    #for ind in tqdm(cls_ind, desc="(langau) Processing event"):
-    def collector(ind, incrementor):
-        # Signal calculations
-        signal_clst_event = np.take(valid_events_Signal[ind],
-                                    valid_events_clusters[ind][0])
-        totalE[incrementor] = np.sum(convert_ADC_to_e(signal_clst_event,
-                                                      charge_cal))
-
-        # Noise Calculations
-
-        # Get the Noise of an event
-        noise_clst_event = np.take(noise, valid_events_clusters[ind][0])
-        # eError is a list containing electron signal noise
-        totalNoise[incrementor] = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal)))
-
-        incrementor += 1
-
-    Parallel(n_jobs=2, require='sharedmem')(delayed(collector)(ind, 0)for ind in cls_ind)
-
-    print("*********************************************" + time()-start)
-
-    preresults = {"signal": totalE, "noise": totalNoise}
-    return preresults
 
 def get_size(obj, seen=None):
     """Recursively finds size of objects"""

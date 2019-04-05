@@ -71,7 +71,7 @@ class Calibration:
 
 
     def delay_calibration_calc(self, delay_path):
-        # Delay scan
+        """Analyzes delay scan"""
         self.log.info("Loading delay file: %s", delay_path)
         if not self.isBinary:
             self.delay_data = import_h5(delay_path)
@@ -161,11 +161,8 @@ class Calibration:
             # self.coeff_test(data)
 
     def convert_ADC_to_e(self, x):
-        """Convert an ADC signal or an array of ADC signals to electron
-        signal"""
-        if isinstance(x, (list, np.array)):
-            return np.absolute(np.polyval(self.meancoeff, x))
-        return abs(np.polyval(self.meancoeff, x))
+        """Convert an array of ADC signals to electron signal"""
+        return np.absolute(np.polyval(self.meancoeff, x))
 
     def gain_calc(self, cut=1.5):
         """Calculates the gain per channel per pulse. Ignores values for

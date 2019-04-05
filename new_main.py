@@ -29,14 +29,11 @@ if __name__ == "__main__":
                               MAIN_FILES):
         PED_DATA = NoiseAnalysis(os.path.join(os.getcwd(), "Examples", PED),
                                  configs=CFG)
-    # PED_DATA = NoiseAnalysis(os.path.join(os.getcwd(), "Examples",
-    #                                       "ped_binary_RUN00251334.dat"),
-    #                          configs=CFG)
-        # PLOT.plot_data(PED_DATA, group="pedestal")
+        PLOT.plot_data(PED_DATA, group="pedestal")
 
         CAL_DATA = Calibration(CAL, Noise_calc=PED_DATA,
                                isBinary=False, configs=CFG)
-        # PLOT.plot_data(CAL_DATA, "calibration")
+        PLOT.plot_data(CAL_DATA, "calibration")
 
         CFG.update({"calibration": CAL_DATA,
                     "noise_analysis": PED_DATA})
@@ -44,11 +41,11 @@ if __name__ == "__main__":
         RUN_DATA = MainAnalysis(MAIN, configs=CFG)
         PLOT.plot_data(RUN_DATA, group="main")
 
-    # if CFG.get("Output_folder", "") and CFG.get("Output_name", ""):
-    #     save_all_plots(CFG["Output_name"], CFG["Output_folder"], dpi=300)
-    #     if CFG.get("Pickle_output", False):
-    #         save_dict(RUN_DATA.outputdata,
-    #                   os.path.join(CFG["Output_folder"],
-    #                                CFG["Output_name"], ".dba"))
+    if CFG.get("Output_folder", "") and CFG.get("Output_name", ""):
+        save_all_plots(CFG["Output_name"], CFG["Output_folder"], dpi=300)
+        # if CFG.get("Pickle_output", False):
+        #     save_dict(RUN_DATA.outputdata,
+        #               os.path.join(CFG["Output_folder"],
+        #                            CFG["Output_name"], ".dba"))
 
-        PLOT.show_plots()
+    PLOT.show_plots()
