@@ -30,21 +30,25 @@ class PlotData:
                            self.plot_langau_per_clustersize,
                            self.plot_seed_signal_e]
 
-    def plot_data(self, obj, group="all"):
+    def plot_data(self, obj, group="all", fig_name=None):
         """Plots the data calculated by the framework. Surpress drawing and
         showing the canvas by setting "show" to False.
         Returns matplotlib.pyplot.figure object.
         """
         if group == "pedestal":
-            self.ped_fig = plt.figure("Pedestal analysis", figsize=[10, 8])
+            if fig_name is None:
+                fig_name = "Pedestal analysis"
+            fig = plt.figure(fig_name, figsize=[10, 8])
             for func in self.ped_plots:
-                func(obj, self.ped_fig)
-            # self.ped_fig.tight_layout()
+                func(obj, fig)
+            self.ped_fig.tight_layout()
         if group == "calibration":
-            self.cal_fig = plt.figure("calibration analysis", figsize=[10, 8])
+            if fig_name is None:
+                fig_name = "Calibration analysis"
+            fig = plt.figure(fig_name, figsize=[10, 8])
             for func in self.cal_plots:
-                func(obj, self.cal_fig)
-            # self.cal_fig.tight_layout()
+                func(obj, fig)
+            self.cal_fig.tight_layout()
         if group == "main":
             # self.main_fig = plt.figure("Main analysis", figsize=[10, 8])
             for func in self.main_plots:
@@ -136,6 +140,8 @@ class PlotData:
         plot.set_title("Noise Histogram")
         return plot
 
+
+
     ### Calibration Plots ###
     def plot_signal_conversion_fit(self, obj, fig):
         """Plots test pulses as a function of ADC singals. Shows conversion
@@ -195,35 +201,6 @@ class PlotData:
         gain_hist.legend()
         return gain_hist
 
-    # def plot_scan(self, obj, fig):
-    #     """Plot delay or charge scan"""
-    #     if not obj.configs["use_charge_cal"]:
-    #         plot = fig.add_subplot(222)
-    #         plot.bar(obj.delay_data["scan"]["value"][:],
-    #                  obj.meansig_delay, 1., alpha=0.4, color="b")
-    #         # plot.bar(obj.delay_data["scan"]["value"][:],
-    #         #                obj.meansig_delay[:,60], 1., alpha=0.4, color="b")
-    #         plot.set_xlabel('time [ns]')
-    #         plot.set_ylabel('Signal [ADC]')
-    #         plot.set_title('Delay plot')
-    #     else:
-    #         plot = fig.add_subplot(221)
-    #         plot.set_xlabel('Test Pulse Charge [e-]')
-    #         plot.set_ylabel('Signal [ADC]')
-    #         plot.set_title('Charge Scan')
-    #         plot.bar(obj.charge_data["scan"]["value"][:],
-    #                  np.mean(obj.meansig_charge, axis=1), 1000.,
-    #                  alpha=0.4, color="b", label="Mean of all gains")
-    #         cal_range = np.array(np.arange(1., 450., 10.))
-    #         plot.plot(np.polyval(obj.meancoeff, cal_range),
-    #                   cal_range, "r--", color="g")
-    #         plot.errorbar(obj.charge_data["scan"]["value"][:],
-    #                       np.mean(obj.meansig_charge, axis=1),
-    #                       xerr=obj.charge_sig, yerr=obj.ADC_sig,
-    #                       fmt='o', markersize=1, color="red",
-    #                       label="Error")
-    #         plot.legend()
-    #     return plot
 
 
     ### Main Plots ###
@@ -259,8 +236,8 @@ class PlotData:
         hitmap_plot = handle_sub_plots(fig, 333)
         hitmap_plot.set_title("Event Hitmap")
         hitmap_plot.bar(np.arange(obj.numchan),
-                         obj.outputdata["base"]["Hitmap"][len(obj.outputdata["base"]["Hitmap"]) - 1],
-                         1., alpha=0.4, color="b")
+                        obj.outputdata["base"]["Hitmap"][len(obj.outputdata["base"]["Hitmap"]) - 1],
+                        1., alpha=0.4, color="b")
         hitmap_plot.set_xlabel('channel [#]')
         hitmap_plot.set_ylabel('Hits [#]')
         if fig is None:

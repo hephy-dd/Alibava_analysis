@@ -41,8 +41,8 @@ if __name__ == "__main__":
         RUN_DATA = MainAnalysis(MAIN, configs=CFG)
         PLOT.plot_data(RUN_DATA, group="main")
 
-    if CFG.get("Output_folder", "") and CFG.get("Output_name", ""):
-        save_all_plots(CFG["Output_name"], CFG["Output_folder"], dpi=300)
+    # if CFG.get("Output_folder", "") and CFG.get("Output_name", ""):
+    #     save_all_plots(CFG["Output_name"], CFG["Output_folder"], dpi=300)
         # if CFG.get("Pickle_output", False):
         #     save_dict(RUN_DATA.outputdata,
         #               os.path.join(CFG["Output_folder"],

@@ -92,7 +92,7 @@ class NoiseAnalysis:
         high_noise_strips = np.append(high_noise_strips, self.mask)
         good_strips = np.delete(good_strips, high_noise_strips)
 
-        return high_noise_strips, good_strips
+        return high_noise_strips.astype(np.int64), good_strips.astype(np.int64)
 
     def noise_calc(self, events, pedestal, numevents,
                    numchannels, tot_noise=False):
