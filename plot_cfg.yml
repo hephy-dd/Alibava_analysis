@@ -1,0 +1,21 @@
+Plots:
+    Pedestal:
+        - plot_noise_ch,
+        - plot_pedestal,
+        - plot_cm,
+        - plot_noise_hist
+    Calibration:
+        - plot_signal_conversion_fit,
+        - plot_signal_conversion_fit_detail,
+        - plot_gain_hist
+    Main:
+        - plot_cluster_analysis,
+        - plot_hitmap,
+        - plot_single_event
+
+Plot_single_event: 1000
+Gain_cut: 1.5
+Upper_limits_conversion:
+    ADC_Signal: 250
+    e_Signal: 30000
+Fit_langau: True # Fit a langau or not (sometimes the data does not represent a langau at all)
