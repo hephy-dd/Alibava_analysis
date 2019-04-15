@@ -12,7 +12,7 @@ In order to run this program you need a Python Anaconda distribution. For more i
 With python up and running you can run the the "environement_setup.py" file by.
 
 ```
-conda env create -f Alibava_requirement.yml
+conda env create -f requirements.yml
 ```
 
 this will (when Anaconda is installed) automatically install all required modules for the program to run. If you don't have Anaconda installed and don't want to use it, you can look in the "Alibava_requirement.yml" file to see what dependencies the program needs.

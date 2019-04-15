@@ -146,10 +146,10 @@ class Calibration:
             # transpose matrix from signal per channel per pulse to signal per pulse per channel
             data = np.array(self.meansig_charge).transpose()
             self.mean_sig_all_ch = np.mean(self.meansig_charge, axis=1)
-            for sig_per_pulse in data:
+            # for sig_per_pulse in data:
                 # Since you want to convert ADC to e, you need to fit eSignal(ADCSignal)
-                self.coeff_per_ch.append(np.polyfit(
-                    sig_per_pulse, self.pulses, deg=5, full=False))
+                # self.coeff_per_ch.append(np.polyfit(
+                #     sig_per_pulse, self.pulses, deg=5, full=False))
             # only consider signals that are larger than zero to improve fit in sensitive region
             fit_params = [(sig, pul) for sig, pul in \
                 zip(self.mean_sig_all_ch, self.pulses) if sig > 0]

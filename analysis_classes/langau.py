@@ -61,7 +61,9 @@ class Langau:
             self.results_dict["Clustersize"] = results
 
         else:
-            self.get_clustersize(valid_events_clustersize)
+            self.cluster_analysis(valid_events_Signal,
+                                  valid_events_clusters,
+                                  valid_events_clustersize)
 
         # With all the data from every clustersize add all together and fit the langau to it
         finalE = np.zeros(0)
@@ -118,7 +120,8 @@ class Langau:
 
         return self.results_dict.copy()
 
-    def cluster_analysis(self, valid_events_clustersize):
+    def cluster_analysis(self, valid_events_Signal,
+                         valid_events_clusters, valid_events_clustersize):
         """Perform cluster analysis"""
         for size in tqdm(self.cluster_size_list, desc="(langau) Processing clustersize"):
             # get the events with the different clustersizes
