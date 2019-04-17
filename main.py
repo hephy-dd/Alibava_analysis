@@ -19,7 +19,7 @@ def main(args):
     plot = PlotData()
 
     for ped, cal, run in read_meas_files(cfg):
-        ped_data = NoiseAnalysis(os.path.join(os.getcwd(), "Examples", ped),
+        ped_data = NoiseAnalysis(ped,
                                  configs=cfg)
         plot.plot_data(ped_data, group="pedestal")
 
