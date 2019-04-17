@@ -1,22 +1,32 @@
-# This files contains analysis function optimizes by numba jit capabilities
-
-from numba import jit
-from multiprocessing import Manager
-from analysis_classes.utilities import *
+"""This files contains analysis function optimizes by numba jit capabilities"""
+#pyline: disable=E1111
+from numba import jit, prange
 import numpy as np
-from tqdm import tqdm
 
-def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noise,
+gil=True # Use gil or not
+Fast=True # Use fastmath
+parallel=True
+
+jit(nogil=gil, cache=True, nopython=True, fastmath=Fast)
+def event_process_function_multithread(args):
+    """Just a small wrapper foe the multiprocessing function"""
+    events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips = args
+    return event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
+                           numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
+                           masking, material, noisy_strips)
+
+jit(nogil=gil, parallel=parallel, nopython=True, fastmath=Fast)
+def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
                            numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
                            masking, material, noisy_strips, queue=None):
     """Necessary function to pass to the pool.map function"""
-    prodata = np.zeros((np.abs(start-end), 9), dtype=np.object)
+    prodata = np.zeros((len(events), 9), dtype=np.object)
     #automasked = 0
     index = 0
     hitmap = np.zeros(numchan)
-    signal, SN, CMN, CMsig = nb_process_all_events(start, end, events, pedestal, meanCMN,
+    signal, SN, CMN, CMsig = nb_process_all_events(events, pedestal, meanCMN,
                                                    meanCMsig, noise, numchan, noisy_strips)
-    for i in tqdm(range(0, abs(start-end)), desc="Events processed"):
+    for i in prange(0, len(events)):
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal[i], SN[i], noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
@@ -38,37 +48,32 @@ def event_process_function(start, end, events, pedestal, meanCMN, meanCMsig, noi
         index +=1
     return prodata
 
+jit(nogil=gil, parallel=parallel, nopython=True, fastmath=Fast)
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise,
                               numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5,
                               masking=True, material=1, poolsize = 1, Pool=None, noisy_strips = []):
     """Parallel processing of events."""
     goodevents = goodtiming[0].shape[0]
     automasked = 0
+    events_good = events[goodtiming[0]]
 
     if poolsize > 1:
-
-        manager = Manager()
-        q = manager.Queue()
         # Split data for the pools
         splits = int(goodevents/poolsize) # you may loose the last event!!!
         paramslist = []
         start = 0
-        results = []
         for i in range(poolsize):
             end = splits*(i+1)
-            paramslist.append((start, end, events[goodtiming[0]], pedestal, meanCMN, meanCMsig,
+            paramslist.append((events_good[start:end], pedestal, meanCMN, meanCMsig,
                                noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
-                               masking, material, noisy_strips, q))
+                               masking, material, noisy_strips))
             start=end+1
 
-        results = Pool.starmap(event_process_function, paramslist, chunksize=1)
-        #for i in paramslist:
-        #    results.append(event_process_function(*i))
-        #prodata = np.zeros((goodevents, 9), dtype=np.object)
-        #for i in tqdm(range(len(goodevents))):
-        #    prodata[i] = q.get()
-
-
+        #results = Parallel(n_jobs=poolsize, verbose=1, backend='threading', require="sharedmem")(map(delayed(event_process_function_multithread),
+        #                                                                                           paramslist))
+        results = []
+        for i in prange(poolsize):
+            results.append(event_process_function_multithread(paramslist[i]))
 
         # Build the correct Hitmap which gets lost during calculations
         hitmap = np.zeros(numchan)
@@ -80,12 +85,13 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         return prodata, automasked
 
     else:
-        prodata = event_process_function(0, goodevents, events[goodtiming[0]], pedestal, meanCMN,
+        prodata = event_process_function(events_good, pedestal, meanCMN,
                                          meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster,
                                          max_clustersize, masking, material, noisy_strips)
+        #event_process_function.parallel_diagnostics(level=4)
         return np.array(prodata), automasked
 
-@jit(nopython = True, cache=True)
+@jit(nopython = True, cache=True, nogil=gil, fastmath=Fast)
 def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5,
                   masking=True, material=1):
     """Looks for cluster in a event"""
@@ -164,6 +170,7 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
 
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
+jit(nogil=gil, cache=True, nopython=True)
 def nb_noise_calc(events, pedestal):
     """Noise calculation, normal noise (NN) and common mode noise (CMN)
     Uses numpy"""
@@ -179,7 +186,7 @@ def nb_noise_calc(events, pedestal):
 
     return np.array(score, dtype=np.float32), np.array(CMnoise, dtype=np.float32), np.array(CMsig, dtype=np.float32)  # Return everything
 
-
+jit(nogil=gil, cache=True)
 def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
     """Processes single events"""
     #TODO: some elusive error happens here when using jit and njit
@@ -203,11 +210,11 @@ def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy
     else:
         return np.zeros(numchan), np.zeros(numchan), 0., 0.  # A default value return if everything fails
 
-def nb_process_all_events(start, stop, events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
+jit(nogil=gil,cache=True, nopython=True, fastmath=Fast)
+def nb_process_all_events(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
     """Processes events"""
-    #TODO: some elusive error happens here when using jit and njit
     #Calculate the common mode noise for every channel
-    signal = events[start:stop]- pedestal  # Get the signal from event and subtract pedestal
+    signal = events - pedestal  # Get the signal from event and subtract pedestal
 
     # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
     removed = np.nonzero(signal[:,] > (5. * meanCMsig + meanCMN))

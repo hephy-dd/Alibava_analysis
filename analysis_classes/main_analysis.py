@@ -2,27 +2,31 @@
 run data"""
 #pylint: disable=R0902,R0915,C0103
 
+import logging
 from multiprocessing import Pool
+from time import time
+from tqdm import tqdm
+import numpy as np
+from .base_analysis import BaseAnalysis
+from .utilities import Bdata, read_binary_Alibava, load_plugins
+from .utilities import import_h5, manage_logger
 
-from analysis_classes.BaseAnalysis import *
-from analysis_classes.utilities import *  # import_h5, Bdata, read_binary_Alibava
-
-
-class MainLoops:
+class MainAnalysis:
     # COMMENT: the __init__ should be split up at least into 2 methods
     """This class analyses measurement files per event and conducts additional
     defined analysis"""
 
     """This class analyses measurement files per event and conducts additional defined analysis"""
 
-    def __init__(self, path_list=None, **kwargs):
+    def __init__(self, path_list=None, logger = None, **kwargs):
         """
         :param path_list: List of pathes to analyse
         :param kwargs: kwargs if further data should be used, possible kwargs=calibration,noise
         """
 
         # Init parameters
-        self.log = logging.getLogger()
+        self.log = logger or logging.getLogger(__class__.__name__)
+        #manage_logger(self.log)
 
         if not path_list:
             self.log.info("No file to analyse passed...")
@@ -83,7 +87,6 @@ class MainLoops:
         self.masking = kwargs["configs"].get("automasking", False)
         self.max_clustersize = kwargs["configs"].get("max_cluster_size", 5)
         self.SN_ratio = kwargs["configs"].get("SN_ratio", 0.5)
-        self.usejit = kwargs["configs"].get("optimize", False)
         self.SN_cluster = kwargs["configs"].get("SN_cluster", 6)
 
         # Create a pool for multiprocessing
@@ -120,10 +123,10 @@ class MainLoops:
         # Now process additional analysis statet in the config file
 
         # Load all plugins
-        plugins = load_plugins()
+        plugins = load_plugins(kwargs["configs"].get("additional_analysis",[]))
 
         for analysis in self.add_analysis:
-            self.log.info("Starting analysis: {!s}".format(analysis))
+            #self.log.info("\nStarting analysis: {!s}".format(analysis))
             # Gets the total analysis class, so be aware of changes inside!!!
             add_analysis = getattr(plugins[analysis], str(analysis))(self)
             results = add_analysis.run()
@@ -137,7 +140,6 @@ class MainLoops:
               "            Analysis report:                                             \n"
               "            ~~~~~~~~~~~~~~~~                                             \n"
               "                                                                         \n"
-              "            Automasked hits:   {automasked!s}                            \n"
               "            Events processed:  {events!s}                                \n"
               "            Total events:      {total_events!s}                          \n"
               "            Time taken:        {time!s}                                  \n"
@@ -154,4 +156,3 @@ class MainLoops:
 
         self.Pool.close()
         self.Pool.join()
-

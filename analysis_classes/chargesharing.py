@@ -1,27 +1,26 @@
 """This file contains the class for charge sharing analysis"""
-#pylint: disable=C0103
-
-# Import statements
-import numpy as np
+#pylint: disable=C0103,E1111
 import logging
+import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-# from nb_analysisFunction import *
-from analysis_classes.utilities import convert_ADC_to_e
+from analysis_classes.utilities import convert_ADC_to_e, manage_logger
 
 
 class ChargeSharing:
     """ A class calculating the charge sharing between two strip clusters
     and plotting it into a histogram and a eta plot"""
 
-    def __init__(self, main_analysis):
+    def __init__(self, main_analysis, logger = None):
         """Initialize some important parameters"""
+        self.log = logger or logging.getLogger(__class__.__name__)
+        #manage_logger(self.log)
+
         self.main = main_analysis
         self.clustersize = 2  # Other thing would not make sense for interstrip analysis
         self.data = self.main.outputdata.copy()
         self.results_dict = {}  # Containing all data processed
-        self.log = logging.getLogger()
 
     def run(self):
         """Runs the analysis"""
@@ -90,6 +89,7 @@ class ChargeSharing:
             plot.set_title('Charge distribution interstrip')
 
             plot = fig.add_subplot(222)
+            counts, edges, im = plot.hist(data["eta"], bins=300, range=(0, 1), alpha=0.4, color="b")
             # left = stats.norm.pdf(data["fits"][2][:100], loc=data["fits"][0][0], scale=data["fits"][0][1])
             # right = stats.norm.pdf(data["fits"][2], loc=data["fits"][1][0], scale=data["fits"][1][1])
             # plot.plot(data["fits"][2][:100], left,"r--", color="r")
@@ -99,6 +99,7 @@ class ChargeSharing:
             plot.set_title('Eta distribution')
 
             plot = fig.add_subplot(223)
+            counts, edges, im = plot.hist(data["theta"] / np.pi, bins=300, alpha=0.4, color="b", range=(0, 0.5))
             plot.set_xlabel('theta/Pi')
             plot.set_ylabel('entries')
             plot.set_title('Theta distribution')
