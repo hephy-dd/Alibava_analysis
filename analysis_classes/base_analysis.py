@@ -21,9 +21,9 @@ class BaseAnalysis:
         """Does the actual event analysis"""
 
         # get events with good timinig only gtime and only process these events
-        # Todo: make timing right
-        gtime = np.nonzero(self.timing >= self.main.tmin)
+        gtime = np.nonzero(np.logical_and(self.timing >= self.main.tmin, self.timing <= self.main.tmax))
         self.main.numgoodevents += int(gtime[0].shape[0])
+        self.timing = self.timing[gtime]
         meanCMN = np.mean(self.main.CMN)
         meanCMsig = np.mean(self.main.CMsig)
         # Warning: If you have a RS and pulseshape recognition enabled the
@@ -105,14 +105,16 @@ class BaseAnalysis:
                 sum_singal[i] = np.sum(sig[chan])
 
             timing_data = np.zeros(150)
+            #var_timing_data = np.zeros(150)
             for timing in range(1,151): # Timing of ALiBaVa
                 timing_in = np.nonzero(np.logical_and(self.timing>=timing-1,self.timing<timing))
-                timing_data[timing-1] = np.mean(sum_singal[timing_in[0]])
+                timing_data[timing-1] = np.median(sum_singal[timing_in[0]])
+                #var_timing_data[timing-1] = np.std(sum_singal[timing_in[0]])
 
             timing_plot.set_xlabel('timing [ns]')
             timing_plot.set_ylabel('average signal [ADC]')
-            timing_plot.set_title('Average timing signal')
-            timing_plot.bar(np.arange(0,150), timing_data, alpha=0.4, color="b")
+            timing_plot.set_title('Average timing signal of seed hits')
+            timing_plot.bar(np.arange(0,150), timing_data, alpha=0.4, color="b")#, yerr=var_timing_data)
 
 
             fig.suptitle('Cluster analysis from file {!s}'.format(name))

@@ -48,8 +48,8 @@ class MainAnalysis:
         self.noise = np.zeros(self.numchan, dtype=np.float32)
         self.SN_cut = 1
         self.hits = 0
-        self.tmin = 0
-        self.tmax = 100
+        self.tmin = kwargs["configs"].get("timing", 0)[0]
+        self.tmax = kwargs["configs"].get("timing", 0)[1]
         self.maxcluster = 4
         self.CMN = np.zeros(self.numchan, dtype=np.float32)
         self.CMsig = np.zeros(self.numchan, dtype=np.float32)
