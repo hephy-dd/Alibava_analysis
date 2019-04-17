@@ -44,17 +44,26 @@ class NoiseAnalysis:
             self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float32)
             self.score = np.zeros((len(self.goodevents[0]), self.numchan), dtype=np.float32)
 
+
+
             # Calculate pedestal
             self.log.info("Calculating pedestal and Noise...")
-            self.pedestal = np.mean(self.data["events"]["signal"][0:], axis=0)
+            self.pedestal = np.mean(self.data["events"]["signal"][:], axis=0)
             self.signal = np.array(self.data["events"]["signal"][:], dtype=np.float32)
 
             start = time()
-            self.score_raw, self.CMnoise, self.CMsig = nb_noise_calc(self.signal, self.pedestal)
+            self.score_raw, self.CMnoise, self.CMsig = nb_noise_calc(self.signal[:],
+                                                                     self.pedestal[:])
+
             # Calculate the actual noise for every channel by building the mean of all
             # noise from every event
             self.noise = np.std(self.score_raw,axis=0)
             self.noisy_strips, self.good_strips = self.detect_noisy_strips(self.noise, configs.get("Noise_cut", 5.))
+
+            # Mask chips of alibava
+            self.chip_selection, self.masked_channels = self.mask_alibava_chips(self.configs.get("Chips", (1,2)))
+            self.good_strips = np.intersect1d(self.chip_selection, self.good_strips)
+
             # Redo the noise calculation but this time without the noisy strips
             self.score, self.CMnoise, self.CMsig = nb_noise_calc(self.signal[:, self.good_strips],
                                                                  self.pedestal[self.good_strips])
@@ -64,6 +73,19 @@ class NoiseAnalysis:
             self.log.warning("Time taken for noise calculation: {!s} seconds".format(round(abs(end - start), 2)))
         else:
             self.log.warning("No valid file, skipping pedestal run")
+
+    def mask_alibava_chips(self, chips_to_keep=(1,2)):
+        """Defines which chips should be considered"""
+        final_channels = np.array([], dtype=np.int)
+        for chip in chips_to_keep:
+            start = (chip-1)*128
+            to_keep = np.arange(start, start+128, dtype=np.int)
+            final_channels = np.append(final_channels, to_keep)
+
+        # No find the masked channels
+        channels = np.arange(self.configs.get("Maximum_channels", 256), dtype=np.int)
+        return final_channels, np.setdiff1d(channels, final_channels)
+
 
     def detect_noisy_strips(self, Noise, Noise_cut):
         """This function detects noisy strips and returns two arrays first
@@ -88,7 +110,7 @@ class NoiseAnalysis:
         noise_plot.bar(np.arange(self.numchan), self.noise, 1., alpha=0.4, color="b", label="Noise level per strip")
         # array of non masked strips
         valid_strips = np.ones(self.numchan)
-        valid_strips[self.noisy_strips] = 0
+        valid_strips[np.append(self.noisy_strips, self.masked_channels)] = 0
         noise_plot.plot(np.arange(self.numchan), valid_strips, color="r", label="Masked strips")
 
         # Plot the threshold for deciding a good channel
