@@ -51,7 +51,7 @@ def import_h5(*pathes):
     """
 
     # Check if a list was passed
-    if isinstance(pathes[0]) == list:
+    if isinstance(pathes[0],list):
         pathes = pathes[0]
 
     # First check if pathes exist and if so import
@@ -66,7 +66,7 @@ def import_h5(*pathes):
         return loaded_files
     except OSError as err:
         log.info("Enountered an OSError: {!s}".format(err))
-        return False
+        return [False]
 
 def get_xy_data(data, header=0):
     """This functions takes a list of strings, containing a header and xy data,
