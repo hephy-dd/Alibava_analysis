@@ -24,9 +24,11 @@ class PlotData:
         self.cal_plots = [self.plot_signal_conversion_fit,
                           self.plot_signal_conversion_fit_detail,
                           self.plot_gain_hist]
-        self.main_plots = [self.plot_cluster_analysis,
+        self.main_plots = [self.plot_cluster_hist,
+                           self.plot_clustersizes,
                            self.plot_hitmap,
-                           self.plot_single_event,
+                           self.plot_single_event_SN,
+                           self.plot_single_event_ch,
                            self.plot_langau_per_clustersize,
                            self.plot_seed_signal_e]
 
@@ -41,19 +43,19 @@ class PlotData:
             fig = plt.figure(fig_name, figsize=[10, 8])
             for func in self.ped_plots:
                 func(obj, fig)
-            self.ped_fig.tight_layout()
+            fig.tight_layout()
         if group == "calibration":
             if fig_name is None:
                 fig_name = "Calibration analysis"
             fig = plt.figure(fig_name, figsize=[10, 8])
             for func in self.cal_plots:
                 func(obj, fig)
-            self.cal_fig.tight_layout()
+            fig.tight_layout()
         if group == "main":
             # self.main_fig = plt.figure("Main analysis", figsize=[10, 8])
             for func in self.main_plots:
-                func(obj)
-            # self.main_fig.tight_layout()
+                plot = func(obj)
+                plt.gcf().tight_layout()
 
     def show_plots(self):
         """Draw and show plots"""
@@ -67,8 +69,8 @@ class PlotData:
         noise_plot.bar(np.arange(obj.numchan), obj.noise, 1.,
                        alpha=0.4, color="b", label="Noise level per strip")
         # plot line idicating masked and unmasked channels
-        valid_strips = np.ones(obj.numchan)
-        valid_strips[obj.noisy_strips] = 0
+        valid_strips = np.zeros(obj.numchan)
+        valid_strips[obj.noisy_strips] = 1
         noise_plot.plot(np.arange(obj.numchan), valid_strips, color="r",
                         label="Masked strips")
 
@@ -176,10 +178,10 @@ class PlotData:
         plot.set_xlim(right=upper_lim_x)
         plot.set_ylim(top=upper_lim_y)
         plot.legend()
+        return plot
 
     def plot_gain_hist(self, obj, fig, cut=1.5):
         """Plot histogram of gain according to mean signal of all channels"""
-        gain_hist = fig.add_subplot(222)
         gain_hist = handle_sub_plots(fig, 222)
         gain_hist.set_ylabel('Count [#]')
         gain_hist.set_xlabel('Gain [e-]')
@@ -204,11 +206,10 @@ class PlotData:
 
 
     ### Main Plots ###
-    def plot_cluster_analysis(self, obj, fig=None):
+    def plot_cluster_hist(self, obj, fig=None):
         """Plots cluster size distribution of all event clusters"""
         # Plot Clustering results
         numclusters_plot = handle_sub_plots(fig, 331)
-        clusters_plot = handle_sub_plots(fig, 332)
 
         # Plot Number of clusters
         bins, counts = np.unique(obj.outputdata["base"]["Numclus"],
@@ -218,8 +219,12 @@ class PlotData:
         numclusters_plot.set_ylabel('Occurance [#]')
         numclusters_plot.set_title('Number of clusters')
         # numclusters_plot.set_yscale("log", nonposy='clip')
+        return numclusters_plot
 
-        # Plot clustersizes
+    def plot_clustersizes(self, obj, fig=None):
+        """Plot clustersizes"""
+        clusters_plot = handle_sub_plots(fig, 332)
+
         bins, counts = np.unique(np.concatenate(obj.outputdata["base"]["Clustersize"]),
                                  return_counts=True)
         clusters_plot.bar(bins, counts, alpha=0.4, color="b")
@@ -230,6 +235,7 @@ class PlotData:
 
         # fig.tight_layout()
         # fig.subplots_adjust(top=0.88)
+        return clusters_plot
 
     def plot_hitmap(self, obj, fig=None):
         """Plots the hitmap of the measurement."""
@@ -242,8 +248,9 @@ class PlotData:
         hitmap_plot.set_ylabel('Hits [#]')
         if fig is None:
             hitmap_plot.set_title('Hitmap')
+        return hitmap_plot
 
-    def plot_single_event(self, obj, fig=None, eventnum=1000):
+    def plot_single_event_ch(self, obj, fig=None, eventnum=1000):
         """ Plots a single event and its data"""
         # fig = plt.figure("Event number {!s}, from file: {!s}".format(eventnum, file))
         channel_plot = handle_sub_plots(fig, 334)
@@ -253,8 +260,10 @@ class PlotData:
         channel_plot.set_xlabel('channel [#]')
         channel_plot.set_ylabel('Signal [ADC]')
         channel_plot.set_title('Signal of event #%d' %eventnum)
+        return channel_plot
 
-        # Plot signal/Noise
+    def plot_single_event_SN(self, obj, fig=None, eventnum=1000):
+        """Plot signal/Noise"""
         SN_plot = handle_sub_plots(fig, 335)
         SN_plot.bar(np.arange(obj.numchan),
                     obj.outputdata["base"]["SN"][eventnum], 1.,
@@ -262,8 +271,8 @@ class PlotData:
         SN_plot.set_xlabel('channel [#]')
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise of event #%d' %eventnum)
-
         # fig.subplots_adjust(top=0.88)
+        return SN_plot
 
     def plot_langau_per_clustersize(self, obj, fig=None, fit_langau=True):
         """Plots the data calculated so the energy data and the langau"""
@@ -306,6 +315,7 @@ class PlotData:
                 continue
 
         plot.legend()
+        return plot
 
     def plot_seed_signal_e(self, obj, fig=None, seed_cut=True, fit_langau=True):
         """Plots seed signal and langau distribution"""
@@ -328,7 +338,7 @@ class PlotData:
                     "sigma = %.2f" %(data["langau_coeff_SC"][2]),
                     "A = %.2f" %(data["langau_coeff_SC"][3])))
                                      # "entries = %.f" %(len(gain_lst))))
-                plot.text(0.6, 0.85, textstr, transform=plot.transAxes,
+                plot.text(0.8, 0.8, textstr, transform=plot.transAxes,
                           fontsize=10,
                           verticalalignment='top',
                           bbox=dict(boxstyle='round',
@@ -342,3 +352,4 @@ class PlotData:
             if fig is None:
                 plot.set_title('Seed Signal in e')
             plot.legend()
+            return plot

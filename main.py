@@ -1,107 +1,50 @@
-"""This file is the main analysis file here all processes will be started"""
-
+"""Wrapper for full alibava analysis via console"""
 import os
-import logging
-# COMMENT: switch to argparse
-from optparse import OptionParser
-import matplotlib.pyplot as plt
-#from analysis_classes.calibration import Calibration
-#from analysis_classes.noise_analysis import NoiseAnalysis
-#from analysis_classes.main_analysis import MainAnalysis
-from analysis_classes.utilities import *
-from cmd_shell import AlisysShell
-from analysis_classes.utilities import create_dictionary, save_all_plots, save_configs
-from analysis_classes.utilities import save_dict
+from argparse import ArgumentParser
+from plot_data import PlotData
+from analysis_classes.utilities import create_dictionary
 from analysis_classes import Calibration
 from analysis_classes import NoiseAnalysis
 from analysis_classes import MainAnalysis
+from analysis_classes.utilities import save_all_plots, save_dict, read_meas_files
 
-log = logging.getLogger("main")
-log.setLevel(logging.INFO)
-if log.hasHandlers() is False:
-    format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-    formatter = logging.Formatter(format_string)
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    log.addHandler(console_handler)
+DEF = os.path.join(os.getcwd(), "Examples", "marius_config.yml")
 
-
-def main(args, options):
-    """The main analysis which will be executed after the arguments are parsed"""
-
-    if options.shell:
-        shell = AlisysShell()
-        # shell.start_shell()
-
-    elif options.configfile and os.path.exists(os.path.normpath(options.configfile)):
-        log.info("Loading file: %s", os.path.normpath(options.configfile))
-        configs = create_dictionary(os.path.normpath(options.configfile), "")
-        do_with_config_file(configs)
-        plt.show()  # Just in case the plot show has never been shown
-
-    elif options.filepath and os.path.exists(os.path.normpath(options.filepath)):
-        pass  # Todo: include the option to start the analysis with a passed file and config file
-
+def main(args):
+    """Start analysis"""
+    if args.config != "":
+        cfg = create_dictionary(args.config)
     else:
-        log.error("No valid path parsed! Exiting")
-        exit(1)
+        cfg = create_dictionary(DEF)
+    plot = PlotData()
 
-def do_with_config_file(config):
-    """Starts analysis with a config file"""
+    for ped, cal, run in read_meas_files(cfg):
+        ped_data = NoiseAnalysis(os.path.join(os.getcwd(), "Examples", ped),
+                                 configs=cfg)
+        plot.plot_data(ped_data, group="pedestal")
 
-    # Look if a pedestal file is specified
-    if "Pedestal_file" in config:
-        noise_data = NoiseAnalysis(config["Pedestal_file"], configs=config)
-        noise_data.plot_data()
+        cal_data = Calibration(cal, Noise_calc=ped_data,
+                               isBinary=False, configs=cfg)
+        plot.plot_data(cal_data, "calibration")
 
-    # Look if a calibration file is specified
-    if "Delay_scan" in config or "Charge_scan" in config:
-        config_data = Calibration(config.get("Delay_scan", ""), config.get("Charge_scan", ""), Noise_calc=noise_data,
-                                  isBinary=config.get("isBinary", False), configs=config)
-        config_data.plot_data()
+        cfg.update({"calibration": cal_data,
+                    "noise_analysis": ped_data})
 
-    # Look if a pedestal file is specified
-    if "Measurement_file" in config:
-        # TODO: potential call before assignment error !!! with pedestal file
+        run_data = MainAnalysis(run, configs=cfg)
+        plot.plot_data(run_data, group="main")
 
-        config.update({"calibration": config_data,
-                       "noise_analysis": noise_data})
-
-        event_data = MainAnalysis(config["Measurement_file"],
-                                  configs=config)  # Is adictionary containing all keys and values for configuration
-        # Save the plots if specified
-        if config.get("Output_folder", "") and config.get("Output_name", ""):
-            save_all_plots(config["Output_name"], config["Output_folder"], dpi=300)
-            #todo: Saving configs not working
-            #save_configs(config, config["Output_name"], config["Output_folder"])
-            if config.get("Pickle_output", False):
-                save_dict(event_data.outputdata,
-                          os.path.join(config["Output_folder"],
-                                       config["Output_name"], ".dba"))
-        return event_data.outputdata
-
+        if cfg.get("Output_folder", "") and cfg.get("Output_name", ""):
+            save_all_plots(cfg["Output_name"], cfg["Output_folder"], dpi=300)
+            if cfg.get("Pickle_output", False):
+                save_dict(run_data.outputdata,
+                          os.path.join(cfg["Output_folder"],
+                                       cfg["Output_name"], ".dba"))
+    plot.show_plots()
 
 if __name__ == "__main__":
-    # Parse some options to the main analysis
-    parser = OptionParser()
-    parser.add_option("--config",
-                      dest="configfile", action="store", type="string",
-                      help="The path to the configfile which should be read",
-                      default=""
-                      )
 
-    parser.add_option("--file",
-                      dest="filepath", action="store", type="string",
-                      help="Filepath of a measurement run",
-                      default=""
-                      )
-
-    parser.add_option("--shell",
-                      dest="shell", action="store_true", default=False,
-                      help="Runs the shell interface for the anlysis",
-                      )
-
-    (options, args) = parser.parse_args()
-
-    # Run the main routines
-    main(args, options)
+    PARSER = ArgumentParser()
+    PARSER.add_argument("--config",
+                        help="The path to the config file for the analysis run",
+                        default="")
+    main(PARSER.parse_args())

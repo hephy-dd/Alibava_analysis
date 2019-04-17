@@ -15,8 +15,21 @@ from tqdm import tqdm
 from six.moves import cPickle as pickle  # for performance
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from joblib import Parallel, delayed
-from time import time
+
+def read_meas_files(cfg):
+    """Reads cfg file, returns lists of files and compares their length"""
+    ped_files = cfg["Pedestal_file"]
+    if cfg["use_charge_cal"]:
+        cal_files = cfg["Charge_scan"]
+    else:
+        cal_files = cfg["Delay_scan"]
+    run_files = cfg["Measurement_file"]
+
+    if not len(ped_files) == len(run_files) or \
+            not len(cal_files) == len(run_files):
+        raise ValueError("Number of pedestal, calibration and measurement files"
+                         " does not match...")
+    return zip(ped_files, cal_files, run_files)
 
 def handle_sub_plots(fig, index):
     """Adds subplot to existing figure or creates a new one if fig
@@ -56,13 +69,11 @@ def load_plugins(valid_plugins):
                     locate("analysis_classes." + plugin.lower() + "." + plugin)
     return all_plugins
 
-def create_dictionary(file, filepath=os.getcwd()):
+def create_dictionary(abs_filepath):
     """Creates a dictionary with all values written in the file using yaml"""
-    file_string = os.path.join(filepath, file)
-
-    with open(file_string, "r") as yfile:
+    with open(abs_filepath, "r") as yfile:
         dic = yaml.safe_load(yfile)
-        return dic
+    return dic
 
 def import_h5(path):
     """
