@@ -12,21 +12,20 @@ class BaseAnalysis:
 
     def __init__(self, main, events, timing, logger = None):
         self.log = logger or logging.getLogger(__class__.__name__)
-        #manage_logger(self.log)
         self.main = main
         self.events = events
         self.timing = timing
+        self.prodata = None
 
     def run(self):
         """Does the actual event analysis"""
 
         # get events with good timinig only gtime and only process these events
+        # Todo: make timing right
         gtime = np.nonzero(self.timing >= self.main.tmin)
         self.main.numgoodevents += int(gtime[0].shape[0])
         meanCMN = np.mean(self.main.CMN)
         meanCMsig = np.mean(self.main.CMsig)
-        prodata = []  # List of processed data which then can be accessed
-        hitmap = np.zeros(self.main.numchan)
         # Warning: If you have a RS and pulseshape recognition enabled the
         # timing window has to be set accordingly
 
@@ -48,10 +47,10 @@ class BaseAnalysis:
                                                               poolsize=self.main.process_pool,
                                                               Pool=self.main.Pool,
                                                               noisy_strips=self.main.noise_analysis.noisy_strips)
-        prodata = data
+        self.prodata = data
         self.main.automasked_hit = automasked_hits
 
-        return prodata
+        return self.prodata
 
     def plot_data(self, single_event=-1):
         """This function plots all data processed"""
@@ -96,6 +95,25 @@ class BaseAnalysis:
             clusters_plot.set_ylabel('Occurance [#]')
             clusters_plot.set_title('Clustersizes')
             # clusters_plot.set_yscale("log", nonposy='clip')
+
+            # Plot timing profile
+            timing_plot = fig.add_subplot(212)
+            signal = self.prodata[:,0]
+            channels_hit = self.prodata[:,5]
+            sum_singal = np.zeros(len(signal))
+            for i, sig, chan in zip(np.arange(len(signal)), signal, channels_hit):
+                sum_singal[i] = np.sum(sig[chan])
+
+            timing_data = np.zeros(150)
+            for timing in range(1,151): # Timing of ALiBaVa
+                timing_in = np.nonzero(np.logical_and(self.timing>=timing-1,self.timing<timing))
+                timing_data[timing-1] = np.mean(sum_singal[timing_in[0]])
+
+            timing_plot.set_xlabel('timing [ns]')
+            timing_plot.set_ylabel('average signal [ADC]')
+            timing_plot.set_title('Average timing signal')
+            timing_plot.bar(np.arange(0,150), timing_data, alpha=0.4, color="b")
+
 
             fig.suptitle('Cluster analysis from file {!s}'.format(name))
             fig.tight_layout()

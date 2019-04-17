@@ -62,9 +62,10 @@ def load_plugins(valid_plugins):
     for modules in all_measurement_functions:  # import all modules from all files in the plugins folder
         to_add = import_module("analysis_classes." + modules)
         names = dir(to_add) # get all modules
-        for plugin in valid_plugins:
-            if plugin in names:
-                all_plugins.update({plugin: to_add})
+        if valid_plugins:
+            for plugin in valid_plugins:
+                if plugin in names:
+                    all_plugins.update({plugin: to_add})
     return all_plugins
 
 def create_dictionary(file, filepath=os.getcwd()):
@@ -85,15 +86,10 @@ def import_h5(*paths):
     # COMMENT: That should be done one level above. the func should just import 1 hdf5 file
                 # and return the same type as the read_binary func
     # Check if a list was passed
-<<<<<<< HEAD
-    if isinstance(pathes[0],list):
-        pathes = pathes[0]
-=======
-    if isinstance(paths[0], list):
-        paths = paths[0]
->>>>>>> 52e9b4783a30fba2658b599019c0f001aee2c1eb
 
-    # First check if pathes exist and if so import
+    if isinstance(paths[0],list):
+        paths = paths[0]
+
     loaded_files = []
     try:
         for path in tqdm(paths, desc= "Loading files:"):
@@ -105,13 +101,10 @@ def import_h5(*paths):
                 raise Exception('The path {!s} does not exist.'.format(path))
         return loaded_files
     except OSError as err:
-<<<<<<< HEAD
-        log.info("Enountered an OSError: {!s}".format(err))
+
+        LOG.info("Enountered an OSError: {!s}".format(err))
         return [False]
-=======
-        LOG.error("Enountered an OSError: {!s}".format(err))
-        return False
->>>>>>> 52e9b4783a30fba2658b599019c0f001aee2c1eb
+
 
 def get_xy_data(data, header=0):
     """This functions takes a list of strings, containing a header and xy data,
