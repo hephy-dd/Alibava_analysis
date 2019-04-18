@@ -5,7 +5,6 @@ import numpy as np
 from tqdm import tqdm
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-from analysis_classes.utilities import convert_ADC_to_e, manage_logger
 
 
 class ChargeSharing:
@@ -15,7 +14,6 @@ class ChargeSharing:
     def __init__(self, main_analysis, logger = None):
         """Initialize some important parameters"""
         self.log = logger or logging.getLogger(__class__.__name__)
-        #manage_logger(self.log)
 
         self.main = main_analysis
         self.clustersize = 2  # Other thing would not make sense for interstrip analysis
@@ -24,52 +22,51 @@ class ChargeSharing:
 
     def run(self):
         """Runs the analysis"""
-        for data in tqdm(self.data, desc="(chargesharing) Processing file:"):
-            self.results_dict[data] = {}
-            # Get clustersizes of 2 and only events which show only one cluster in its data (just to be sure
-            indizes_clusters = np.nonzero(
-                self.data[data]["base"]["Numclus"] == 1)  # Indizes of events with the desired clusternumbers
-            clusters_raw = np.take(self.data[data]["base"]["Clustersize"], indizes_clusters)
-            clusters_flattend = np.concatenate(clusters_raw).ravel()  # so that they are easy accessible
-            indizes_clustersize = np.nonzero(
-                clusters_flattend == 2)  # Indizes of events with the desired clusternumbers
-            indizes = np.take(indizes_clusters, indizes_clustersize)[0]
+        self.results_dict = {}
+        # Get clustersizes of 2 and only events which show only one cluster in its data (just to be sure
+        indizes_clusters = np.nonzero(
+            self.data[data]["base"]["Numclus"] == 1)  # Indizes of events with the desired clusternumbers
+        clusters_raw = np.take(self.data[data]["base"]["Clustersize"], indizes_clusters)
+        clusters_flattend = np.concatenate(clusters_raw).ravel()  # so that they are easy accessible
+        indizes_clustersize = np.nonzero(
+            clusters_flattend == 2)  # Indizes of events with the desired clusternumbers
+        indizes = np.take(indizes_clusters, indizes_clustersize)[0]
 
-            # Data containing the al and ar values as list entries data[0] --> al
-            raw = np.take(self.data[data]["base"]["Signal"], indizes)
-            raw = np.reshape(np.concatenate(raw), (len(raw), self.main.numchan))
-            hits = np.concatenate(np.take(self.data[data]["base"]["Clusters"], indizes))
-            al = np.zeros(len(indizes))  # Amplitude left and right
-            ar = np.zeros(len(indizes))
-            il = np.min(hits, axis=1)  # Indizes of left and right
-            ir = np.max(hits, axis=1)
-            # final_data = np.zeros((len(indizes), 2))
+        # Data containing the al and ar values as list entries data[0] --> al
+        raw = np.take(self.data[data]["base"]["Signal"], indizes)
+        raw = np.reshape(np.concatenate(raw), (len(raw), self.main.numchan))
+        hits = np.concatenate(np.take(self.data[data]["base"]["Clusters"], indizes))
+        al = np.zeros(len(indizes))  # Amplitude left and right
+        ar = np.zeros(len(indizes))
+        il = np.min(hits, axis=1)  # Indizes of left and right
+        ir = np.max(hits, axis=1)
+        # final_data = np.zeros((len(indizes), 2))
 
-            for i, event, ali, ari, l, r in zip(range(len(al)), raw, al, ar, il, ir):
-                al[i] = event[l]  # So always the left strip is choosen
-                ar[i] = event[r]  # Same with the right strip
+        for i, event, ali, ari, l, r in zip(range(len(al)), raw, al, ar, il, ir):
+            al[i] = event[l]  # So always the left strip is choosen
+            ar[i] = event[r]  # Same with the right strip
 
-            # Convert ADC to actual energy
-            al = convert_ADC_to_e(al, self.main.calibration.charge_cal)
-            ar = convert_ADC_to_e(ar, self.main.calibration.charge_cal)
+        # Convert ADC to actual energy
+        al = self.main.calibration.convert_ADC_to_e(al)
+        ar = self.main.calibration.convert_ADC_to_e(ar)
 
-            final_data = np.array([al, ar])
-            eta = ar / (al + ar)
-            theta = np.arctan(ar / al)
+        final_data = np.array([al, ar])
+        eta = ar / (al + ar)
+        theta = np.arctan(ar / al)
 
-            # Calculate the gauss distributions
+        # Calculate the gauss distributions
 
-            # Cut the eta in two halves and fit gaussian to it
-            bins = 200
-            etahist, edges = np.histogram(eta, bins=bins)
-            length = len(etahist)
-            mul, stdl = norm.fit(etahist[:int(length / 2)])
-            mur, stdr = norm.fit(etahist[int(length / 2):])
+        # Cut the eta in two halves and fit gaussian to it
+        bins = 200
+        etahist, edges = np.histogram(eta, bins=bins)
+        length = len(etahist)
+        mul, stdl = norm.fit(etahist[:int(length / 2)])
+        mur, stdr = norm.fit(etahist[int(length / 2):])
 
-            self.results_dict[data]["data"] = final_data
-            self.results_dict[data]["eta"] = eta
-            self.results_dict[data]["theta"] = theta
-            self.results_dict[data]["fits"] = ((mul, stdl), (mur, stdr), edges, bins)
+        self.results_dict["data"] = final_data
+        self.results_dict["eta"] = eta
+        self.results_dict["theta"] = theta
+        self.results_dict["fits"] = ((mul, stdl), (mur, stdr), edges, bins)
 
         return self.results_dict.copy()
 
