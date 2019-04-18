@@ -25,7 +25,7 @@ class Calibration:
           characteristic for each channel.
     """
     def __init__(self, file_path="", Noise_calc=None,
-                 isBinary=False, configs=None, logger=None):
+                 configs=None, logger=None):
         """
         :param delay_path: Path to calibration file
         :param charge_path: Path to calibration file
@@ -48,7 +48,7 @@ class Calibration:
         self.charge_sig = None  # Standard deviation of all charge calibartions
         self.delay_cal = []
         self.meansig_delay = []  # mean per pulse per channel
-        self.isBinary = isBinary
+        self.isBinary = configs.get("isBinary", "False")
         self.ADC_sig = None
         self.configs = configs
 
@@ -109,7 +109,9 @@ class Calibration:
             self.charge_data = import_h5(charge_path)
         else:
             self.charge_data = read_binary_Alibava(charge_path)
-        if self.charge_data:
+        if not self.charge_data:
+            raise ValueError("Unable to read the calibration file...")
+        else:
             # list of injected test pulse values aka x-data
             self.pulses = np.array(self.charge_data["scan"]["value"][:])
 

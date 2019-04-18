@@ -1,6 +1,7 @@
 """PlotData Class"""
 # pylint: disable=R0201,C0103,E0401
 import numpy as np
+import logging
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 # import pylandau
@@ -9,7 +10,8 @@ from analysis_classes.utilities import handle_sub_plots, gaussian
 
 class PlotData:
     """Plots for ALiBaVa Analysis"""
-    def __init__(self):
+    def __init__(self, logger=None):
+        self.log = logger or logging.getLogger(__class__.__name__)
         # canvas for plotting the data [width, height (inches)]
         self.ped_fig = None
         self.cal_fig = None
@@ -46,7 +48,7 @@ class PlotData:
         Returns matplotlib.pyplot.figure object.
         """
 
-        if group=="all" or group==None:
+        if group == "all" or group == None:
             for grp in self.groups:
                 if fig_name is None:
                     fig_name = grp

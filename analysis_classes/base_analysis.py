@@ -10,7 +10,7 @@ from analysis_classes.nb_analysis_funcs import parallel_event_processing
 
 class BaseAnalysis:
 
-    def __init__(self, main, events, timing, logger = None):
+    def __init__(self, main, events, timing, logger=None):
         self.log = logger or logging.getLogger(__class__.__name__)
         #manage_logger(self.log)
         self.main = main

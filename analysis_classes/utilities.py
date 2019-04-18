@@ -26,19 +26,20 @@ def read_meas_files(cfg):
     run_files = cfg["Measurement_file"]
 
     # Case selection if files are lists or simply one file as paths
-    if isinstance(ped_files, list) and isinstance(run_files, list) and isinstance(cal_files, list):
+    if all(isinstance(i, list) for i in [ped_files, run_files, cal_files]):
         if not len(ped_files) == len(run_files) or \
                 not len(cal_files) == len(run_files):
             raise ValueError("Number of pedestal, calibration and measurement files"
                              " does not match...")
     # Case where only a path string is passed
-    elif isinstance(ped_files, str) and isinstance(run_files, str) and isinstance(cal_files, str):
+    elif all(isinstance(i, str) for i in [ped_files, run_files, cal_files]):
         ped_files = [ped_files]
         cal_files = [cal_files]
         run_files = [run_files]
 
     else:
-        raise ValueError("Pedestal, calibration and measurement files must either be passed as strings or as "
+        raise ValueError("Pedestal, calibration and measurement files must "
+                         "either be passed as strings or as "
                          "lists of same length")
 
     return zip(ped_files, cal_files, run_files)
@@ -100,7 +101,7 @@ def import_h5(path):
             raise Exception('The path {!s} does not exist.'.format(path))
         return h5py.File(os.path.normpath(path), 'r')
     except OSError as err:
-        LOG.error("Enountered an OSError: %s", str(err))
+        LOG.error("Encountered an OSError: %s", str(err))
         return False
 
 def get_xy_data(data, header=0):
@@ -116,7 +117,6 @@ def get_xy_data(data, header=0):
 
 def read_binary_Alibava(filepath):
     """Reads binary alibava files"""
-
     with open(os.path.normpath(filepath), "rb") as f:
         header = f.read(16)
         Starttime = struct.unpack("II", header[0:8])[0]  # Is a uint32
@@ -147,23 +147,24 @@ def read_binary_Alibava(filepath):
                 event_data.append(f.read(blocksize[0]))
             else:
                 LOG.info("Warning: While reading data Block {}. "
-                      "Header was not the 0xcafe0002 it was {!s}".format(events, str(blockheader)))
+                         "Header was not the 0xcafe0002 it was {!s}"\
+                         .format(events, str(blockheader)))
                 if not blockheader:
-                    LOG.info("Persumably end of binary file reached. Events read: {}".format(events))
+                    LOG.info("Persumably end of binary file reached. "
+                             "Events read: {}".format(events))
                     eof = True
-        # COMMENT: giving variables names like 'dict' that overwrite built-in types/functions is very bad
         dic = {"header": {"noise": Noise,
-                            "pedestal": Pedestal,
+                          "pedestal": Pedestal,
                           "Attribute:setup": None},
                "events": {"header": Header,
-                            "signal": np.zeros((int(events),256), dtype=np.float32),
-                            "temperature": np.zeros(int(events), dtype=np.float32),
-                            "time": np.zeros(int(events), dtype=np.float32),
+                          "signal": np.zeros((int(events),256), dtype=np.float32),
+                          "temperature": np.zeros(int(events), dtype=np.float32),
+                          "time": np.zeros(int(events), dtype=np.float32),
                           "clock": np.zeros(int(events), dtype=np.float32)},
-                "scan": {"start": Starttime,
+               "scan": {"start": Starttime,
                         "end": None,
-                         "value": None, # Values of cal files for example. eg. 32 pulses for a charge scan steps should be here
-                         "attribute:scan_definition": None}}
+                        "value": None, # Values of cal files for example. eg. 32 pulses for a charge scan steps should be here
+                        "attribute:scan_definition": None}}
         # Disect the header for the correct informations for values
         points = Header.split("|")[1].split(";")
         params = [x.strip("\x00") for x in points]

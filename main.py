@@ -19,12 +19,10 @@ def main(args):
     plot = PlotData()
 
     for ped, cal, run in read_meas_files(cfg):
-        ped_data = NoiseAnalysis(ped,
-                                 configs=cfg)
+        ped_data = NoiseAnalysis(ped, configs=cfg)
         plot.plot_data(ped_data, group="pedestal")
 
-        cal_data = Calibration(cal, Noise_calc=ped_data,
-                               isBinary=False, configs=cfg)
+        cal_data = Calibration(cal, Noise_calc=ped_data, configs=cfg)
         plot.plot_data(cal_data, "calibration")
 
         cfg.update({"calibration": cal_data,
