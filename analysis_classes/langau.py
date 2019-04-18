@@ -46,7 +46,7 @@ class Langau:
         self.results_dict["Clustersize"] = []
 
         # General langau, where all clustersizes are considered
-        if self.main.usejit and self.poolsize > 1:
+        if self.poolsize > 1:
             paramslist = []
             for size in self.cluster_size_list:
                 cls_ind = np.nonzero(valid_events_clustersize == size)[0]
@@ -282,8 +282,6 @@ class Langau:
             totalNoise = np.sqrt(np.sum(
                 self.main.calibration.convert_ADC_to_e(noise_clst_event),
                 axis=1))
-
-            # incrementor += 1
 
             preresults = {"signal": totalE, "noise": totalNoise}
 

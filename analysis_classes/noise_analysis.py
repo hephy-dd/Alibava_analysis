@@ -59,8 +59,9 @@ class NoiseAnalysis:
             # Mask chips of alibava
             self.chip_selection, self.masked_channels = \
                     self.mask_alibava_chips(self.which_strips, self.max_channels)
-            # Redefine good strips
+            # Redefine good strips and noisy strips
             self.good_strips = np.intersect1d(self.chip_selection, self.good_strips)
+            self.noisy_strips = np.append(self.noisy_strips,self.masked_channels)
             self.noise_corr, self.CMnoise, self.CMsig, self.total_noise = \
                         nb_noise_calc(self.signal[:, self.good_strips],
                                       self.pedestal[self.good_strips], True)
