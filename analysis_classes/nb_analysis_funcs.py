@@ -1,12 +1,8 @@
 """This files contains analysis function optimizes by numba jit capabilities"""
-<<<<<<< HEAD
 #pylint: disable=E1111,C0103
-from numba import jit
-from multiprocessing import Manager
-=======
-#pyline: disable=E1111
 from numba import jit, prange
->>>>>>> Dominic_dev
+from multiprocessing import Manager
+
 import numpy as np
 
 gil=True # Use gil or not
@@ -176,12 +172,9 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
 
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
-<<<<<<< HEAD
-def nb_noise_calc(events, pedestal, tot_noise=False):
-=======
+
 jit(nogil=gil, cache=True, nopython=True)
-def nb_noise_calc(events, pedestal):
->>>>>>> Dominic_dev
+def nb_noise_calc(events, pedestal, tot_noise=False):
     """Noise calculation, normal noise (NN) and common mode noise (CMN)
     Uses numpy"""
     # Calculate the common mode noise for every channel

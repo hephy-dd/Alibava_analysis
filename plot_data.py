@@ -382,3 +382,32 @@ class PlotData:
                 plot.set_title('Seed Signal in e')
             plot.legend()
             return plot
+
+    def plot_timing_profile(self, obj, fig=None):
+        # Plot timing profile
+        timing_plot = handle_sub_plots(fig, 223)
+        timing_plot.set_xlabel('timing [ns]')
+        timing_plot.set_ylabel('average signal [ADC]')
+        timing_plot.set_title('Average timing signal of seed hits')
+        signal = obj.prodata[:, 0]
+        channels_hit = obj.prodata[:, 5]
+        sum_singal = np.zeros(len(signal))
+        for i, sig, chan in zip(np.arange(len(signal)), signal, channels_hit):
+            sum_singal[i] = np.sum(sig[chan])
+        timing_data = np.zeros(150)
+        # var_timing_data = np.zeros(150)
+        for timing in range(1, 151):  # Timing of ALiBaVa
+            timing_in = np.nonzero(np.logical_and(obj.timing >= timing - 1, obj.timing < timing))
+            timing_data[timing - 1] = np.median(sum_singal[timing_in[0]])
+            # var_timing_data[timing-1] = np.std(sum_singal[timing_in[0]])
+
+        timing_plot.bar(np.arange(0, 150), timing_data, alpha=0.4, color="b")  # , yerr=var_timing_data)
+
+    def plot_histogram_of_timing(self, obj, fig=None):
+        # Plot histogram of timing
+        timing_hist_plot = handle_sub_plots(fig, 224)
+        timing_hist_plot.set_xlabel('timing [ns]')
+        timing_hist_plot.set_ylabel('count [#]')
+        timing_hist_plot.set_title('Histogram of timings')
+
+        timing_hist_plot.hist(obj.timing, 150, alpha=0.4, color="b")
