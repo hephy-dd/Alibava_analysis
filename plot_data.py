@@ -1,12 +1,10 @@
 """PlotData Class"""
-# pylint: disable=R0201,C0103,E0401
+# pylint: disable=R0201,C0103,E0401,R0913
 import numpy as np
 import logging
 from scipy.stats import norm
 import matplotlib.pyplot as plt
-# import pylandau
 from analysis_classes.utilities import handle_sub_plots, gaussian
-# from analysis_classes.utilities import read_file
 
 class PlotData:
     """Plots for ALiBaVa Analysis"""
@@ -33,13 +31,14 @@ class PlotData:
                            self.plot_clustersizes,
                            self.plot_hitmap,
                            self.plot_langau_per_clustersize,
-                           self.plot_seed_signal_e]
+                           self.plot_seed_signal_e,
+                           self.plot_efficiency]
 
         self.groups = {"pedestal": self.ped_plots,
                        "calibration": self.cal_plots,
                        "single_event": self.single_event_plots,
-                       "main": self.main_plots,
-                       }
+                       "main": self.main_plots}
+
         self.groups["Brace yourself! plots are comming"] = np.concatenate([x for x in self.groups.items()])
 
     def plot_data(self, obj, group=None, fig_name=None):
@@ -48,7 +47,7 @@ class PlotData:
         Returns matplotlib.pyplot.figure object.
         """
 
-        if group == "all" or group == None:
+        if group in ["all", None]:
             for grp in self.groups:
                 if fig_name is None:
                     fig_name = grp
@@ -67,26 +66,8 @@ class PlotData:
                 fig.tight_layout()
             else:
                 self.log.error("Plotting could not be done."
-                               " Plot group {} was not recognised. Skipping!".format(group))
-        # if group == "pedestal":
-        #     if fig_name is None:
-        #         fig_name = "Pedestal analysis"
-        #     fig = plt.figure(fig_name, figsize=[10, 8])
-        #     for func in self.ped_plots:
-        #         func(obj, fig)
-        #     fig.tight_layout()
-        # if group == "calibration":
-        #     if fig_name is None:
-        #         fig_name = "Calibration analysis"
-        #     fig = plt.figure(fig_name, figsize=[10, 8])
-        #     for func in self.cal_plots:
-        #         func(obj, fig)
-        #     fig.tight_layout()
-        # if group == "main":
-        #     # self.main_fig = plt.figure("Main analysis", figsize=[10, 8])
-        #     for func in self.main_plots:
-        #         plot = func(obj)
-        #         plt.gcf().tight_layout()
+                               " Plot group %s was not recognised. Skipping!",
+                               group)
 
     def show_plots(self):
         """Draw and show plots"""
@@ -340,9 +321,9 @@ class PlotData:
                           alpha=0.3, color=colour[i],
                           label="Clustersize: {!s}".format(i + 1))
             else:
-                # self.log.warning(
-                #     "To many histograms for this plot. "
-                #     "Colorscheme only supports seven different histograms. Extend if need be!")
+                self.log.warning(
+                    "To many histograms for this plot. "
+                    "Colorscheme only supports seven different histograms. Extend if need be!")
                 continue
 
         plot.legend()
@@ -369,7 +350,7 @@ class PlotData:
                     "sigma = %.2f" %(data["langau_coeff_SC"][2]),
                     "A = %.2f" %(data["langau_coeff_SC"][3])))
                                      # "entries = %.f" %(len(gain_lst))))
-                plot.text(0.8, 0.8, textstr, transform=plot.transAxes,
+                plot.text(0.6, 0.7, textstr, transform=plot.transAxes,
                           fontsize=10,
                           verticalalignment='top',
                           bbox=dict(boxstyle='round',
@@ -380,7 +361,40 @@ class PlotData:
                 #               fmt=".", color="r", label="Error of Fit")
             plot.set_xlabel('Seed Signal [e]')
             plot.set_ylabel('Events [#]')
-            if fig is None:
-                plot.set_title('Seed Signal in e')
+            # if fig is None:
+            plot.set_title('Seed Signal in e')
             plot.legend()
             return plot
+
+    def plot_efficiency(self, obj, fig=None, aim_eff=0.95,
+                        max_range=10000, step_size=100):
+        """Plot efficiency of seed signals vs. applied threshold and
+        show the maximum threshold for aim_eff"""
+        plot = handle_sub_plots(fig, 337)
+        data = obj.outputdata["Langau"]
+        eff_lst = []
+        step_lst = np.arange(0, max_range, step_size)
+        tot_len = len(data["signal_SC"])
+        for step in step_lst:
+            eff_lst.append(len(np.nonzero(data["signal_SC"] > step)[0])/tot_len)
+        plot.plot(step_lst, eff_lst, "r--", label="Efficiency")
+        threshold = round(np.polyval(
+            np.polyfit(eff_lst, step_lst, deg=5, full=False), aim_eff))
+        if threshold > max_range:
+            threshold = "> " + str(max_range)
+        else:
+            threshold = str(threshold)
+        textstr = '\n'.join((
+            "Sth @ %s = %s" %(str(aim_eff), threshold),
+            "Events = %.f" %(tot_len)))
+        plot.text(0.1, 0.2, textstr, transform=plot.transAxes,
+                  fontsize=10,
+                  verticalalignment='top',
+                  bbox=dict(boxstyle='round',
+                            facecolor='white',
+                            alpha=0.5))
+        plot.set_xlabel("Threshold [e]")
+        plot.set_ylabel("Efficiency [%]")
+        plot.set_title("Efficiency vs. Seed Threshold")
+        plot.legend()
+        return plot
