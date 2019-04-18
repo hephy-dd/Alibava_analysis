@@ -16,22 +16,27 @@ def main(args):
     else:
         cfg = create_dictionary(DEF)
     plot = PlotData()
+    results = {}
 
     for ped, cal, run in read_meas_files(cfg):
         ped_data = NoiseAnalysis(ped,
                                  configs=cfg)
-        plot.plot_data(ped_data, group="pedestal")
+
+        results["NoiseAnalysis"] = ped_data
 
         cal_data = Calibration(cal, Noise_calc=ped_data,
                                isBinary=False, configs=cfg)
-        plot.plot_data(cal_data, "calibration")
+
+        results["Calibration"] = cal_data
 
         cfg.update({"calibration": cal_data,
                     "noise_analysis": ped_data})
 
         run_data = MainAnalysis(run, configs=cfg)
-        plot.plot_data(run_data, group="main")
-        plot.plot_data(run_data, group="single_event")
+        results["MainAnalysis"] = run_data
+
+        # Start plotting all results
+        plot.plot_data(cfg, results, group="from_file")
 
         if cfg.get("Output_folder", "") and cfg.get("Output_name", ""):
             save_all_plots(cfg["Output_name"], cfg["Output_folder"], dpi=300)

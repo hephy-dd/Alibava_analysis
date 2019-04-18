@@ -1,19 +1,50 @@
-Plots:
+Render:
     Pedestal:
-        - plot_noise_ch,
-        - plot_pedestal,
-        - plot_cm,
-        - plot_noise_hist
+        Plots:
+            - plot_noise_ch
+            - plot_pedestal
+            - plot_cm
+            - plot_noise_hist
+        arrangement:
+            - 221
+            - 222
+            - 223
+            - 224
     Calibration:
-        - plot_signal_conversion_fit,
-        - plot_signal_conversion_fit_detail,
-        - plot_gain_hist
-    Main:
-        - plot_cluster_analysis,
-        - plot_hitmap,
-        - plot_single_event
+        Plots:
+            - plot_signal_conversion_fit
+            - plot_signal_conversion_fit_detail
+            - plot_gain_hist
+        arrangement:
+            - 221
+            - 223
+            - 222
+    Misc:
+        Plots:
+            - plot_single_event_ch
+            - plot_single_event_SN
+            - plot_hitmap
+        arrangement:
+            - 221
+            - 222
+            - 223
+    Landau:
+        Plots:
+            - plot_langau_per_clustersize
+            - plot_seed_signal_e
+        arrangement:
+            - 211
+            - 212
+    Timing:
+        Plots:
+            - plot_timing_profile
+            - plot_histogram_of_timing
+        arrangement:
+            - 211
+            - 212
 
 Plot_single_event: 1000
+Plot_seed_cut: True
 Gain_cut: 1.5
 Upper_limits_conversion:
     ADC_Signal: 250

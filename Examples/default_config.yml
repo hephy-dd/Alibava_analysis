@@ -17,7 +17,7 @@ SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN
 SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
 Noise_cut: 2 # Here the unit is ADC over median of all strips. This discriminates noisy strips.
 Manual_mask: [2] # Manual channel masking
-Chips: [1] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
+Chips: [1,2] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
 Maximum_channels: 256
 timing:
   - 0 # Minimum timing window

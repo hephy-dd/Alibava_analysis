@@ -41,6 +41,7 @@ class MainAnalysis:
         self.CMN = np.zeros(self.numchan, dtype=np.float32)
         self.CMsig = np.zeros(self.numchan, dtype=np.float32)
         self.outputdata = {}
+        self.results = self.outputdata
         self.automasked_hit = 0
         self.numgoodevents = 0
         self.total_events = self.numevents * len(self.data)
