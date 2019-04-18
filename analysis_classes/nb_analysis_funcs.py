@@ -1,6 +1,7 @@
 """This files contains analysis function optimizes by numba jit capabilities"""
 #pylint: disable=E1111,C0103
 from numba import jit, prange
+
 from multiprocessing import Manager
 
 import numpy as np
@@ -238,3 +239,37 @@ def nb_process_all_events(events, pedestal, meanCMN, meanCMsig, noise, numchan, 
         return corrsignal, SN, cmpro, sigpro
     else:
         return np.zeros(numchan), np.zeros(numchan), 0., 0.  # A default value return if everything fails
+
+
+@jit(nopython=False, nogil=True, cache=True)
+def nb_process_cluster_size(args):
+    """get the events with the different clustersizes its the numba optimized version"""
+    size, valid_events_clustersize, valid_events_Signal, valid_events_clusters, noise, charge_cal, convert_ADC = args
+    ClusInd = [[], []]
+    for i, event in enumerate(valid_events_clustersize):
+             for j, clus in enumerate(event):
+                 if clus == size:
+                     ClusInd[0].extend([i])
+                     ClusInd[1].extend([j])
+
+    signal_clst_event = []
+    noise_clst_event = []
+    for i, ind in enumerate(ClusInd[0]):
+        y = ClusInd[1][i]
+        # Signal calculations
+        signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][y]))
+        # Noise Calculations
+        noise_clst_event.append(
+            np.take(noise, valid_events_clusters[ind][y]))  # Get the Noise of an event
+
+    # totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
+    totalE = np.sum(convert_ADC(signal_clst_event, charge_cal), axis=1)
+
+    # eError is a list containing electron signal noise
+    # totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal),
+    #                             axis=1))
+    totalNoise = np.sqrt(np.sum(convert_ADC(noise_clst_event, charge_cal), axis=1))
+
+    preresults = {"signal": totalE, "noise": totalNoise}
+
+    return preresults

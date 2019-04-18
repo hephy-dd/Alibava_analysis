@@ -45,29 +45,12 @@ class Langau:
         # Get events which show only cluster in its data
         self.results_dict["Clustersize"] = []
 
-        # General langau, where all clustersizes are considered
-        if self.poolsize > 1:
-            paramslist = []
-            for size in self.cluster_size_list:
-                cls_ind = np.nonzero(valid_events_clustersize == size)[0]
-                paramslist.append((cls_ind, valid_events_Signal,
-                                   valid_events_clusters,
-                                   self.main.calibration.convert_ADC_to_e,
-                                   self.main.noise))
+        # TODO: here a non numba optimized version is used. We should use numba here!
+        self.cluster_analysis(valid_events_Signal,
+                              valid_events_clusters,
+                              valid_events_clustersize)
 
-            # COMMENT: lagau_cluster not defined!!!!
-            # Here multiple cpu calculate the energy of the events per clustersize
-            results = self.pool.starmap(self.langau_cluster, paramslist,
-                                        chunksize=1)
-
-            self.results_dict["Clustersize"] = results
-
-        else:
-            self.cluster_analysis(valid_events_Signal,
-                                  valid_events_clusters,
-                                  valid_events_clustersize)
-
-        # With all the data from every clustersize add all together and fit the langau to it
+        # With all the data from every clustersize add all together and fit the main langau to it
         finalE = np.zeros(0)
         finalNoise = np.zeros(0)
         for cluster in self.results_dict["Clustersize"]:
@@ -90,7 +73,7 @@ class Langau:
                             *coeff)]  # aka x and y data
         self.results_dict["data_error"] = error_bins
 
-        # Consider now only the seedcut hits for the langau,
+        # Seed cut langau, by taking only the bare hit channels which are above seed cut levels
         if self.seed_cut_langau:
             seed_cut_channels = self.data["base"]["Channel_hit"]
             signals = self.data["base"]["Signal"]
@@ -112,41 +95,14 @@ class Langau:
             indizes = np.nonzero(nogarbage < self.Ecut)[0]  # ultra_high_energy_cut
             coeff, _, _, error_bins = self.fit_langau(
                 nogarbage[indizes], bins=self.results_dict["bins"])
-            # coeff, pcov, hist, error_bins = self.fit_langau(nogarbage, bins=500)
             self.results_dict["signal_SC"] = nogarbage[indizes]
             self.results_dict["langau_coeff_SC"] = coeff
             self.results_dict["langau_data_SC"] = [
                 np.arange(1., 100000., 1000.),
                 pylandau.langau(np.arange(1., 100000., 1000.),
                                 *coeff)]  # aka x and y data
-# =======
-#         # Which clusters need to be considered
-#         clustersize_list = self.main.kwargs["configs"].get("langau", {}).get("clustersize", [-1])
-#         if isinstance(clustersize_list, list):
-#             clustersize_list = list(clustersize_list)
-#
-#         if clustersize_list[0] == -1:
-#             clustersize_list = list(
-#                 range(1, self.main.kwargs["configs"]["max_cluster_size"] + 1))  # If nothing is specified
-#
-#         # Go over all datafiles
-#         #self.log.info("Doing Langau over all files:")
-#         for i, data in enumerate(self.data):
-#             print("") # Otherwise progress bar will be crippled
-#             #self.log.info("Processing file {!s} of {!s}".format(i+1, len(self.data)))
-#             self.results_dict[data] = {}
-#             indNumClus = self.get_num_clusters(self.data[data],
-#                                                self.numClusters)  # Here events with only one cluster are choosen
-#             indizes = np.concatenate(indNumClus)
-#             valid_events_clustersize = np.take(self.data[data]["base"]["Clustersize"], indizes)
-#             valid_events_clusters = np.take(self.data[data]["base"]["Clusters"], indizes)
-#             valid_events_Signal = np.take(self.data[data]["base"]["Signal"],
-#                                           indizes)  # Get the clustersizes of valid events
-#             # Get events which show only cluster in its data
-#             charge_cal, noise = self.main.calibration.charge_cal, self.main.noise
-#             self.results_dict[data]["Clustersize"] = []
-#
-#
+
+#         Old attempts for multiprocessing, no speed up seen here
 #             # Try joblib
 #             #start = time()
 #             #arg_instances = [(size, valid_events_clustersize,
@@ -156,104 +112,33 @@ class Langau:
 #             #                                                           arg_instances))
 #             #for res in results:
 #             #    self.results_dict[data]["Clustersize"].append(res)
-#             #print(time()-start)
-#
-#             #start = time()
-#             for size in tqdm(clustersize_list, desc="(langau) Processing clustersize"):
-#                 # get the events with the different clustersizes
-#                 ClusInd = [[], []]
-#                 for i, event in enumerate(valid_events_clustersize):
-#                     # cls_ind = np.nonzero(valid_events_clustersize == size)[0]
-#                     for j, clus in enumerate(event):
-#                         if clus == size:
-#                             ClusInd[0].extend([i])
-#                             ClusInd[1].extend([j])
-#
-#                 signal_clst_event = []
-#                 noise_clst_event = []
-#                 for i, ind in enumerate(ClusInd[0]):
-#                     y = ClusInd[1][i]
-#                     # Signal calculations
-#                     signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][y]))
-#                     # Noise Calculations
-#                     noise_clst_event.append(
-#                         np.take(noise, valid_events_clusters[ind][y]))  # Get the Noise of an event
-#
-#                 # COMMENT: axis=1 produces numpy.AxisError?
-#                 # totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
-#                 totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
-#
-#                 # eError is a list containing electron signal noise
-#                 # totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal),
-#                 #                             axis=1))
-#                 totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal), axis=1))
-#
-#                 # incrementor += 1
-#
-#                 preresults = {"signal": totalE, "noise": totalNoise}
-#
-#                 self.results_dict[data]["Clustersize"].append(preresults)
-#             #print(time() - start)
-#
-#
-#             # With all the data from every clustersize add all together and fit the langau to it
-#             finalE = np.zeros(0)
-#             finalNoise = np.zeros(0)
-#             for cluster in self.results_dict[data]["Clustersize"]:
-#                 indi = np.nonzero(cluster["signal"] > 0)[0]  # Clean up and extra energy cut
-#                 nogarbage = cluster["signal"][indi]
-#                 indi = np.nonzero(nogarbage < self.Ecut)[0]  # ultra_high_energy_cut
-#                 cluster["signal"] = cluster["signal"][indi]
-#                 finalE = np.append(finalE, cluster["signal"])
-#                 finalNoise = np.append(finalNoise, cluster["noise"])
-#
-#             # Fit the langau to it
-#             if self.plotfit:
-#                 coeff, pcov, hist, error_bins = self.fit_langau(finalE, finalNoise, bins=self.bins)
-#                 self.results_dict[data]["langau_coeff"] = coeff
-#                 self.results_dict[data]["langau_data"] = [np.arange(1., 100000., 1000.),
-#                                                           pylandau.langau(np.arange(1., 100000., 1000.),
-#                                                                           *coeff)]  # aka x and y data
-#                 self.results_dict[data]["data_error"] = error_bins
-#             self.results_dict[data]["signal"] = finalE
-#             self.results_dict[data]["noise"] = finalNoise
-#
-#             # Consider now only the seedcut hits for the langau,
-#             if self.main.kwargs["configs"].get("langau", {}).get("seed_cut_langau", False):
-#                 seed_cut_channels = self.data[data]["base"]["Channel_hit"]
-#                 signals = self.data[data]["base"]["Signal"]
-#                 finalE = []
-#                 seedcutADC = []
-#                 for i, signal in enumerate(tqdm(signals, desc="(langau SC) Processing events")):
-#                     if signal[seed_cut_channels[i]].any():
-#                         seedcutADC.append(signal[seed_cut_channels[i]])
-#
-#                 self.log.info("Converting ADC to electrons for SC Langau...")
-#                 converted = convert_ADC_to_e(seedcutADC, charge_cal)
-#                 for conv in converted:
-#                     finalE.append(sum(conv))
-#                 finalE = np.array(finalE, dtype=np.float32)
-#
-#                 # get rid of 0 events
-#                 indizes = np.nonzero(finalE > 0)[0]
-#                 nogarbage = finalE[indizes]
-#                 indizes = np.nonzero(nogarbage < self.Ecut)[0]  # ultra_high_energy_cut
-#                 if self.plotfit:
-#                     coeff, pcov, hist, error_bins = self.fit_langau(nogarbage[indizes], bins=self.bins)
-#                     self.results_dict[data]["langau_coeff_SC"] = coeff
-#                     self.results_dict[data]["langau_data_SC"] = [np.arange(1., 100000., 1000.),
-#                                                                  pylandau.langau(np.arange(1., 100000., 1000.), *coeff)]
-#                     # aka x and y data
-#                     # coeff, pcov, hist, error_bins = self.fit_langau(nogarbage, bins=500)
-#                 self.results_dict[data]["signal_SC"] = nogarbage[indizes]
-#
-# >>>>>>> Dominic_dev
+        #
+        # !!!!!!!!!!!!!!! NO SPEED BOOST HERE!!!!!!!!!!!!!!!!!!!!
+        # General langau, where all clustersizes are considered
+        # if self.poolsize > 1:
+        #    paramslist = []
+        #    for size in self.cluster_size_list:
+        #        cls_ind = np.nonzero(valid_events_clustersize == size)[0]
+        #        paramslist.append((cls_ind, valid_events_Signal,
+        #                           valid_events_clusters,
+        #                           self.main.calibration.convert_ADC_to_e,
+        #                           self.main.noise))
+
+        # COMMENT: lagau_cluster not defined!!!!
+        # Here multiple cpu calculate the energy of the events per clustersize
+        #    results = self.pool.starmap(self.langau_cluster, paramslist,
+        #                                chunksize=1)
+
+        #    self.results_dict["Clustersize"] = results
+
 
         return self.results_dict.copy()
 
     def cluster_analysis(self, valid_events_Signal,
                          valid_events_clusters, valid_events_clustersize):
-        """Perform cluster analysis"""
+        """Calculates the energies for different cluster sizes
+         (like a Langau per clustersize) - non optimized version """
+        #TODO: Formerly in the numba function!!! We should use numba here not native python!!!
         for size in tqdm(self.cluster_size_list, desc="(langau) Processing clustersize"):
             # get the events with the different clustersizes
             ClusInd = [[], []]
@@ -362,7 +247,7 @@ class Langau:
 
         return errorBins
 
-
+    # depricated from multiprocessing
     def langau_cluster(self, cls_ind, valid_events_Signal, valid_events_clusters,
                        charge_cal, noise):
         """Calculates the energy of events, clustersize independently"""
@@ -398,40 +283,3 @@ class Langau:
 
         preresults = {"signal": totalE, "noise": totalNoise}
         return preresults
-# =======
-#     #@jit(nopython=False, nogil=True, cache=True)
-#     def process_cluster_size(self, args):
-#         # get the events with the different clustersizes
-#         size, valid_events_clustersize, valid_events_Signal, valid_events_clusters, noise, charge_cal = args
-#         ClusInd = [[], []]
-#         for i, event in enumerate(valid_events_clustersize):
-#             # cls_ind = np.nonzero(valid_events_clustersize == size)[0]
-#             for j, clus in enumerate(event):
-#                 if clus == size:
-#                     ClusInd[0].extend([i])
-#                     ClusInd[1].extend([j])
-#
-#         signal_clst_event = []
-#         noise_clst_event = []
-#         for i, ind in enumerate(ClusInd[0]):
-#             y = ClusInd[1][i]
-#             # Signal calculations
-#             signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][y]))
-#             # Noise Calculations
-#             noise_clst_event.append(
-#                 np.take(noise, valid_events_clusters[ind][y]))  # Get the Noise of an event
-#
-#         # totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
-#         totalE = np.sum(convert_ADC_to_e(signal_clst_event, charge_cal), axis=1)
-#
-#         # eError is a list containing electron signal noise
-#         # totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal),
-#         #                             axis=1))
-#         totalNoise = np.sqrt(np.sum(convert_ADC_to_e(noise_clst_event, charge_cal), axis=1))
-#
-#         # incrementor += 1
-#
-#         preresults = {"signal": totalE, "noise": totalNoise}
-#
-#         #self.results_dict[data]["Clustersize"].append(preresults)
-#         return preresults
