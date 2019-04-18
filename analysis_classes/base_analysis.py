@@ -1,11 +1,18 @@
 """This file contains the basis analysis class for the ALiBaVa analysis"""
 #pylint: disable=C0103
 import logging
-import gc
 import numpy as np
-from tqdm import tqdm
 import matplotlib.pyplot as plt
 from analysis_classes.nb_analysis_funcs import parallel_event_processing
+# pylint: disable=C0103
+import logging
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from analysis_classes.nb_analysis_funcs import parallel_event_processing
+
+
 #from .utilities import manage_logger
 
 class BaseAnalysis:
@@ -97,13 +104,15 @@ class BaseAnalysis:
             # clusters_plot.set_yscale("log", nonposy='clip')
 
             # Plot timing profile
-            timing_plot = fig.add_subplot(212)
+            timing_plot = fig.add_subplot(223)
+            timing_plot.set_xlabel('timing [ns]')
+            timing_plot.set_ylabel('average signal [ADC]')
+            timing_plot.set_title('Average timing signal of seed hits')
             signal = self.prodata[:,0]
             channels_hit = self.prodata[:,5]
             sum_singal = np.zeros(len(signal))
             for i, sig, chan in zip(np.arange(len(signal)), signal, channels_hit):
                 sum_singal[i] = np.sum(sig[chan])
-
             timing_data = np.zeros(150)
             #var_timing_data = np.zeros(150)
             for timing in range(1,151): # Timing of ALiBaVa
@@ -111,11 +120,15 @@ class BaseAnalysis:
                 timing_data[timing-1] = np.median(sum_singal[timing_in[0]])
                 #var_timing_data[timing-1] = np.std(sum_singal[timing_in[0]])
 
-            timing_plot.set_xlabel('timing [ns]')
-            timing_plot.set_ylabel('average signal [ADC]')
-            timing_plot.set_title('Average timing signal of seed hits')
             timing_plot.bar(np.arange(0,150), timing_data, alpha=0.4, color="b")#, yerr=var_timing_data)
 
+            # Plot histogram of timing
+            timing_hist_plot = fig.add_subplot(224)
+            timing_hist_plot.set_xlabel('timing [ns]')
+            timing_hist_plot.set_ylabel('count [#]')
+            timing_hist_plot.set_title('Histogram of timings')
+
+            timing_hist_plot.hist(self.timing, 150, alpha=0.4, color="b")
 
             fig.suptitle('Cluster analysis from file {!s}'.format(name))
             fig.tight_layout()
@@ -143,7 +156,7 @@ class BaseAnalysis:
         SN_plot.bar(np.arange(self.main.numchan),
                     data["base"]["SN"][eventnum], 1.,
                     alpha=0.4, color="b")
-        SN_plot.set_xlabel('channel [#]')
+        self.xlabel = SN_plot.set_xlabel('channel [#]')
         SN_plot.set_ylabel('Signal/Noise [ADC]')
         SN_plot.set_title('Signal/Noise')
 

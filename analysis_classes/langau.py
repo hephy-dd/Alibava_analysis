@@ -33,7 +33,7 @@ class Langau:
         self.numClusters = self.main.kwargs["configs"].get("langau", {}).get("numClus", 1)
         self.bins = self.main.kwargs["configs"].get("langau", {}).get("bins", 500)
         self.Ecut = self.main.kwargs["configs"].get("langau", {}).get("energyCutOff", 150000)
-        self.plotfit = self.main.kwargs["configs"].get("langau", {}).get("fitLangau", True)
+        self.plotfit = self.main.kwargs["configs"].get("langau", {}).get("fitLangau", False)
 
     def run(self):
         """Calculates the langau for the specified data"""
@@ -126,15 +126,15 @@ class Langau:
                 finalNoise = np.append(finalNoise, cluster["noise"])
 
             # Fit the langau to it
-
-            coeff, pcov, hist, error_bins = self.fit_langau(finalE, finalNoise, bins=self.bins)
+            if self.plotfit:
+                coeff, pcov, hist, error_bins = self.fit_langau(finalE, finalNoise, bins=self.bins)
+                self.results_dict[data]["langau_coeff"] = coeff
+                self.results_dict[data]["langau_data"] = [np.arange(1., 100000., 1000.),
+                                                          pylandau.langau(np.arange(1., 100000., 1000.),
+                                                                          *coeff)]  # aka x and y data
+                self.results_dict[data]["data_error"] = error_bins
             self.results_dict[data]["signal"] = finalE
             self.results_dict[data]["noise"] = finalNoise
-            self.results_dict[data]["langau_coeff"] = coeff
-            self.results_dict[data]["langau_data"] = [np.arange(1., 100000., 1000.),
-                                                      pylandau.langau(np.arange(1., 100000., 1000.),
-                                                                      *coeff)]  # aka x and y data
-            self.results_dict[data]["data_error"] = error_bins
 
             # Consider now only the seedcut hits for the langau,
             if self.main.kwargs["configs"].get("langau", {}).get("seed_cut_langau", False):
@@ -156,13 +156,15 @@ class Langau:
                 indizes = np.nonzero(finalE > 0)[0]
                 nogarbage = finalE[indizes]
                 indizes = np.nonzero(nogarbage < self.Ecut)[0]  # ultra_high_energy_cut
-                coeff, pcov, hist, error_bins = self.fit_langau(nogarbage[indizes], bins=self.bins)
-                # coeff, pcov, hist, error_bins = self.fit_langau(nogarbage, bins=500)
+                if self.plotfit:
+                    coeff, pcov, hist, error_bins = self.fit_langau(nogarbage[indizes], bins=self.bins)
+                    self.results_dict[data]["langau_coeff_SC"] = coeff
+                    self.results_dict[data]["langau_data_SC"] = [np.arange(1., 100000., 1000.),
+                                                                 pylandau.langau(np.arange(1., 100000., 1000.), *coeff)]
+                    # aka x and y data
+                    # coeff, pcov, hist, error_bins = self.fit_langau(nogarbage, bins=500)
                 self.results_dict[data]["signal_SC"] = nogarbage[indizes]
-                self.results_dict[data]["langau_coeff_SC"] = coeff
-                self.results_dict[data]["langau_data_SC"] = [np.arange(1., 100000., 1000.),
-                                                             pylandau.langau(np.arange(1., 100000., 1000.),*coeff)]
-                                                                                        # aka x and y data
+
 
         return self.results_dict.copy()
 
@@ -289,7 +291,6 @@ class Langau:
             plot = fig.add_subplot(111)
             hist, edges = np.histogram(data["signal"], bins=self.bins)
             plot.hist(data["signal"], bins=self.bins, density=False, alpha=0.4, color="b", label="All clusters")
-            #plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
             if self.plotfit:
                 plot.plot(data["langau_data"][0], data["langau_data"][1], "r--",
                             color="g",
