@@ -25,10 +25,22 @@ def read_meas_files(cfg):
         cal_files = cfg["Delay_scan"]
     run_files = cfg["Measurement_file"]
 
-    if not len(ped_files) == len(run_files) or \
-            not len(cal_files) == len(run_files):
-        raise ValueError("Number of pedestal, calibration and measurement files"
-                         " does not match...")
+    # Case selection if files are lists or simply one file as paths
+    if isinstance(ped_files, list) and isinstance(run_files, list) and isinstance(cal_files, list):
+        if not len(ped_files) == len(run_files) or \
+                not len(cal_files) == len(run_files):
+            raise ValueError("Number of pedestal, calibration and measurement files"
+                             " does not match...")
+    # Case where only a path string is passed
+    elif isinstance(ped_files, str) and isinstance(run_files, str) and isinstance(cal_files, str):
+        ped_files = [ped_files]
+        cal_files = [cal_files]
+        run_files = [run_files]
+
+    else:
+        raise ValueError("Pedestal, calibration and measurement files must either be passed as strings or as "
+                         "lists of same length")
+
     return zip(ped_files, cal_files, run_files)
 
 def handle_sub_plots(fig, index):
