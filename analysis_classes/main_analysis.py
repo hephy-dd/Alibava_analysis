@@ -35,8 +35,8 @@ class MainAnalysis:
         # self.noise = np.zeros(self.numchan, dtype=np.float32)
         self.SN_cut = 1
         self.hits = 0
-        self.tmin = 0
-        self.tmax = 100
+        self.tmin = kwargs["configs"].get("timing", 0)[0]
+        self.tmax = kwargs["configs"].get("timing", 0)[1]
         self.maxcluster = 4
         self.CMN = np.zeros(self.numchan, dtype=np.float32)
         self.CMsig = np.zeros(self.numchan, dtype=np.float32)
@@ -67,11 +67,18 @@ class MainAnalysis:
         else:
             self.material = 0  # Easier to handle
 
+<<<<<<< HEAD
         self.masking = configs.get("automasking", False)
         self.max_clustersize = configs.get("max_cluster_size", 5)
         self.SN_ratio = configs.get("SN_ratio", 0.5)
         self.usejit = configs.get("optimize", False)
         self.SN_cluster = configs.get("SN_cluster", 6)
+=======
+        self.masking = kwargs["configs"].get("automasking", False)
+        self.max_clustersize = kwargs["configs"].get("max_cluster_size", 5)
+        self.SN_ratio = kwargs["configs"].get("SN_ratio", 0.5)
+        self.SN_cluster = kwargs["configs"].get("SN_cluster", 6)
+>>>>>>> Dominic_dev
 
         # Create a pool for multiprocessing
         self.process_pool = configs.get("Processes", 1)  # How many workers

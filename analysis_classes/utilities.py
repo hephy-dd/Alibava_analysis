@@ -15,6 +15,12 @@ from tqdm import tqdm
 from six.moves import cPickle as pickle  # for performance
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+<<<<<<< HEAD
+=======
+from joblib import Parallel, delayed
+from time import time
+from numba import jit
+>>>>>>> Dominic_dev
 
 def read_meas_files(cfg):
     """Reads cfg file, returns lists of files and compares their length"""
@@ -73,12 +79,25 @@ def load_plugins(valid_plugins):
     Args:
         - valid_plugins (str): class names"""
     all_plugins = {}
+<<<<<<< HEAD
     all_analysis_files = os.listdir("./analysis_classes/")
     for file in all_analysis_files:
         for plugin in valid_plugins:
             if os.path.splitext(file)[0] == plugin.lower():
                 all_plugins[plugin] = \
                     locate("analysis_classes." + plugin.lower() + "." + plugin)
+=======
+    all_measurement_functions = os.listdir("./analysis_classes/")
+    all_measurement_functions = list(set([modules.split(".")[0] for modules in all_measurement_functions]))
+
+    for modules in all_measurement_functions:  # import all modules from all files in the plugins folder
+        to_add = import_module("analysis_classes." + modules)
+        names = dir(to_add) # get all modules
+        if valid_plugins:
+            for plugin in valid_plugins:
+                if plugin in names:
+                    all_plugins.update({plugin: to_add})
+>>>>>>> Dominic_dev
     return all_plugins
 
 def create_dictionary(abs_filepath):
@@ -94,14 +113,32 @@ def import_h5(path):
     :param pathes: pathes to the datafiles which should be imported
     :return: list
     """
+<<<<<<< HEAD
     # First check if path exists and if so import hdf5 file
+=======
+    # COMMENT: That should be done one level above. the func should just import 1 hdf5 file
+                # and return the same type as the read_binary func
+    # Check if a list was passed
+
+    if isinstance(paths[0],list):
+        paths = paths[0]
+
+    loaded_files = []
+>>>>>>> Dominic_dev
     try:
         if not os.path.exists(os.path.normpath(path)):
             raise Exception('The path {!s} does not exist.'.format(path))
         return h5py.File(os.path.normpath(path), 'r')
     except OSError as err:
+<<<<<<< HEAD
         LOG.error("Enountered an OSError: %s", str(err))
         return False
+=======
+
+        LOG.info("Enountered an OSError: {!s}".format(err))
+        return [False]
+
+>>>>>>> Dominic_dev
 
 def get_xy_data(data, header=0):
     """This functions takes a list of strings, containing a header and xy data,
@@ -114,6 +151,7 @@ def get_xy_data(data, header=0):
             np2Darray[i-header] = np.array(list_data)
     return np2Darray
 
+#@jit(nopython=False)
 def read_binary_Alibava(filepath):
     """Reads binary alibava files"""
 

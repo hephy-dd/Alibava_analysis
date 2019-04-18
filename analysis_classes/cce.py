@@ -30,7 +30,7 @@ class CCE:
             file = str(
                 path.split("\\")[-1].split('.')[0])  # Find the filename, warning these files must have been processed
             if self.data[file]:
-                ypos.append(self.data[file]["langau"]["langau_coeff"][0])  # First value is the mpv
+                ypos.append(self.data[file]["Langau"]["langau_coeff"][0])  # First value is the mpv
                 if not y0:
                     y0 = ypos[-1]
                 ypos[-1] = ypos[-1] / y0

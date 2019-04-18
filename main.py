@@ -1,5 +1,6 @@
 """Wrapper for full alibava analysis via console"""
 import os
+<<<<<<< HEAD
 from argparse import ArgumentParser
 from plot_data import PlotData
 from analysis_classes.utilities import create_dictionary
@@ -7,6 +8,44 @@ from analysis_classes import Calibration
 from analysis_classes import NoiseAnalysis
 from analysis_classes import MainAnalysis
 from analysis_classes.utilities import save_all_plots, save_dict, read_meas_files
+=======
+import logging
+from optparse import OptionParser
+#from analysis_classes.calibration import Calibration
+#from analysis_classes.noise_analysis import NoiseAnalysis
+#from analysis_classes.main_analysis import MainAnalysis
+from analysis_classes.utilities import *
+from cmd_shell import AlisysShell
+from analysis_classes.utilities import create_dictionary, save_all_plots, save_configs
+from analysis_classes.utilities import save_dict
+from analysis_classes import Calibration
+from analysis_classes import NoiseAnalysis
+from analysis_classes import MainAnalysis
+import matplotlib.pyplot as plt
+
+log = logging.getLogger("main")
+#log.setLevel(logging.INFO)
+#if log.hasHandlers() is False:
+#    format_string = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+#    formatter = logging.Formatter(format_string)
+#    console_handler = logging.StreamHandler()
+#    console_handler.setFormatter(formatter)
+#    log.addHandler(console_handler)
+
+
+def main(args, options):
+    """The main analysis which will be executed after the arguments are parsed"""
+
+    if options.shell:
+        shell = AlisysShell()
+        # shell.start_shell()
+
+    elif options.configfile and os.path.exists(os.path.normpath(options.configfile)):
+        log.info("Loading file: %s", os.path.normpath(options.configfile))
+        configs = create_dictionary(os.path.normpath(options.configfile), "")
+        do_with_config_file(configs)
+        plt.show()  # Just in case the plot show has never been shown, it gets the plot items from the env
+>>>>>>> Dominic_dev
 
 DEF = os.path.join(os.getcwd(), "Examples", "marius_config.yml")
 
