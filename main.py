@@ -32,6 +32,7 @@ def main(args):
 
         run_data = MainAnalysis(run, configs=cfg)
         plot.plot_data(run_data, group="main")
+        plot.plot_data(run_data, group="single_event")
 
         if cfg.get("Output_folder", "") and cfg.get("Output_name", ""):
             save_all_plots(cfg["Output_name"], cfg["Output_folder"], dpi=300)

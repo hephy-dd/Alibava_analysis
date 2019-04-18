@@ -24,38 +24,67 @@ class PlotData:
         self.cal_plots = [self.plot_signal_conversion_fit,
                           self.plot_signal_conversion_fit_detail,
                           self.plot_gain_hist]
+        self.single_event_plots = [self.plot_single_event_SN,
+                                   self.plot_single_event_ch]
+
         self.main_plots = [self.plot_cluster_hist,
                            self.plot_clustersizes,
                            self.plot_hitmap,
-                           self.plot_single_event_SN,
-                           self.plot_single_event_ch,
                            self.plot_langau_per_clustersize,
                            self.plot_seed_signal_e]
 
-    def plot_data(self, obj, group="all", fig_name=None):
-        """Plots the data calculated by the framework. Surpress drawing and
+        self.groups = {"pedestal": self.ped_plots,
+                       "calibration": self.cal_plots,
+                       "single_event": self.single_event_plots,
+                       "main": self.main_plots,
+                       }
+        self.groups["Brace yourself! plots are comming"] = np.concatenate([x for x in self.groups.items()])
+
+    def plot_data(self, obj, group=None, fig_name=None):
+        """Plots the data calculated by the framework. Suppress drawing and
         showing the canvas by setting "show" to False.
         Returns matplotlib.pyplot.figure object.
         """
-        if group == "pedestal":
-            if fig_name is None:
-                fig_name = "Pedestal analysis"
-            fig = plt.figure(fig_name, figsize=[10, 8])
-            for func in self.ped_plots:
-                func(obj, fig)
-            fig.tight_layout()
-        if group == "calibration":
-            if fig_name is None:
-                fig_name = "Calibration analysis"
-            fig = plt.figure(fig_name, figsize=[10, 8])
-            for func in self.cal_plots:
-                func(obj, fig)
-            fig.tight_layout()
-        if group == "main":
-            # self.main_fig = plt.figure("Main analysis", figsize=[10, 8])
-            for func in self.main_plots:
-                plot = func(obj)
-                plt.gcf().tight_layout()
+
+        if group=="all" or group==None:
+            for grp in self.groups:
+                if fig_name is None:
+                    fig_name = grp
+                fig = plt.figure(fig_name, figsize=[10, 8])
+                for func in self.groups[grp]:
+                    func(obj, fig)
+                fig.tight_layout()
+
+        else:
+            if group in self.groups:
+                if fig_name is None:
+                    fig_name = group
+                fig = plt.figure(fig_name, figsize=[10, 8])
+                for func in self.groups[group]:
+                    func(obj, fig)
+                fig.tight_layout()
+            else:
+                self.log.error("Plotting could not be done."
+                               " Plot group {} was not recognised. Skipping!".format(group))
+        # if group == "pedestal":
+        #     if fig_name is None:
+        #         fig_name = "Pedestal analysis"
+        #     fig = plt.figure(fig_name, figsize=[10, 8])
+        #     for func in self.ped_plots:
+        #         func(obj, fig)
+        #     fig.tight_layout()
+        # if group == "calibration":
+        #     if fig_name is None:
+        #         fig_name = "Calibration analysis"
+        #     fig = plt.figure(fig_name, figsize=[10, 8])
+        #     for func in self.cal_plots:
+        #         func(obj, fig)
+        #     fig.tight_layout()
+        # if group == "main":
+        #     # self.main_fig = plt.figure("Main analysis", figsize=[10, 8])
+        #     for func in self.main_plots:
+        #         plot = func(obj)
+        #         plt.gcf().tight_layout()
 
     def show_plots(self):
         """Draw and show plots"""
