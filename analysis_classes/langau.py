@@ -13,11 +13,37 @@ from joblib import Parallel, delayed
 class Langau:
     """Langau calculates the Landau-Gauss convolution for the energy deposition in sensors.
 
+    How does it work:
+        - First get the events with the desired number of clusters per event
+        - Next add from every cluster the energy together and put it in a histogram
+
+        In this analysis you have several options of getting more data out or constrain it
+        You have the chance to get the the seed cut langau, where only seed cut hits are considered.
+        For the overall langau you have the possibility to restrain which  clustersizes you want to consider
+        See the possible parameters to pass!!!
+
+     # Langau Analysis specific params
+            - clustersize: list[int] - List of clustersizes the langau should be calculated of ([1,2,3])
+            - seed_cut_langau: bool - Whether or not to calculate the seed cut langau (True)
+            - fitLangau: bool - Try to fit a Langau to data or not (True)
+            - energyCutOff: int - High energy cut of for calculations (100 000)
+            - numClus: int - How many clusters per event should be considered (1)
+            - bins: int - Bin count for langau (200)
 
     Written by Dominic Bloech
     """
     def __init__(self, main_analysis, configs, logger=None):
-        """Gets the main analysis class and imports all things needed for its calculations"""
+        """
+        Init for the Langau analysis class
+
+        :param main_analysis: The main analysis with all its parameters
+        :param configs: The dictionary with the langau specific parameters
+        :param logger: A specific logger if you want
+        """
+
+        # Set all attributes for the configs
+        for conf in configs:
+            setattr(self, conf)
 
         self.log = logger or logging.getLogger(__class__.__name__)
         self.main = main_analysis
@@ -26,29 +52,29 @@ class Langau:
         self.pedestal = self.main.pedestal
         self.pool = self.main.Pool
         self.poolsize = self.main.process_pool
-        self.numClusters = configs.get("langau", {}).get("numClus", 1)
-        self.Ecut = configs.get("langau", {}).get("energyCutOff", 150000)
-        self.plotfit = configs.get("langau", {}).get("fitLangau", True)
-        self.max_cluster_size = configs.get("max_cluster_size", 3)
-        self.cluster_size_list = configs.get("langau", {}).get("clustersize", [1, 2, 3])
-        self.results_dict = {"bins": configs.get("langau", {}).get("bins", 500)}
-        self.seed_cut_langau = configs.get("langau", {}).get("seed_cut_langau", False)
+        self.numClusters = self.numClus
+        self.Ecut = self.energyCutOff
+        self.plotfit = self.fitLangau
+        self.cluster_size_list = self.clustersize
+        self.results_dict = {"bins": self.bins}
+        self.seed_cut_langau = self.seed_cut_langau
 
 
     def run(self):
-        """Calculates the langau for the specified data"""
-        indNumClus = self.get_num_clusters(self.data,
-                                           self.numClusters)  # Here events with only one cluster are choosen
+        """Runs the routines to generate all langau specific data"""
+
+        # Here events with only one cluster are choosen or two, you decide
+        indNumClus = self.get_num_clusters(self.data, self.numClusters)
         indizes = np.concatenate(indNumClus)
+
+        # Slice the data from the bas analysis for further calculations
         valid_events_clustersize = np.take(self.data["base"]["Clustersize"], indizes)
         valid_events_clusters = np.take(self.data["base"]["Clusters"], indizes)
-        # Get the clustersizes of valid events
-        valid_events_Signal = np.take(self.data["base"]["Signal"],
-                                      indizes)
-        # Get events which show only cluster in its data
+        valid_events_Signal = np.take(self.data["base"]["Signal"],indizes)
         self.results_dict["Clustersize"] = []
 
         # TODO: here a non numba optimized version is used. We should use numba here!
+        # Calculate the energy deposition PER Clustersize and add it to self.results_dict["Clustersize"]
         self.cluster_analysis(valid_events_Signal,
                               valid_events_clusters,
                               valid_events_clustersize)
@@ -57,16 +83,20 @@ class Langau:
         finalE = np.zeros(0)
         finalNoise = np.zeros(0)
         for cluster in self.results_dict["Clustersize"]:
-            indi = np.nonzero(cluster["signal"] > 0)[0]  # Clean up and extra energy cut
+            # Clean up and extra energy cut
+            indi = np.nonzero(cluster["signal"] > 0)[0]
             nogarbage = cluster["signal"][indi]
-            indi = np.nonzero(nogarbage < self.Ecut)[0]  # ultra_high_energy_cut
+            # ultra_high_energy_cut
+            indi = np.nonzero(nogarbage < self.Ecut)[0]
             cluster["signal"] = cluster["signal"][indi]
             finalE = np.append(finalE, cluster["signal"])
             finalNoise = np.append(finalNoise, cluster["noise"])
 
-        # Fit the langau to it
-        coeff, _, _, error_bins = self.fit_langau(
-            finalE, finalNoise, bins=self.results_dict["bins"])
+        # Fit the langau to the summ of all individual clusters
+        coeff, _, _, error_bins = self.fit_langau(finalE,
+                                                  finalNoise,
+                                                  bins=self.results_dict["bins"])
+
         self.results_dict["signal"] = finalE
         self.results_dict["noise"] = finalNoise
         self.results_dict["langau_coeff"] = coeff
@@ -76,7 +106,7 @@ class Langau:
                             *coeff)]  # aka x and y data
         self.results_dict["data_error"] = error_bins
 
-        # Seed cut langau, by taking only the bare hit channels which are above seed cut levels
+        # Seed cut langau, taking only the bare hit channels which are above seed cut levels
         if self.seed_cut_langau:
             seed_cut_channels = self.data["base"]["Channel_hit"]
             signals = self.data["base"]["Signal"]
@@ -146,7 +176,6 @@ class Langau:
             # get the events with the different clustersizes
             ClusInd = [[], []]
             for i, event in enumerate(valid_events_clustersize):
-                # cls_ind = np.nonzero(valid_events_clustersize == size)[0]
                 for j, clus in enumerate(event):
                     if clus == size:
                         ClusInd[0].extend([i])
@@ -231,7 +260,8 @@ class Langau:
         events = []
         for clus in num_cluster:
             events.append(
-                np.nonzero(data["base"]["Numclus"] == clus)[0])  # Indizes of events with the desired clusternumbers
+                # Indizes of events with the desired clusternumbers
+                np.nonzero(data["base"]["Numclus"] == clus)[0])
         return events
 
     def calc_hist_errors(self, x, errors, bins):

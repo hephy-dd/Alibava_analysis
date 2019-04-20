@@ -68,7 +68,7 @@ class BaseAnalysis:
             - SN_ratio: float - ratio of SN_cut to look for neighbouring hits
             - SN_cluster: float - Minimum SN of a cluster to be considered
             - numchan: int - Number of channels
-            - max_clustersize: int - maximum clustersize to look for
+            - max_cluster_size: int - maximum clustersize to look for
 
     Written by Dominic Bloech
 
@@ -114,7 +114,7 @@ class BaseAnalysis:
                                                               self.main.SN_cut,
                                                               self.main.SN_ratio,
                                                               self.main.SN_cluster,
-                                                              max_clustersize=self.main.max_clustersize,
+                                                              max_clustersize=self.main.max_cluster_size,
                                                               masking=self.main.automasking,
                                                               material=self.main.sensor_type,
                                                               poolsize=self.main.process_pool,

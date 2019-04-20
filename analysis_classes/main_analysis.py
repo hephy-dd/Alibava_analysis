@@ -102,7 +102,7 @@ class MainAnalysis:
         # Load all plugins
         plugins = load_plugins(configs.get("additional_analysis", []))
         for name, plugin in plugins.items():
-            analysis = plugin(self, configs)
+            analysis = plugin(self, configs.get(name, {}))
             self.outputdata[name] = analysis.run()
 
         # In the end give a round up of all you have done
