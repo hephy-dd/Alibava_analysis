@@ -24,7 +24,6 @@ def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
                            masking, material, noisy_strips, queue=None):
     """Necessary function to pass to the pool.map function"""
     prodata = np.zeros((len(events), 9), dtype=np.object)
-    #automasked = 0
     index = 0
     hitmap = np.zeros(numchan)
     signal, SN, CMN, CMsig = nb_process_all_events(events, pedestal, meanCMN,
@@ -43,7 +42,7 @@ def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
             SN[i],
             CMN,
             CMsig,
-            hitmap, # Todo: remove hitmap from every event Is useless info and costs memory
+            hitmap,
             channels_hit,
             clusters,
             numclus,
@@ -56,6 +55,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
                               numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5,
                               masking=True, material=1, poolsize = 1, Pool=None, noisy_strips = []):
     """Parallel processing of events."""
+    # Todo: automasking seems to have vanished
     goodevents = goodtiming[0].shape[0]
     automasked = 0
     events_good = events[goodtiming[0]]
@@ -91,7 +91,6 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         prodata = event_process_function(events_good, pedestal, meanCMN,
                                          meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster,
                                          max_clustersize, masking, material, noisy_strips)
-        #event_process_function.parallel_diagnostics(level=4)
         return np.array(prodata), automasked
 
 @jit(nopython = True, cache=True, nogil=gil, fastmath=Fast)
