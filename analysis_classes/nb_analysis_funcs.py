@@ -46,7 +46,7 @@ def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
     hitmap = np.zeros(numchan)
 
     # Preprocess all events for the clustering algorithm
-    signal, SN, CMN, CMsig = nb_process_all_events(events, pedestal, meanCMN,
+    signal, SN, CMN, CMsig = nb_preprocess_all_events(events, pedestal, meanCMN,
                                                    meanCMsig, noise, numchan, noisy_strips)
 
     # Pass all events to the clustering algorithm
@@ -146,51 +146,81 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
 @jit(nopython = True, cache=True, nogil=gil, fastmath=Fast)
 def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5,
                   masking=True, material=1):
-    """Looks for cluster in a event"""
-    channels = np.nonzero(np.abs(SN) > SN_cut)[0]  # Only channels which have a signal/Noise higher
-                                                   # then the signal/Noise cut
+    """
+    Tries to find clusters in the event:
+    It uses the three-cut algorithm: 1) Apply seed cut
+                                     2) Search for neighbouring channels above the SN_ratio
+                                     3) Check if cluster has higher SN as specified
+
+    :param event: The event: shape = (channels)
+    :param SN: The SN: shape = (channels)
+    :param noise: The noise: shape = (channels)
+    :param SN_cut: float
+    :param SN_ratio: float
+    :param SN_cluster: float
+    :param numchan: Number of channels
+    :param max_clustersize: Maximum cluster size
+    :param masking: Bool, if you want masking of channels with false polarity
+    :param material: The base material of the sensor, needed for polarity check
+    :return:
+    """
+
     automasked_hit = 0
-    used_channels = np.ones(numchan)  # To keep track which channel have been used already here ones due
-                                      #  to valid channel calculations
+    # To keep track which channel have been used already here ones due to valid channel calculations
+    used_channels = np.ones(numchan)
     numclus = 0  # The number of found clusters
     clusters_list = []
     clustersize = []
     strips = len(event)
     absSN = np.abs(SN)
+    # SN for neighbours of seed cut
     SNval = SN_cut * SN_ratio
     offset = int(max_clustersize * 0.5)
 
+    # Only channels which have a signal/Noise higher then the signal/Noise cut
+    channels = np.nonzero(np.abs(SN) > SN_cut)[0]
+
+    # Mask channels with the false polarity
     if masking:
         if material:
-            masked_ind = np.nonzero(np.take(event, channels) > 0)[0]  # So only negative values are considered
+            # So only negative values are considered aka. p-type sensors
+            masked_ind = np.nonzero(np.take(event, channels) > 0)[0]
             valid_ind = np.nonzero(event < 0)[0]
             automasked_hit += len(masked_ind)
         else:
-            masked_ind = np.nonzero(np.take(event, channels) < 0)[0]  # So only positive values are considered
+            # So only positive values are considered aka. n-type sensors
+            masked_ind = np.nonzero(np.take(event, channels) < 0)[0]
             valid_ind = np.nonzero(event > 0)[0]
             automasked_hit += len(masked_ind)
     else:
+        # If none is selected then all will be used
         valid_ind = np.arange(strips)
+        masked_ind = []
 
-    for i in valid_ind: # Define valid index to search for
-        used_channels[i] = 0
+    # Set all channels in which we search for hits to 0 to make them valid
+    used_channels[valid_ind] = 0
+    # Update the hitted channels
+    channels = channels.delete(masked_ind)
 
     #Todo: misinterpretation of two very close clusters
     for ch in channels:  # Loop over all left channels which are a hit, here from "left" to "right"
-            if not used_channels[ch]:# and ch not in masked_list:# and not masked_ind[ch]:
-                                     #  Make sure we dont count everything twice
-                used_channels[ch] = 1  # So now the channel is used
-                cluster = [ch]  # Keep track of the individual clusters
-                size = 1
+            # Check if the channel has not been used so far
+            if not used_channels[ch]:
+                used_channels[ch] = 1  # Now the channel is used
+                cluster = [ch]  # Size we have no a cluster init it with the channel
+                size = 1 # The size of the cluster
 
                 # Now make a loop to find neighbouring hits of cluster, we must go into both directions
                 right_stop = 0
                 left_stop = 0
                 for i in range(1, offset+1):  # Search plus minus the channel found Todo: first entry useless
-                    if 0 < ch-i and ch+i < numchan:  # To exclude overrun
-                        chp = ch+i
-                        chm = ch-i
-                        if not right_stop: # right side
+                    # Define bounderis of the chip, so we do not count outside
+                    if 0 < ch-i and ch+i < numchan:
+                        chp = ch+i # Right side of channel
+                        chm = ch-i # Left side of channel
+
+                        # Look if the right neighbour is above the SN_ratio from the SN_cut
+                        if not right_stop:
                             if absSN[chp] > SNval:
                                 if not used_channels[chp]:
                                     cluster.append(chp)
@@ -201,7 +231,8 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
                             else:
                                 right_stop = 1 # Prohibits search for to long clusters or already used channels
 
-                        if not left_stop: #left side
+                        # Look if the left neighbour is above the SN_ratio from the SN_cut
+                        if not left_stop:
                             if absSN[chm] > SNval:
                                 if not used_channels[chm]:
                                     cluster.append(chm)
@@ -211,9 +242,10 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
                                     left_stop = 1
                             else:
                                 left_stop = 1 # Prohibits search for to long clusters or already used channels
+
                 # Look if the cluster SN is big enough to be counted as clusters
-                Scluster = np.abs(np.sum(np.take(event, cluster)))
-                Ncluster = np.sqrt(np.abs(np.sum(np.take(noise, cluster))))
+                Scluster = np.abs(np.sum(np.take(event, cluster))) # Signal
+                Ncluster = np.sqrt(np.abs(np.sum(np.take(noise, cluster)))) # Noise
                 SNcluster = np.divide(Scluster,Ncluster)  # Actual signal to noise of cluster
                 if SNcluster > SN_cluster:
                     numclus = numclus+1
@@ -225,15 +257,24 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
 
 jit(nogil=gil, cache=True, nopython=True)
 def nb_noise_calc(events, pedestal, tot_noise=False):
-    """Noise calculation, normal noise (NN) and common mode noise (CMN)
-    Uses numpy"""
+    """
+    Noise calculation, normal noise (NN) and common mode noise (CMN)
+    Uses numpy black magic
+    :param events: the events
+    :param pedestal: the pedestal
+    :param tot_noise: bool if you want the tot_noise
+    :return:
+    """
     # Calculate the common mode noise for every channel
-    cm = np.subtract(events, pedestal, dtype=np.float32)  # Get the signal from event and subtract pedestal
-    CMsig = np.std(cm, axis=1)  # Calculate the standard deviation
-    CMnoise = np.mean(cm, axis=1)  # Now calculate the mean from the cm to get the actual common mode noise
+    # Get the signal from event and subtract pedestal
+    cm = np.subtract(events, pedestal, dtype=np.float32)
+    # Calculate the standard deviation
+    CMsig = np.std(cm, axis=1)
+    # Now calculate the mean from the cm to get the actual common mode noise
+    CMnoise = np.mean(cm, axis=1)
     # Calculate the noise of channels
-    score = np.subtract(cm, CMnoise[:, None], dtype=np.float32)  # Subtract the common mode noise -->
-                                                                # Signal[arraylike] - pedestal[arraylike] - Common mode
+    # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
+    score = np.subtract(cm, CMnoise[:, None], dtype=np.float32)
     # This is a trick with the dimensions of ndarrays, score = shape[ (x,y) - x,1 ]
     # is possible otherwise a loop is the only way
     noise = np.std(score, axis=0)
@@ -242,32 +283,32 @@ def nb_noise_calc(events, pedestal, tot_noise=False):
     # convert score matrix into an 1-d array --> np.concatenate(score, axis=0))
     return noise, CMnoise, CMsig, np.concatenate(score, axis=0)
 
-jit(nogil=gil, cache=True)
-def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
-    """Processes single events"""
-    #TODO: some elusive error happens here when using jit and njit
-    # Calculate the common mode noise for every channel
-    signal = events - pedestal  # Get the signal from event and subtract pedestal
-
-    signal[noisy_strips] = 0
-
-    # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
-    removed = np.nonzero(signal < (5. * meanCMsig + meanCMN))
-    prosignal = signal[removed]
-
-    if prosignal.any():
-        cmpro = np.mean(prosignal)
-        sigpro = np.std(prosignal)
-
-        corrsignal = signal - cmpro
-        SN = corrsignal / noise
-
-        return corrsignal, SN, cmpro, sigpro
-    else:
-        return np.zeros(numchan), np.zeros(numchan), 0., 0.  # A default value return if everything fails
+#jit(nogil=gil, cache=True)
+#def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
+#    """Processes single events - This is an old version which has been replaces by"""
+#    #TODO: some elusive error happens here when using jit and njit
+#    # Calculate the common mode noise for every channel
+#    signal = events - pedestal  # Get the signal from event and subtract pedestal
+#
+#    signal[noisy_strips] = 0
+#
+#    # Remove channels which have a signal higher then 5*CMsig+CMN which are not representative
+#    removed = np.nonzero(signal < (5. * meanCMsig + meanCMN))
+#    prosignal = signal[removed]
+#
+#    if prosignal.any():
+#        cmpro = np.mean(prosignal)
+#        sigpro = np.std(prosignal)
+#
+#        corrsignal = signal - cmpro
+#        SN = corrsignal / noise
+#
+#        return corrsignal, SN, cmpro, sigpro
+#    else:
+#        return np.zeros(numchan), np.zeros(numchan), 0., 0.  # A default value return if everything fails
 
 jit(nogil=gil,cache=True, nopython=True, fastmath=Fast)
-def nb_process_all_events(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
+def nb_preprocess_all_events(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
     """
     Preprocesses all events and makes some clean-up on the signals.
     It calculates the SN for every events per channel and the CMN, CMNsig for every event.
@@ -278,7 +319,7 @@ def nb_process_all_events(events, pedestal, meanCMN, meanCMsig, noise, numchan, 
              operation usually to a whole array divisions are such a things. Every value in both
              arrays will be divided separately etc.
 
-    :param events: All events shape = (events, channels
+    :param events: All events shape = (events, channels)
     :param pedestal: The pedestal: shape = (channels)
     :param meanCMN: The mean CMN
     :param meanCMsig: The mean CMNsig

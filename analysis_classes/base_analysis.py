@@ -29,7 +29,7 @@ class BaseAnalysis:
           event. We will subtract the mean of all channels, to get rid of common mode
           in the event. We then build the ratio between the residual signal vs. the
           noise for EVERY channel. --> We have our SN for every channel.
-          This is all done in the nb_process_all_events function
+          This is all done in the nb_preprocess_all_events function
         - We then are looking for a so called seed cut. Meaning we are looking for
           channels which show a higher Signal to Noise - SN as the specified one
           in the configs. Next in line we need to get rid of false polarized signals,
