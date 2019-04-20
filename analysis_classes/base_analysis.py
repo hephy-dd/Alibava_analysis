@@ -40,6 +40,8 @@ class BaseAnalysis:
           Therefore, we have the parameter SN_ratio, which applies a factor to the SN_cut.
           If the neighbour strips are obove this threshold it will be considered as hit too
           and will be added to the cluster. This goes on until no strips are above this threshold.
+          Finally we calculate the SN for the whole cluster which in turn has to be above
+          as specified value, otherwise the cluster gets rejected.
           Warning: In reality this is not trivial to do and I therefore refer to the
           dedicated function: nb_clustering
         - Finally all data has been processed and we have finished clustering
@@ -76,8 +78,9 @@ class BaseAnalysis:
     def run(self):
         """Does the actual event analysis and clustering in optimized python"""
 
-        # get events with good timinig only gtime and only process these events
-        gtime = np.nonzero(np.logical_and(self.timing >= self.main.tmin, self.timing <= self.main.tmax))
+        # Get events with good timing and only process these events
+        gtime = np.nonzero(np.logical_and(self.timing >= self.main.tmin,
+                                          self.timing <= self.main.tmax))
         self.main.numgoodevents += int(gtime[0].shape[0])
         self.timing = self.timing[gtime]
         meanCMN = np.mean(self.main.CMN)

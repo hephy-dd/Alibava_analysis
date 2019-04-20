@@ -1,14 +1,12 @@
 """This files contains analysis function optimizes by numba jit capabilities"""
 #pylint: disable=E1111,C0103
 from numba import jit, prange
-
-from multiprocessing import Manager
-
 import numpy as np
 
-gil=True # Use gil or not
-Fast=True # Use fastmath
-parallel=True
+# Some numba settings
+gil = True # Use gil or not
+Fast = True # Use fastmath
+parallel = True # Use parallel execution
 
 jit(nogil=gil, cache=True, nopython=True, fastmath=Fast)
 def event_process_function_multithread(args):
@@ -22,21 +20,48 @@ jit(nogil=gil, parallel=parallel, nopython=True, fastmath=Fast)
 def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
                            numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
                            masking, material, noisy_strips, queue=None):
-    """Necessary function to pass to the pool.map function"""
+    """
+    This function simply handles the preprocessing of all events, like garbage clean up and then clustering
+    :param events:
+    :param pedestal:
+    :param meanCMN:
+    :param meanCMsig:
+    :param noise:
+    :param numchan:
+    :param SN_cut:
+    :param SN_ratio:
+    :param SN_cluster:
+    :param max_clustersize:
+    :param masking:
+    :param material:
+    :param noisy_strips:
+    :param queue: The queue used to pass data between threads/processes
+    :return:
+    """
+
+    # Generate the output array
     prodata = np.zeros((len(events), 9), dtype=np.object)
     index = 0
+    # Generate the hitmap
     hitmap = np.zeros(numchan)
+
+    # Preprocess all events for the clustering algorithm
     signal, SN, CMN, CMsig = nb_process_all_events(events, pedestal, meanCMN,
                                                    meanCMsig, noise, numchan, noisy_strips)
+
+    # Pass all events to the clustering algorithm
     for i in prange(0, len(events)):
+
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal[i], SN[i], noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
                                                                                       masking=masking,
                                                                                       material=material)
+        # Build the hitmap for this event
         for channel in channels_hit:
             hitmap[channel] += 1
 
+        # Add the results to the results array for every event
         prodata[index]=np.array([
             signal[i],
             SN[i],
@@ -54,12 +79,35 @@ jit(nogil=gil, parallel=parallel, nopython=True, fastmath=Fast)
 def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise,
                               numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5,
                               masking=True, material=1, poolsize = 1, Pool=None, noisy_strips = []):
-    """Parallel processing of events."""
+    """
+    This function handles all logic to distribute the event processing and clustering to several cores
+    to speed up the calculations. It does not do anything complicated.
+    :param goodtiming: Array containing the indizes of evetns with good timing
+    :param events: Array of all events: shape = (events, channels)
+    :param pedestal: The pedestal: shape = (channels)
+    :param meanCMN: A single value with the mean CMN of all events per channels
+    :param meanCMsig: Same thing as meanCMN only the std
+    :param noise: The noise of every channels: shape = (channels)
+    :param numchan: Number of channels
+    :param SN_cut: The SN_cut from the config
+    :param SN_ratio: The SN_ratio from the config
+    :param SN_cluster: The SN_cluster from the config
+    :param max_clustersize: Maximum
+    :param masking: A boolean of automatic masking should be applied
+    :param material: Which base material the sensor is. This is needed for the signal polarity
+    :param poolsize: Poolsize of the multiprocessing
+    :param Pool: The actual muzltiprocessing pool
+    :param noisy_strips: All noisy/masked strips from the user
+    :return: The processed data
+    """
     # Todo: automasking seems to have vanished
+    # Get the number of how many good events there are
     goodevents = goodtiming[0].shape[0]
     automasked = 0
+    # Slice out all good events
     events_good = events[goodtiming[0]]
 
+    # Do in the multiprocessed way if poolsize is greater as one
     if poolsize > 1:
         # Split data for the pools
         splits = int(goodevents/poolsize) # you may loose the last event!!!
@@ -72,6 +120,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
                                masking, material, noisy_strips))
             start=end+1
 
+        # Todo: Currently not working due to performance issues
         #results = Parallel(n_jobs=poolsize, verbose=1, backend='threading', require="sharedmem")(map(delayed(event_process_function_multithread),
         #                                                                                           paramslist))
         results = []
@@ -88,6 +137,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         return prodata, automasked
 
     else:
+        # If no multiprocessing is needed, simply call the event_process_function
         prodata = event_process_function(events_good, pedestal, meanCMN,
                                          meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster,
                                          max_clustersize, masking, material, noisy_strips)
@@ -218,7 +268,28 @@ def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy
 
 jit(nogil=gil,cache=True, nopython=True, fastmath=Fast)
 def nb_process_all_events(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):
-    """Processes events"""
+    """
+    Preprocesses all events and makes some clean-up on the signals.
+    It calculates the SN for every events per channel and the CMN, CMNsig for every event.
+    Furthermore it will return you the pure signal without pedestal, CMN etc.
+
+    Warning: This function uses numpy black magic, if you are confused how a calculate things here,
+             Please read a good introduction to numpy array operations =). But simply put I apply an
+             operation usually to a whole array divisions are such a things. Every value in both
+             arrays will be divided separately etc.
+
+    :param events: All events shape = (events, channels
+    :param pedestal: The pedestal: shape = (channels)
+    :param meanCMN: The mean CMN
+    :param meanCMsig: The mean CMNsig
+    :param noise: The noise per channel: shape = (channels)
+    :param numchan: The number of channels
+    :param noisy_strips: The noisy strips: shape = (channels)
+    :return: corrsignal - signal without the garbage: shape = (events, channels)
+             SN - Signal to noise: shape = (events)
+             CMN - Common mode for every event: shape = (events)
+             CMsig - Common mode std for every event: shape = (events)
+    """
     #Calculate the common mode noise for every channel
     signal = events - pedestal  # Get the signal from event and subtract pedestal
 
@@ -228,11 +299,15 @@ def nb_process_all_events(events, pedestal, meanCMN, meanCMsig, noise, numchan, 
     prosignal = signal
 
     if prosignal.any():
+        # Calculate the mean CMN and CMNsig
         cmpro = np.mean(prosignal, axis=1)
         sigpro = np.std(prosignal, axis=1)
 
+        # Subtract the CMN for all channels
         corrsignal = signal - cmpro[:,None]
+        # Get rid of noisy strips by setting the signal to 0 which are not needed for further calculations
         corrsignal[:, noisy_strips] = 0
+        # Calculate the actuall SN
         SN = corrsignal / noise
 
         return corrsignal, SN, cmpro, sigpro
