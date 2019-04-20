@@ -19,6 +19,13 @@ Render:
             - 221
             - 223
             - 222
+    Cluster:
+        Plots:
+            - plot_cluster_hist
+            - plot_clustersizes
+        arrangement:
+            - 211
+            - 212
     Misc:
         Plots:
             - plot_single_event_ch

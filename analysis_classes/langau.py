@@ -42,8 +42,8 @@ class Langau:
         """
 
         # Set all attributes for the configs
-        for conf in configs:
-            setattr(self, conf)
+        for name, value in configs.items():
+            setattr(self, name, value)
 
         self.log = logger or logging.getLogger(__class__.__name__)
         self.main = main_analysis
@@ -183,7 +183,8 @@ class Langau:
 
             signal_clst_event = []
             noise_clst_event = []
-            for i, ind in enumerate(tqdm(ClusInd[0], desc="(langau) Processing event")):
+            #for i, ind in enumerate(tqdm(ClusInd[0], desc="(langau) Processing event")):
+            for i, ind in enumerate(ClusInd[0]):
                 y = ClusInd[1][i]
                 # Signal calculations
                 signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][y]))

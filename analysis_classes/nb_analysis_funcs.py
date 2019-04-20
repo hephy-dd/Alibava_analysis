@@ -56,7 +56,6 @@ def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
 
     # Pass all events to the clustering algorithm
     for i in prange(0, len(events)):
-
         channels_hit, clusters, numclus, clustersize, automasked_hits = nb_clustering(signal[i], SN[i], noise, SN_cut,
                                                                                       SN_ratio, SN_cluster, numchan,
                                                                                       max_clustersize=max_clustersize,
@@ -107,7 +106,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
 
     Written by Dominic Bloech
     """
-    # Todo: automasking seems to have vanished
+
     # Get the number of how many good events there are
     goodevents = goodtiming[0].shape[0]
     automasked = 0
@@ -204,12 +203,11 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
     else:
         # If none is selected then all will be used
         valid_ind = np.arange(strips)
-        masked_ind = []
 
     # Set all channels in which we search for hits to 0 to make them valid
     used_channels[valid_ind] = 0
-    # Update the hitted channels
-    channels = channels.delete(masked_ind)
+    # Update the hitted channels #TODO: delete the ones which are automasked, delte not working with numba
+    #channels = np.delete(channels, masked_ind) delete not supported by numba
 
     #Todo: misinterpretation of two very close clusters
     for ch in channels:  # Loop over all left channels which are a hit, here from "left" to "right"
