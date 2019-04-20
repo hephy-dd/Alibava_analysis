@@ -58,6 +58,9 @@ class BaseAnalysis:
             [6] = Clusters: shape = (Channels hit shape = (channels in cluster))
             [7] = Number of Clusters: shape = (events)
             [8] = Clustersize: shape = (Channels hit: shape = (len(Clusters))
+
+    Written by Dominic Bloech
+
     """
 
     def __init__(self, main, events, timing, logger = None):

@@ -12,8 +12,14 @@ from .utilities import import_h5
 
 class MainAnalysis:
     # COMMENT: the __init__ should be split up at least into 2 methods
-    """This class analyses measurement files per event and conducts additional
-    defined analysis"""
+    """MainAnalysis simply handles all logic to perform the complete analysis.
+    It first conducts the BaseAnalysis - Preprocessing and Clustering
+    Afterwards if conducts all analysis specified in the configs file.
+    It does not have any fancy algorithms in it.
+
+
+
+    """
     def __init__(self, path, configs, logger=None):
         """
         :param path_list: List of pathes to analyse

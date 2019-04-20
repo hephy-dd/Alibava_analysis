@@ -10,7 +10,10 @@ parallel = True # Use parallel execution
 
 jit(nogil=gil, cache=True, nopython=True, fastmath=Fast)
 def event_process_function_multithread(args):
-    """Just a small wrapper foe the multiprocessing function"""
+    """Just a small wrapper foe the multiprocessing function
+
+    Written by Dominic Bloech
+    """
     events, pedestal, meanCMN, meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize, masking, material, noisy_strips = args
     return event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
                            numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
@@ -37,6 +40,8 @@ def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
     :param noisy_strips:
     :param queue: The queue used to pass data between threads/processes
     :return:
+
+    Written by Dominic Bloech
     """
 
     # Generate the output array
@@ -99,6 +104,8 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
     :param Pool: The actual muzltiprocessing pool
     :param noisy_strips: All noisy/masked strips from the user
     :return: The processed data
+
+    Written by Dominic Bloech
     """
     # Todo: automasking seems to have vanished
     # Get the number of how many good events there are
@@ -163,6 +170,8 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
     :param masking: Bool, if you want masking of channels with false polarity
     :param material: The base material of the sensor, needed for polarity check
     :return:
+
+    Written by Dominic Bloech
     """
 
     automasked_hit = 0
@@ -264,6 +273,8 @@ def nb_noise_calc(events, pedestal, tot_noise=False):
     :param pedestal: the pedestal
     :param tot_noise: bool if you want the tot_noise
     :return:
+
+    Written by Dominic Bloech
     """
     # Calculate the common mode noise for every channel
     # Get the signal from event and subtract pedestal
@@ -330,6 +341,8 @@ def nb_preprocess_all_events(events, pedestal, meanCMN, meanCMsig, noise, numcha
              SN - Signal to noise: shape = (events)
              CMN - Common mode for every event: shape = (events)
              CMsig - Common mode std for every event: shape = (events)
+
+    Written by Dominic Bloech
     """
     #Calculate the common mode noise for every channel
     signal = events - pedestal  # Get the signal from event and subtract pedestal
@@ -358,7 +371,10 @@ def nb_preprocess_all_events(events, pedestal, meanCMN, meanCMsig, noise, numcha
 
 @jit(nopython=False, nogil=True, cache=True)
 def nb_process_cluster_size(args):
-    """get the events with the different clustersizes its the numba optimized version"""
+    """get the events with the different clustersizes its the numba optimized version
+
+    Written by Dominic Bloech
+    """
     size, valid_events_clustersize, valid_events_Signal, valid_events_clusters, noise, charge_cal, convert_ADC = args
     ClusInd = [[], []]
     for i, event in enumerate(valid_events_clustersize):

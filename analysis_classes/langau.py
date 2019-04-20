@@ -11,8 +11,11 @@ from joblib import Parallel, delayed
 
 
 class Langau:
-    """This class calculates the langau distribution and returns the best
-    values for landau and Gauss fit to the data"""
+    """Langau calculates the Landau-Gauss convolution for the energy deposition in sensors.
+
+
+    Written by Dominic Bloech
+    """
     def __init__(self, main_analysis, configs, logger=None):
         """Gets the main analysis class and imports all things needed for its calculations"""
 
