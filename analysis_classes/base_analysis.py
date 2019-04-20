@@ -59,6 +59,17 @@ class BaseAnalysis:
             [7] = Number of Clusters: shape = (events)
             [8] = Clustersize: shape = (Channels hit: shape = (len(Clusters))
 
+
+        # Base Analysis specific params
+            - timing: [min, max] - Minimum/Maximum timing window
+            - sensor_type: "n-in-p" or "p-in-n"
+            - automasking: bool - if automasking of false polarized signals will be done
+            - SN_cut: float - SN ratio at which it is considered a hit
+            - SN_ratio: float - ratio of SN_cut to look for neighbouring hits
+            - SN_cluster: float - Minimum SN of a cluster to be considered
+            - numchan: int - Number of channels
+            - max_clustersize: int - maximum clustersize to look for
+
     Written by Dominic Bloech
 
     """
@@ -75,19 +86,19 @@ class BaseAnalysis:
         self.log = logger or logging.getLogger(__class__.__name__)
         self.main = main
         self.events = events
-        self.timing = timing
+        self.eventtiming = timing
         self.prodata = None
+
+
 
     def run(self):
         """Does the actual event analysis and clustering in optimized python"""
 
         # Get events with good timing and only process these events
-        gtime = np.nonzero(np.logical_and(self.timing >= self.main.tmin,
-                                          self.timing <= self.main.tmax))
+        gtime = np.nonzero(np.logical_and(self.eventtiming >= self.main.timing[0],
+                                          self.eventtiming <= self.main.timing[1]))
         self.main.numgoodevents += int(gtime[0].shape[0])
-        self.timing = self.timing[gtime]
-        meanCMN = np.mean(self.main.CMN)
-        meanCMsig = np.mean(self.main.CMsig)
+        self.eventtiming = self.eventtiming[gtime]
         # Warning: If you have a RS and pulseshape recognition enabled the
         # timing window has to be set accordingly
 
@@ -96,16 +107,16 @@ class BaseAnalysis:
         data, automasked_hits = parallel_event_processing(gtime,
                                                               self.events,
                                                               self.main.pedestal,
-                                                              meanCMN,
-                                                              meanCMsig,
+                                                              np.mean(self.main.CMN),
+                                                              np.mean(self.main.CMsig),
                                                               self.main.noise,
                                                               self.main.numchan,
                                                               self.main.SN_cut,
                                                               self.main.SN_ratio,
                                                               self.main.SN_cluster,
                                                               max_clustersize=self.main.max_clustersize,
-                                                              masking=self.main.masking,
-                                                              material=self.main.material,
+                                                              masking=self.main.automasking,
+                                                              material=self.main.sensor_type,
                                                               poolsize=self.main.process_pool,
                                                               Pool=self.main.Pool,
                                                               noisy_strips=self.main.noise_analysis.noisy_strips)
