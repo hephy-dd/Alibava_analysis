@@ -25,7 +25,6 @@ class MainAnalysis:
            It does not have any fancy algorithms in it.
 
         Config params:
-            # Genrall parameters
             - isBinary: bool - Whether or not the input file is AliBaVa binary or HDF5
             - additional_analysis: list - containing the names of the analysises which should be done
             - Processes: int number of pool size for multiprocessing
@@ -94,7 +93,7 @@ class MainAnalysis:
                                         labels=["Signal", "SN", "CMN", "CMsig",
                                                 "Hitmap", "Channel_hit",
                                                 "Clusters", "Numclus",
-                                                "Clustersize"])
+                                                "Clustersize", "Timing"])
 
         # Now process additional analysis stated in the config file
         # Load all plugins

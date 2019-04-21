@@ -8,6 +8,7 @@ from scipy.optimize import curve_fit
 from tqdm import tqdm
 import pylandau
 from joblib import Parallel, delayed
+from .utilities import set_attributes
 
 
 class Langau:
@@ -41,9 +42,8 @@ class Langau:
         :param logger: A specific logger if you want
         """
 
-        # Set all attributes for the configs
-        for name, value in configs.items():
-            setattr(self, name, value)
+        # Makes the entries of the dict to member object of the class
+        set_attributes(self, configs)
 
         self.log = logger or logging.getLogger(__class__.__name__)
         self.main = main_analysis

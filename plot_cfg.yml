@@ -26,6 +26,15 @@ Render:
         arrangement:
             - 211
             - 212
+    ChargeSharing:
+        Plots:
+            - plot_eta_distribution
+            - plot_theta_distribution
+            - plot_chargesharing_2dhist
+        arrangement:
+            - 221
+            - 222
+            - 223
     Misc:
         Plots:
             - plot_single_event_ch
@@ -34,7 +43,7 @@ Render:
         arrangement:
             - 221
             - 222
-            - 223
+            - 212
     Landau:
         Plots:
             - plot_langau_per_clustersize

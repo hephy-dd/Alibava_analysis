@@ -58,6 +58,7 @@ class BaseAnalysis:
             [6] = Clusters: shape = (Channels hit shape = (channels in cluster))
             [7] = Number of Clusters: shape = (events)
             [8] = Clustersize: shape = (Channels hit: shape = (len(Clusters))
+            [9] = Timing: shape = (events)
 
 
         # Base Analysis specific params
@@ -97,13 +98,14 @@ class BaseAnalysis:
         # Get events with good timing and only process these events
         gtime = np.nonzero(np.logical_and(self.eventtiming >= self.main.timingWindow[0],
                                           self.eventtiming <= self.main.timingWindow[1]))
-        self.eventtiming = self.eventtiming[gtime]
+        #self.eventtiming = self.eventtiming[gtime]
         # Warning: If you have a RS and pulseshape recognition enabled the
         # timing window has to be set accordingly
 
         # This should, in theory, use parallelization of the loop over event
         # but i did not see any performance boost, maybe you can find the bug =)?
         data, automasked_hits = parallel_event_processing(gtime,
+                                                              self.eventtiming,
                                                               self.events,
                                                               self.main.pedestal,
                                                               np.mean(self.main.CMN),

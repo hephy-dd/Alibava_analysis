@@ -360,6 +360,11 @@ def load_dict(filename_):
 # Here the logger will be initialized!
 init_logger(path='logger.yml')
 
+def set_attributes(obj, dict):
+    """Set all attributes for the configs in the passed object"""
+    for name, value in dict.items():
+        setattr(obj, name, value)
+
 
 if __name__ == "__main__":
     pass

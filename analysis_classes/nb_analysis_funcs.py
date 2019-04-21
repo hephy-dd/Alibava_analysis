@@ -22,7 +22,7 @@ def event_process_function_multithread(args):
 jit(nogil=gil, parallel=parallel, nopython=True, fastmath=Fast)
 def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
                            numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
-                           masking, material, noisy_strips, queue=None):
+                           masking, material, noisy_strips, event_timings):
     """
     This function simply handles the preprocessing of all events, like garbage clean up and then clustering
     :param events:
@@ -38,14 +38,14 @@ def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
     :param masking:
     :param material:
     :param noisy_strips:
-    :param queue: The queue used to pass data between threads/processes
+    :param event_timings:
     :return:
 
     Written by Dominic Bloech
     """
 
     # Generate the output array
-    prodata = np.zeros((len(events), 9), dtype=np.object)
+    prodata = np.zeros((len(events), 10), dtype=np.object)
     index = 0
     # Generate the hitmap
     hitmap = np.zeros(numchan)
@@ -75,12 +75,13 @@ def event_process_function(events, pedestal, meanCMN, meanCMsig, noise,
             channels_hit,
             clusters,
             numclus,
-            clustersize])
+            clustersize,
+            event_timings[i]])
         index +=1
     return prodata
 
 jit(nogil=gil, parallel=parallel, nopython=True, fastmath=Fast)
-def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, noise,
+def parallel_event_processing(goodtiming, timings, events, pedestal, meanCMN, meanCMsig, noise,
                               numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize = 5,
                               masking=True, material=1, poolsize = 1, Pool=None, noisy_strips = []):
     """
@@ -111,7 +112,8 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
     goodevents = goodtiming[0].shape[0]
     automasked = 0
     # Slice out all good events
-    events_good = events[goodtiming[0]]
+    events_good = events[goodtiming[0]].astype(np.float32)
+    eventiming = timings[goodtiming[0]].astype(np.float32)
 
     # Do in the multiprocessed way if poolsize is greater as one
     if poolsize > 1:
@@ -123,7 +125,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
             end = splits*(i+1)
             paramslist.append((events_good[start:end], pedestal, meanCMN, meanCMsig,
                                noise, numchan, SN_cut, SN_ratio, SN_cluster, max_clustersize,
-                               masking, material, noisy_strips))
+                               masking, material, noisy_strips, eventiming[start:end]))
             start=end+1
 
         # Todo: Currently not working due to performance issues
@@ -146,7 +148,7 @@ def parallel_event_processing(goodtiming, events, pedestal, meanCMN, meanCMsig, 
         # If no multiprocessing is needed, simply call the event_process_function
         prodata = event_process_function(events_good, pedestal, meanCMN,
                                          meanCMsig, noise, numchan, SN_cut, SN_ratio, SN_cluster,
-                                         max_clustersize, masking, material, noisy_strips)
+                                         max_clustersize, masking, material, noisy_strips, eventiming)
         return np.array(prodata), automasked
 
 @jit(nopython = True, cache=True, nogil=gil, fastmath=Fast)
