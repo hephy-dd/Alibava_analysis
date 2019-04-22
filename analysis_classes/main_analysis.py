@@ -114,7 +114,7 @@ class MainAnalysis:
             "                                                                         \n"
             "*************************************************************************\n"\
             .format(automasked=42,
-                    events=42,
+                    events=len(self.outputdata["base"]["Signal"]),
                     time=round((time() - self.start), 1)))
 
         # Close the pool

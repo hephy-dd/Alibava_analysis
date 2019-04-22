@@ -55,9 +55,11 @@ Render:
         Plots:
             - plot_timing_profile
             - plot_histogram_of_timing
+            - plot_2d_timing_profile
         arrangement:
-            - 211
-            - 212
+            - 221
+            - 223
+            - 222
 
 Plot_single_event: 1000
 Plot_seed_cut: True
@@ -66,3 +68,8 @@ Upper_limits_conversion:
     ADC_Signal: 250
     e_Signal: 30000
 Fit_langau: True # Fit a langau or not (sometimes the data does not represent a langau at all)
+
+Timing2Dhist:
+    bins: 30
+    yrange: [-250, -1]
+    invertY: True # Can come in handy when handling negative ADC, warning this also applies to the other timing plots!!

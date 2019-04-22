@@ -35,6 +35,7 @@ class PlotData:
                     except Exception as err:
                         self.log.error("Plotting function {} raised an error. Error: {}".format(funcname, err))
                 fig.subplots_adjust(hspace = 0.3) # Adjusts the padding so nothing is overlapping
+                fig.subplots_adjust(wspace = 0.3) # Adjusts the padding so nothing is overlapping
 
     def show_plots(self):
         """Draw and show plots"""
@@ -352,8 +353,13 @@ class PlotData:
             return plot
 
     def plot_timing_profile(self, cfg, obj, fig=None):
-        # Plot timing profile
+        """Plots the average signal in 1ns steps for each timing of an event.
+        Ideally this should be constant. No matter at what timing the signals are coming.
+        But if you have pulse shape recognition activated the sampling starts at different timings
+        for each event. If the algorithm misjudges the rising edge du to noise etc. the timing profile can
+        differ. With this plot you can check this."""
         data = obj["MainAnalysis"]["base"]
+        configs = self.cfg.get("Timing2Dhist", {})
         timing_plot = handle_sub_plots(fig, cfg)
         timing_plot.set_xlabel('timing [ns]')
         timing_plot.set_ylabel('average signal [ADC]')
@@ -364,18 +370,24 @@ class PlotData:
         sum_singal = np.zeros(len(signal))
         for i, sig, chan in zip(np.arange(len(signal)), signal, channels_hit):
             sum_singal[i] = np.sum(sig[chan])
-        timing_data = np.zeros(150)
+        max_time = int(np.max(time)+1)
+        timing_data = np.zeros(max_time)
         # var_timing_data = np.zeros(150)
-        for timing in range(1, 151):  # Timing of ALiBaVa
+        for timing in range(1, max_time):  # Timing of ALiBaVa
             timing_in = np.nonzero(np.logical_and(time >= timing - 1, time < timing))
             if len(timing_in[0]):
                 timing_data[timing - 1] = np.median(sum_singal[timing_in[0]])
             # var_timing_data[timing-1] = np.std(sum_singal[timing_in[0]])
 
-        timing_plot.bar(np.arange(0, 150), timing_data, alpha=0.4, color="b")  # , yerr=var_timing_data)
+        timing_plot.bar(np.arange(0, max_time), timing_data, alpha=0.4, color="b")  # , yerr=var_timing_data)
+        if configs.get("invertY", False):
+            timing_plot.invert_yaxis()
 
     def plot_histogram_of_timing(self, cfg, obj, fig=None):
-        # Plot histogram of timing
+        """This simply pots a histogram of all timings.
+        If pulse shape recognition is on this should be equally distributed.
+        """
+        # Todo: test it without PSR
         data = obj["MainAnalysis"]["base"]
         timing_hist_plot = handle_sub_plots(fig, cfg)
         timing_hist_plot.set_xlabel('timing [ns]')
@@ -384,6 +396,32 @@ class PlotData:
 
         timing_hist_plot.hist(data["Timing"].astype(np.float32), 150, alpha=0.4, color="b")
 
+    def plot_2d_timing_profile(self, cfg, obj, fig=None):
+        """Plots the 2D histogram of the timing profile.
+        Warning: No averaging done here!!!
+        It considers only the hitted channels and sums up the ADC for clusters"""
+
+        data = obj["MainAnalysis"]["base"]
+        configs = self.cfg["Timing2Dhist"]
+        plot = handle_sub_plots(fig, cfg)
+        plot.set_xlabel('timing [ns]')
+        plot.set_ylabel('ADC [#]')
+        plot.set_title('2D Histogram of timings with signal')
+
+        signal = data["Signal"]
+        channels_hit = data["Channel_hit"]
+        time = data["Timing"].astype(np.float32)
+        sum_singal = np.zeros(len(signal))
+        for i, sig, chan in zip(np.arange(len(signal)), signal, channels_hit):
+            sum_singal[i] = np.sum(sig[chan])
+
+
+        counts, xedges, yedges, im = plot.hist2d(time, sum_singal,
+                                                 bins=configs.get("bins", 30),
+                                                 range=[[0, np.max(time)], configs.get("yrange",[-250, -1])])
+        fig.colorbar(im)
+        if configs.get("invertY", False):
+            plot.invert_yaxis()
 
     def plot_chargesharing_2dhist(self, cfg, obj, fig=None):
             """Plots the 2dhisto of the chargesharing"""
