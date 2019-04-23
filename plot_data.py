@@ -1,6 +1,7 @@
 """PlotData Class"""
-# pylint: disable=R0201,C0103,E0401
+# pylint: disable=R0201,C0103,E0401,R0913
 import numpy as np
+import logging
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 import logging
@@ -10,7 +11,8 @@ from analysis_classes.utilities import create_dictionary
 
 class PlotData:
     """Plots for ALiBaVa Analysis"""
-    def __init__(self):
+    def __init__(self, logger=None):
+        self.log = logger or logging.getLogger(__class__.__name__)
         # canvas for plotting the data [width, height (inches)]
 
         self.log = logging.getLogger(__name__)
@@ -305,9 +307,9 @@ class PlotData:
                           alpha=0.3, color=colour[i],
                           label="Clustersize: {!s}".format(i + 1))
             else:
-                # self.log.warning(
-                #     "To many histograms for this plot. "
-                #     "Colorscheme only supports seven different histograms. Extend if need be!")
+                self.log.warning(
+                    "To many histograms for this plot. "
+                    "Colorscheme only supports seven different histograms. Extend if need be!")
                 continue
 
         plot.legend()
@@ -336,7 +338,7 @@ class PlotData:
                     "sigma = %.2f" %(data["langau_coeff_SC"][2]),
                     "A = %.2f" %(data["langau_coeff_SC"][3])))
                                      # "entries = %.f" %(len(gain_lst))))
-                plot.text(0.8, 0.8, textstr, transform=plot.transAxes,
+                plot.text(0.6, 0.7, textstr, transform=plot.transAxes,
                           fontsize=10,
                           verticalalignment='top',
                           bbox=dict(boxstyle='round',
@@ -347,8 +349,8 @@ class PlotData:
                 #               fmt=".", color="r", label="Error of Fit")
             plot.set_xlabel('Seed Signal [e]')
             plot.set_ylabel('Events [#]')
-            if fig is None:
-                plot.set_title('Seed Signal in e')
+            # if fig is None:
+            plot.set_title('Seed Signal in e')
             plot.legend()
             return plot
 
@@ -460,3 +462,36 @@ class PlotData:
         plot.set_ylabel('entries')
         plot.set_title('Theta distribution')
 
+
+    def plot_efficiency(self, obj, fig=None, aim_eff=0.95,
+                        max_range=10000, step_size=100):
+        """Plot efficiency of seed signals vs. applied threshold and
+        show the maximum threshold for aim_eff"""
+        plot = handle_sub_plots(fig, 337)
+        data = obj.outputdata["Langau"]
+        eff_lst = []
+        step_lst = np.arange(0, max_range, step_size)
+        tot_len = len(data["signal_SC"])
+        for step in step_lst:
+            eff_lst.append(len(np.nonzero(data["signal_SC"] > step)[0])/tot_len)
+        plot.plot(step_lst, eff_lst, "r--", label="Efficiency")
+        threshold = round(np.polyval(
+            np.polyfit(eff_lst, step_lst, deg=5, full=False), aim_eff))
+        if threshold > max_range:
+            threshold = "> " + str(max_range)
+        else:
+            threshold = str(threshold)
+        textstr = '\n'.join((
+            "Sth @ %s = %s" %(str(aim_eff), threshold),
+            "Events = %.f" %(tot_len)))
+        plot.text(0.1, 0.2, textstr, transform=plot.transAxes,
+                  fontsize=10,
+                  verticalalignment='top',
+                  bbox=dict(boxstyle='round',
+                            facecolor='white',
+                            alpha=0.5))
+        plot.set_xlabel("Threshold [e]")
+        plot.set_ylabel("Efficiency [%]")
+        plot.set_title("Efficiency vs. Seed Threshold")
+        plot.legend()
+        return plot
