@@ -42,8 +42,8 @@ class Langau:
         """
 
         # Set all attributes for the configs
-        for conf in configs:
-            setattr(self, conf)
+        for name, value in configs.items():
+            setattr(self, name, value)
 
         self.log = logger or logging.getLogger(__class__.__name__)
         self.main = main_analysis

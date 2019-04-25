@@ -97,7 +97,6 @@ class BaseAnalysis:
         # Get events with good timing and only process these events
         gtime = np.nonzero(np.logical_and(self.eventtiming >= self.main.timing[0],
                                           self.eventtiming <= self.main.timing[1]))
-        self.main.numgoodevents += int(gtime[0].shape[0])
         self.eventtiming = self.eventtiming[gtime]
         # Warning: If you have a RS and pulseshape recognition enabled the
         # timing window has to be set accordingly

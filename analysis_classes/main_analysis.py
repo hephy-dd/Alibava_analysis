@@ -46,7 +46,7 @@ class MainAnalysis:
 
         self.outputdata = {}
         self.results = self.outputdata
-        self.configs = self.congfigure_configs(configs)
+        self.configs = self.configure_configs(configs)
         self.configs_dict = configs
 
         # Get the objects from calibration and Noise etc.
@@ -129,5 +129,5 @@ class MainAnalysis:
         """Takes every parent entry in the configs dict and makes a object for
         the main class"""
 
-        for conf in configs:
-            setattr(self, conf)
+        for name, value in configs.items():
+            setattr(self, name, value)
