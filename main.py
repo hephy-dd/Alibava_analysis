@@ -33,7 +33,7 @@ def main(args):
                     "noise_analysis": ped_data})
 
         run_data = MainAnalysis(run, configs=cfg)
-        results["MainAnalysis"] = run_data
+        results["MainAnalysis"] = run_data.results
 
         # Start plotting all results
         plot.plot_data(cfg, results, group="from_file")

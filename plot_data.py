@@ -22,10 +22,11 @@ class PlotData:
         showing the canvas by setting "show" to False.
         Returns matplotlib.pyplot.figure object.
         """
-        figures = []
+
         if group=="all" or group=="from_file":
             for grp in self.cfg["Render"]:
                 fig_name = grp
+                self.log.info("Plotting group: {}".format(grp))
                 fig = plt.figure(fig_name, figsize=[10, 8])
                 for funcname, cfg in zip(self.cfg["Render"][grp]["Plots"], self.cfg["Render"][grp]["arrangement"]):
                     try:
@@ -34,6 +35,7 @@ class PlotData:
                     except Exception as err:
                         self.log.error("Plotting function {} raised an error. Error: {}".format(funcname, err))
                 fig.subplots_adjust(hspace = 0.3) # Adjusts the padding so nothing is overlapping
+                fig.subplots_adjust(wspace = 0.3) # Adjusts the padding so nothing is overlapping
 
     def show_plots(self):
         """Draw and show plots"""
@@ -193,11 +195,11 @@ class PlotData:
     def plot_cluster_hist(self, cfg, obj, fig=None):
         """Plots cluster size distribution of all event clusters"""
         # Plot Clustering results
-        data = obj["MainAnalysis"]
+        data = obj["MainAnalysis"]["base"]
         numclusters_plot = handle_sub_plots(fig, cfg)
 
         # Plot Number of clusters
-        bins, counts = np.unique(data.outputdata["base"]["Numclus"],
+        bins, counts = np.unique(data["Numclus"],
                                  return_counts=True)
         numclusters_plot.bar(bins, counts, alpha=0.4, color="b")
         numclusters_plot.set_xlabel('Number of clusters [#]')
@@ -208,10 +210,10 @@ class PlotData:
 
     def plot_clustersizes(self, cfg, obj, fig=None):
         """Plot clustersizes"""
-        data = obj["MainAnalysis"]
+        data = obj["MainAnalysis"]["base"]
         clusters_plot = handle_sub_plots(fig, cfg)
 
-        bins, counts = np.unique(np.concatenate(data.outputdata["base"]["Clustersize"]),
+        bins, counts = np.unique(np.concatenate(data["Clustersize"]),
                                  return_counts=True)
         clusters_plot.bar(bins, counts, alpha=0.4, color="b")
         clusters_plot.set_xlabel('Clustersize [#]')
@@ -225,12 +227,14 @@ class PlotData:
 
     def plot_hitmap(self, cfg, obj, fig=None):
         """Plots the hitmap of the measurement."""
-        data = obj["MainAnalysis"]
+        data = obj["MainAnalysis"]["base"]
         hitmap_plot = handle_sub_plots(fig, cfg)
         hitmap_plot.set_title("Event Hitmap")
-        hitmap_plot.bar(np.arange(data.numchan),
-                        data.outputdata["base"]["Hitmap"][len(data.outputdata["base"]["Hitmap"]) - 1],
-                        1., alpha=0.4, color="b")
+        hitmap_plot.bar(np.arange(len(data["Hitmap"][0])),
+                        data["Hitmap"][len(data["Hitmap"]) - 1],
+                        1.,
+                        alpha=0.4,
+                        color="b")
         hitmap_plot.set_xlabel('channel [#]')
         hitmap_plot.set_ylabel('Hits [#]')
         if fig is None:
@@ -240,11 +244,11 @@ class PlotData:
     def plot_single_event_ch(self, cfg, obj, fig=None):
         """ Plots a single event and its data"""
         # fig = plt.figure("Event number {!s}, from file: {!s}".format(eventnum, file))
-        data = obj["MainAnalysis"]
+        data = obj["MainAnalysis"]["base"]
         eventnum = self.cfg["Plot_single_event"]
         channel_plot = handle_sub_plots(fig, cfg)
-        channel_plot.bar(np.arange(data.numchan),
-                         data.outputdata["base"]["Signal"][eventnum], 1.,
+        channel_plot.bar(np.arange(len(data["Signal"][0])),
+                         data["Signal"][eventnum], 1.,
                          alpha=0.4, color="b")
         channel_plot.set_xlabel('channel [#]')
         channel_plot.set_ylabel('Signal [ADC]')
@@ -253,11 +257,11 @@ class PlotData:
 
     def plot_single_event_SN(self, cfg, obj, fig=None):
         """Plot signal/Noise"""
-        data = obj["MainAnalysis"]
+        data = obj["MainAnalysis"]["base"]
         eventnum = self.cfg["Plot_single_event"]
         SN_plot = handle_sub_plots(fig, cfg)
-        SN_plot.bar(np.arange(data.numchan),
-                    data.outputdata["base"]["SN"][eventnum], 1.,
+        SN_plot.bar(np.arange(len(data["Signal"][0])),
+                    data["SN"][eventnum], 1.,
                     alpha=0.4, color="b")
         SN_plot.set_xlabel('channel [#]')
         SN_plot.set_ylabel('Signal/Noise [ADC]')
@@ -267,9 +271,8 @@ class PlotData:
 
     def plot_langau_per_clustersize(self, cfg, obj, fig=None):
         """Plots the data calculated so the energy data and the langau"""
-        data = obj["MainAnalysis"]
+        data = obj["MainAnalysis"]["Langau"]
         fit_langau = self.cfg["Fit_langau"]
-        data = data.outputdata["Langau"]
         # fig = plt.figure("Langau from file: {!s}".format(file))
         # Plot delay
         plot = handle_sub_plots(fig, cfg)
@@ -312,7 +315,7 @@ class PlotData:
 
     def plot_seed_signal_e(self, cfg, obj, fig=None):
         """Plots seed signal and langau distribution"""
-        data = obj["MainAnalysis"]
+        data = obj["MainAnalysis"]["Langau"]
         seed_cut = self.cfg["Plot_seed_cut"]
         fit_langau = self.cfg["Fit_langau"]
         if seed_cut:
@@ -320,7 +323,6 @@ class PlotData:
             # Plot Seed cut langau
             plot = handle_sub_plots(fig, cfg)
             # indizes = np.nonzero(data["signal_SC"] > 0)[0]
-            data = data.outputdata["Langau"]
             plot.hist(data["signal_SC"],
                       bins=data["bins"], density=False,
                       alpha=0.4, color="b", label="Signals")
@@ -351,32 +353,110 @@ class PlotData:
             return plot
 
     def plot_timing_profile(self, cfg, obj, fig=None):
-        # Plot timing profile
-        data = obj["MainAnalysis"]
+        """Plots the average signal in 1ns steps for each timing of an event.
+        Ideally this should be constant. No matter at what timing the signals are coming.
+        But if you have pulse shape recognition activated the sampling starts at different timings
+        for each event. If the algorithm misjudges the rising edge du to noise etc. the timing profile can
+        differ. With this plot you can check this."""
+        data = obj["MainAnalysis"]["base"]
+        configs = self.cfg.get("Timing2Dhist", {})
         timing_plot = handle_sub_plots(fig, cfg)
         timing_plot.set_xlabel('timing [ns]')
         timing_plot.set_ylabel('average signal [ADC]')
         timing_plot.set_title('Average timing signal of seed hits')
-        signal = data.prodata[:, 0]
-        channels_hit = data.prodata[:, 5]
+        signal = data["Signal"]
+        channels_hit = data["Channel_hit"]
+        time = data["Timing"].astype(np.float32)
         sum_singal = np.zeros(len(signal))
         for i, sig, chan in zip(np.arange(len(signal)), signal, channels_hit):
             sum_singal[i] = np.sum(sig[chan])
-        timing_data = np.zeros(150)
+        max_time = int(np.max(time)+1)
+        timing_data = np.zeros(max_time)
         # var_timing_data = np.zeros(150)
-        for timing in range(1, 151):  # Timing of ALiBaVa
-            timing_in = np.nonzero(np.logical_and(data.timing >= timing - 1, data.timing < timing))
-            timing_data[timing - 1] = np.median(sum_singal[timing_in[0]])
+        for timing in range(1, max_time):  # Timing of ALiBaVa
+            timing_in = np.nonzero(np.logical_and(time >= timing - 1, time < timing))
+            if len(timing_in[0]):
+                timing_data[timing - 1] = np.median(sum_singal[timing_in[0]])
             # var_timing_data[timing-1] = np.std(sum_singal[timing_in[0]])
 
-        timing_plot.bar(np.arange(0, 150), timing_data, alpha=0.4, color="b")  # , yerr=var_timing_data)
+        timing_plot.bar(np.arange(0, max_time), timing_data, alpha=0.4, color="b")  # , yerr=var_timing_data)
+        if configs.get("invertY", False):
+            timing_plot.invert_yaxis()
 
     def plot_histogram_of_timing(self, cfg, obj, fig=None):
-        # Plot histogram of timing
-        data = obj["MainAnalysis"]
+        """This simply pots a histogram of all timings.
+        If pulse shape recognition is on this should be equally distributed.
+        """
+        # Todo: test it without PSR
+        data = obj["MainAnalysis"]["base"]
         timing_hist_plot = handle_sub_plots(fig, cfg)
         timing_hist_plot.set_xlabel('timing [ns]')
         timing_hist_plot.set_ylabel('count [#]')
         timing_hist_plot.set_title('Histogram of timings')
 
-        timing_hist_plot.hist(data.timing, 150, alpha=0.4, color="b")
+        timing_hist_plot.hist(data["Timing"].astype(np.float32), 150, alpha=0.4, color="b")
+
+    def plot_2d_timing_profile(self, cfg, obj, fig=None):
+        """Plots the 2D histogram of the timing profile.
+        Warning: No averaging done here!!!
+        It considers only the hitted channels and sums up the ADC for clusters"""
+
+        data = obj["MainAnalysis"]["base"]
+        configs = self.cfg["Timing2Dhist"]
+        plot = handle_sub_plots(fig, cfg)
+        plot.set_xlabel('timing [ns]')
+        plot.set_ylabel('ADC [#]')
+        plot.set_title('2D Histogram of timings with signal')
+
+        signal = data["Signal"]
+        channels_hit = data["Channel_hit"]
+        time = data["Timing"].astype(np.float32)
+        sum_singal = np.zeros(len(signal))
+        for i, sig, chan in zip(np.arange(len(signal)), signal, channels_hit):
+            sum_singal[i] = np.sum(sig[chan])
+
+
+        counts, xedges, yedges, im = plot.hist2d(time, sum_singal,
+                                                 bins=configs.get("bins", 30),
+                                                 range=[[0, np.max(time)], configs.get("yrange",[-250, -1])])
+        fig.colorbar(im)
+        if configs.get("invertY", False):
+            plot.invert_yaxis()
+
+    def plot_chargesharing_2dhist(self, cfg, obj, fig=None):
+            """Plots the 2dhisto of the chargesharing"""
+
+            data = obj["MainAnalysis"]["ChargeSharing"]
+            # Plot delay
+            plot = fig.add_subplot(cfg)
+            counts, xedges, yedges, im = plot.hist2d(data["data"][0, :], data["data"][1, :], bins=400,
+                                                     range=[[0, 50000], [0, 50000]])
+            plot.set_xlabel('A_left (electrons)')
+            plot.set_ylabel('A_right (electrons)')
+            fig.colorbar(im)
+            plot.set_title('Eta distribution')
+
+    def plot_eta_distribution(self, cfg, obj, fig=None):
+            """Plots the theta distribution of the chargesharing analysis"""
+
+            data = obj["MainAnalysis"]["ChargeSharing"]
+            plot = fig.add_subplot(cfg)
+            counts, edges, im = plot.hist(data["eta"], bins=300, range=(0, 1), alpha=0.4, color="b")
+            # left = stats.norm.pdf(data["fits"][2][:100], loc=data["fits"][0][0], scale=data["fits"][0][1])
+            # right = stats.norm.pdf(data["fits"][2], loc=data["fits"][1][0], scale=data["fits"][1][1])
+            # plot.plot(data["fits"][2][:100], left,"r--", color="r")
+            # plot.plot(data["fits"][2], right,"r--", color="r")
+            plot.set_xlabel('eta')
+            plot.set_ylabel('entries')
+            plot.set_title('Eta distribution')
+
+    def plot_theta_distribution(self, cfg, obj, fig=None):
+        """Plots the eta distribution of the chargesharing analysis"""
+
+        data = obj["MainAnalysis"]["ChargeSharing"]
+        plot = fig.add_subplot(cfg)
+        counts, edges, im = plot.hist(data["theta"] / np.pi, bins=300, alpha=0.4, color="b", range=(0, 0.5))
+        plot.set_xlabel('theta/Pi')
+        plot.set_ylabel('entries')
+        plot.set_title('Theta distribution')
+
