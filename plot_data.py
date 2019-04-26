@@ -228,25 +228,33 @@ class PlotData:
     def plot_hitmap_per_clustersize(self, cfg, obj, fig=None):
         """Plots the hitmap per clustersize"""
         data = obj["MainAnalysis"]["base"]
-        hitmap_plot = handle_sub_plots(fig, cfg)
-        hitmap_plot.set_title("Hitmap per clustersize")
-        hitmap_plot.set_xlabel('channel [#]')
-        hitmap_plot.set_ylabel('Hits [#]')
+        hit_plot = handle_sub_plots(fig, cfg)
+        hit_plot.set_title("Hitmap per clustersize")
+        hit_plot.set_xlabel('channel [#]')
+        hit_plot.set_ylabel('Hits [#]')
         # Plot the different clustersizes
         colour = ['green', 'red', 'orange', 'cyan', 'black', 'pink', 'magenta']
 
+        # Get only events with one cluster inside
+        ind_only_one_cluster = np.nonzero(data["Numclus"] == 1)
+        clusters_raw = np.take(data["Clustersize"], ind_only_one_cluster)
+        clusters_flattend = np.concatenate(clusters_raw[0]).ravel()
         max_cluster = self.cfg["hitmap_max_clustersize"]
-        for clus in range(max_cluster):
-            hitmap = np.zeros(256)
-            # Get clusters
-            indizes_clusters = np.nonzero(data["Clustersize"] == clus)
-            hitted = np.take(data["Clusters"], indizes_clusters)
-            hitted_flatten = np.concatenate(hitted).ravel()
-            hitmap_plot.hist(hitted_flatten, range=(0, 256), bins=256,
-                        alpha=0.3, color=colour[clus],
-                        label="Clustersize: {!s}".format(clus + 1))
 
-        return hitmap_plot
+
+        for clus in range(1, max_cluster+1):
+            # Get clusters
+            indizes_clustersize = np.nonzero(clusters_flattend == clus)
+            indizes = np.take(ind_only_one_cluster, indizes_clustersize)[0]
+            hitted = np.take(data["Clusters"], indizes)
+            hitted_flatten = np.concatenate(hitted).ravel()
+
+            hit_plot.hist(hitted_flatten, range=(0, 256), bins=256,
+                        alpha=0.3, color=colour[clus-1],
+                        label="Clustersize: {!s}".format(clus))
+
+        hit_plot.legend()
+        return hit_plot
 
     def plot_hitmap(self, cfg, obj, fig=None):
         """Plots the hitmap of the measurement."""

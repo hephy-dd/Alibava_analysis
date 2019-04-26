@@ -27,7 +27,7 @@ Render:
         arrangement:
             - 221
             - 222
-            - 213
+            - 223
     ChargeSharing:
         Plots:
             - plot_eta_distribution
@@ -45,7 +45,7 @@ Render:
         arrangement:
             - 221
             - 222
-            - 212
+            - 223
     Landau:
         Plots:
             - plot_langau_per_clustersize
