@@ -23,9 +23,11 @@ Render:
         Plots:
             - plot_cluster_hist
             - plot_clustersizes
+            - plot_hitmap_per_clustersize
         arrangement:
-            - 211
-            - 212
+            - 221
+            - 222
+            - 213
     ChargeSharing:
         Plots:
             - plot_eta_distribution
@@ -64,6 +66,7 @@ Render:
 Plot_single_event: 1000
 Plot_seed_cut: True
 Gain_cut: 1.5
+hitmap_max_clustersize: 3
 Upper_limits_conversion:
     ADC_Signal: 250
     e_Signal: 30000

@@ -225,6 +225,29 @@ class PlotData:
         # fig.subplots_adjust(top=0.88)
         return clusters_plot
 
+    def plot_hitmap_per_clustersize(self, cfg, obj, fig=None):
+        """Plots the hitmap per clustersize"""
+        data = obj["MainAnalysis"]["base"]
+        hitmap_plot = handle_sub_plots(fig, cfg)
+        hitmap_plot.set_title("Hitmap per clustersize")
+        hitmap_plot.set_xlabel('channel [#]')
+        hitmap_plot.set_ylabel('Hits [#]')
+        # Plot the different clustersizes
+        colour = ['green', 'red', 'orange', 'cyan', 'black', 'pink', 'magenta']
+
+        max_cluster = self.cfg["hitmap_max_clustersize"]
+        for clus in range(max_cluster):
+            hitmap = np.zeros(256)
+            # Get clusters
+            indizes_clusters = np.nonzero(data["Clustersize"] == clus)
+            hitted = np.take(data["Clusters"], indizes_clusters)
+            hitted_flatten = np.concatenate(hitted).ravel()
+            hitmap_plot.hist(hitted_flatten, range=(0, 256), bins=256,
+                        alpha=0.3, color=colour[clus],
+                        label="Clustersize: {!s}".format(clus + 1))
+
+        return hitmap_plot
+
     def plot_hitmap(self, cfg, obj, fig=None):
         """Plots the hitmap of the measurement."""
         # Todo: plot hitmap per clustersize
