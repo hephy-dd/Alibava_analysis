@@ -84,6 +84,7 @@ class ChargeSharing:
         # Todo: not yet working correctly
         bins = 200
         etahist, edges = np.histogram(eta, bins=bins)
+        thetahist, edges = np.histogram(theta, bins=bins)
         length = len(etahist)
         mul, stdl = norm.fit(etahist[:int(length / 2)])
         mur, stdr = norm.fit(etahist[int(length / 2):])
@@ -91,6 +92,8 @@ class ChargeSharing:
         self.results_dict["data"] = final_data
         self.results_dict["eta"] = eta
         self.results_dict["theta"] = theta
-        self.results_dict["fits"] = ((mul, stdl), (mur, stdr), edges, bins)
+        self.results_dict["fits"] = {}
+        self.results_dict["fits"]["eta"] = (etahist, edges, bins)
+        self.results_dict["fits"]["theta"] = (thetahist, edges, bins)
 
         return self.results_dict.copy()

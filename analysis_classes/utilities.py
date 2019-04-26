@@ -15,6 +15,7 @@ from tqdm import tqdm
 from six.moves import cPickle as pickle  # for performance
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import scipy.integrate as integrate
 
 def read_meas_files(cfg):
     """Reads cfg file, returns lists of files and compares their length"""
@@ -364,6 +365,10 @@ def set_attributes(obj, dict):
     """Set all attributes for the configs in the passed object"""
     for name, value in dict.items():
         setattr(obj, name, value)
+
+def integ(f,*args):
+    '''Generall purpose integration function'''
+    return integrate.quad(lambda x: float(f(x,*args)), 80, 180)
 
 
 if __name__ == "__main__":

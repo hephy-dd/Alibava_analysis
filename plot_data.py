@@ -227,6 +227,8 @@ class PlotData:
 
     def plot_hitmap(self, cfg, obj, fig=None):
         """Plots the hitmap of the measurement."""
+        # Todo: plot hitmap per clustersize
+
         data = obj["MainAnalysis"]["base"]
         hitmap_plot = handle_sub_plots(fig, cfg)
         hitmap_plot.set_title("Event Hitmap")
@@ -459,4 +461,9 @@ class PlotData:
         plot.set_xlabel('theta/Pi')
         plot.set_ylabel('entries')
         plot.set_title('Theta distribution')
+
+    def plot_eta_algorithm_positions(self, cfg, obj, fig=None):
+        """Eta algorithm positions plot"""
+        pass
+
 
