@@ -68,14 +68,14 @@ class PositionResolution:
     def eta_algorithm(self, etas, N, etaedges):
 
         # Calculate the diffs dN/deta
-        dNdx = np.diff(N) / np.diff(etaedges)
+        dNdx = np.diff(N) / np.diff(etaedges[:-1])
         # Will be integrated from 0-1, because first starts at 0 and last ends at 1
-        integratedeta = integrate.trapz(dNdx, etaedges)
+        integratedeta = integrate.trapz(dNdx, etaedges[:-2])
 
         # Generate output array
         positions = np.zeros(len(etas), dtype=np.float)
         for i, eta in enumerate(etas):
-            endedge = np.nonzero(etaedges <= eta)
+            endedge = np.nonzero(etaedges <= eta)[0]
             positions[i] = self.pitch*integrate.trapz(dNdx, etaedges[endedge])/integratedeta
 
         return positions
