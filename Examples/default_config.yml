@@ -29,7 +29,8 @@ optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can 
 additional_analysis:
     #- Langau
     #- CCE
-    #- ChargeSharing
+    - ChargeSharing
+    - PositionResolution
 
 langau:
   clustersize: [1,2,3] # Defines which cluster sizes should be fitted with a langau, list of values defines only these, negative values are for all clustersizes
