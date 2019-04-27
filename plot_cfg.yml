@@ -33,10 +33,12 @@ Render:
             - plot_eta_distribution
             - plot_theta_distribution
             - plot_chargesharing_2dhist
+            - plot_eta_algorithm_positions
         arrangement:
             - 221
             - 222
             - 223
+            - 224
     Misc:
         Plots:
             - plot_single_event_ch

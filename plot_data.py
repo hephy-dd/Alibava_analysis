@@ -474,27 +474,45 @@ class PlotData:
 
             data = obj["MainAnalysis"]["ChargeSharing"]
             plot = fig.add_subplot(cfg)
-            counts, edges, im = plot.hist(data["eta"], bins=300, range=(0, 1), alpha=0.4, color="b")
-            # left = stats.norm.pdf(data["fits"][2][:100], loc=data["fits"][0][0], scale=data["fits"][0][1])
-            # right = stats.norm.pdf(data["fits"][2], loc=data["fits"][1][0], scale=data["fits"][1][1])
-            # plot.plot(data["fits"][2][:100], left,"r--", color="r")
-            # plot.plot(data["fits"][2], right,"r--", color="r")
+            counts, edges, im = plot.hist(data["eta"], bins=200, range=(0, 1), alpha=0.4, color="b")
             plot.set_xlabel('eta')
             plot.set_ylabel('entries')
             plot.set_title('Eta distribution')
+
+            if "PositionResolution" in obj["MainAnalysis"]:
+                data2 = obj["MainAnalysis"]["PositionResolution"]
+                plot.plot(data["fits"]["eta"][1][:-1], data2["N_eta"], color="red")
 
     def plot_theta_distribution(self, cfg, obj, fig=None):
         """Plots the eta distribution of the chargesharing analysis"""
 
         data = obj["MainAnalysis"]["ChargeSharing"]
         plot = fig.add_subplot(cfg)
-        counts, edges, im = plot.hist(data["theta"] / np.pi, bins=300, alpha=0.4, color="b", range=(0, 0.5))
+        counts, edges, im = plot.hist(data["theta"] / np.pi, bins=200, alpha=0.4, color="b", range=(0, 0.5))
         plot.set_xlabel('theta/Pi')
         plot.set_ylabel('entries')
         plot.set_title('Theta distribution')
 
+        if "PositionResolution" in obj["MainAnalysis"]:
+            data2 = obj["MainAnalysis"]["PositionResolution"]
+            plot.plot(data["fits"]["theta"][1][:-1]/np.pi, data2["N_theta"], color="red")
+
     def plot_eta_algorithm_positions(self, cfg, obj, fig=None):
         """Eta algorithm positions plot"""
-        pass
+        data = obj["MainAnalysis"]["PositionResolution"]
+        plot = fig.add_subplot(cfg)
+        plot.set_xlabel('Position [um]')
+        plot.set_ylabel('Hits [#]')
+        plot.set_title('Hit positions with eta')
+        counts, edges, im = plot.hist(data["eta"], bins=50, alpha=0.4, color="b")
+
+    def plot_theta_algorithm_positions(self, cfg, obj, fig=None):
+        """Eta algorithm positions plot"""
+        data = obj["MainAnalysis"]["PositionResolution"]
+        plot = fig.add_subplot(cfg)
+        plot.set_xlabel('Position [um]')
+        plot.set_ylabel('Hits [#]')
+        plot.set_title('Hit positions with theta')
+        counts, edges, im = plot.hist(data["theta"], bins=50, alpha=0.4, color="b")
 
 

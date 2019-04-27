@@ -5,9 +5,9 @@ to this Analysis"""
 
 import logging
 import numpy as np
-from scipy.stats import norm
 from .utilities import set_attributes
-import scipy.integrate as integrate
+from scipy.interpolate import CubicSpline
+from scipy.signal import savgol_filter
 
 
 class PositionResolution:
@@ -55,27 +55,37 @@ class PositionResolution:
         """Does all the work"""
 
         # Eta positions
-        eta_pos = self.eta_algorithm(self.eta, self.Neta, self.etaedges)
-        theta_pos = self.eta_algorithm(self.theta, self.Ntheta, self.thetaedges)
+        eta_pos, Neta = self.eta_algorithm(self.eta, self.Neta, self.etaedges)
+        theta_pos, Ntheta = self.eta_algorithm(self.theta, self.Ntheta, self.thetaedges)
 
-        self.results = {"eta": eta_pos, "theta": theta_pos}
+        self.results = {"eta": eta_pos, "theta": theta_pos, "N_theta": Ntheta, "N_eta": Neta}
 
         return self.results
 
-
-
-
     def eta_algorithm(self, etas, N, etaedges):
 
+        if self.SavGol:
+            params = self.SavGol_params
+            self.log.debug("Applying SavGol filter to input data...")
+            # Todo: SavGol filter gives FutureError when using this. WEarning that array slicing will be done differently in the future. I dont see why my code is the reason for that
+            for i in range(self.SavGol_iter):
+                N = savgol_filter(N, params[0], params[1])
+
+        #cs = CubicSpline(etaedges[:-1], N)
         # Calculate the diffs dN/deta
-        dNdx = np.diff(N) / np.diff(etaedges[:-1])
-        # Will be integrated from 0-1, because first starts at 0 and last ends at 1
-        integratedeta = integrate.trapz(dNdx, etaedges[:-2])
+        #csderiv = cs.derivative(1)
+        #csfullIntegrate = float(csderiv.integrate(etaedges[0],etaedges[-1]))
+
+        # Todo: use trapezoid method to integrate???
+        diffs = np.diff(etaedges)
+        csfullIntegrate = np.sum(N*diffs)
 
         # Generate output array
         positions = np.zeros(len(etas), dtype=np.float)
         for i, eta in enumerate(etas):
             endedge = np.nonzero(etaedges <= eta)[0]
-            positions[i] = self.pitch*integrate.trapz(dNdx, etaedges[endedge])/integratedeta
+            #positions[i] = self.pitch*csderiv.integrate(0, etas[endedge[-1]])/csfullIntegrate
+            integ = np.sum(N[endedge-1]*diffs[endedge-1])
+            positions[i] = self.pitch*integ/csfullIntegrate
 
-        return positions
+        return positions, N
