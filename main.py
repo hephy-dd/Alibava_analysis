@@ -19,8 +19,7 @@ def main(args):
     results = {}
 
     for ped, cal, run in read_meas_files(cfg):
-        ped_data = NoiseAnalysis(ped,
-                                 configs=cfg)
+        ped_data = NoiseAnalysis(ped, configs=cfg)
 
         results["NoiseAnalysis"] = ped_data
 
