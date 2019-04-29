@@ -14,10 +14,18 @@ class PositionResolution:
     """All functions concerning the position resolution performance testing
 
     How does it work:
-        Describe how it works...
+        - This analysis needs the ChargeSharing analysis already done to function correctly!!
+        - With the eta/theta distribution already calculated, the first step is to apply a Savitzky-Golay
+          fitler to the data to smooth out the fluctuations. (This is not necessary, but can be helpfull!!!)
+        - Afterwards apply the eta-algorithm for hit position determination. This algorithm works best for small
+          clusters and small impact angles. For higher angles use the head-tail algorithm.
+
 
      # Position Resolution Analysis specific params
-        - Some cool params
+        - Pitch: float - Pitch if the used strip detector
+        - SavGol: bool - Use the Savitzky-Golay filter to smooth out the input data
+        - SavGol_params: [odd int, int] - Window length [odd number] and degree of polynom
+        - SavGol_iter: int - how many iterations the savgol filter should be applied
 
 
     Written by Dominic Bloech
@@ -63,6 +71,8 @@ class PositionResolution:
         return self.results
 
     def eta_algorithm(self, etas, N, etaedges):
+        """This algorithm is for small angles. It uses the formula
+        x=Pitch* Int(dN/deta, deta 0, eta)/ Int(dN/deta, deta 0, 1)"""
 
         if self.SavGol:
             params = self.SavGol_params
