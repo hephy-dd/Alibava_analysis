@@ -99,6 +99,7 @@ class BaseAnalysis:
         gtime = np.nonzero(np.logical_and(self.eventtiming >= self.main.timingWindow[0],
                                           self.eventtiming <= self.main.timingWindow[1]))
         #self.eventtiming = self.eventtiming[gtime]
+
         # Warning: If you have a RS and pulseshape recognition enabled the
         # timing window has to be set accordingly
 
@@ -111,7 +112,7 @@ class BaseAnalysis:
                                                               np.mean(self.main.CMN),
                                                               np.mean(self.main.CMsig),
                                                               self.main.noise,
-                                                              self.main.numchan,
+                                                              self.main.numChan,
                                                               self.main.SN_cut,
                                                               self.main.SN_ratio,
                                                               self.main.SN_cluster,
@@ -125,4 +126,3 @@ class BaseAnalysis:
         self.main.automasked_hit = automasked_hits
 
         return self.prodata
-

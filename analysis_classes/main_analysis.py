@@ -99,6 +99,7 @@ class MainAnalysis:
         # Load all plugins
         plugins = load_plugins(configs.get("additional_analysis", []))
         for name, plugin in plugins.items():
+            self.log.info("Starting analysis: {}".format(name))
             analysis = plugin(self, configs.get(name, {}))
             self.outputdata[name] = analysis.run()
 

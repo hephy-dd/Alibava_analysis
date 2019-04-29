@@ -227,8 +227,41 @@ class PlotData:
         # fig.subplots_adjust(top=0.88)
         return clusters_plot
 
+    def plot_hitmap_per_clustersize(self, cfg, obj, fig=None):
+        """Plots the hitmap per clustersize"""
+        data = obj["MainAnalysis"]["base"]
+        hit_plot = handle_sub_plots(fig, cfg)
+        hit_plot.set_title("Hitmap per clustersize")
+        hit_plot.set_xlabel('channel [#]')
+        hit_plot.set_ylabel('Hits [#]')
+        # Plot the different clustersizes
+        colour = ['green', 'red', 'orange', 'cyan', 'black', 'pink', 'magenta']
+
+        # Get only events with one cluster inside
+        ind_only_one_cluster = np.nonzero(data["Numclus"] == 1)
+        clusters_raw = np.take(data["Clustersize"], ind_only_one_cluster)
+        clusters_flattend = np.concatenate(clusters_raw[0]).ravel()
+        max_cluster = self.cfg["hitmap_max_clustersize"]
+
+
+        for clus in range(1, max_cluster+1):
+            # Get clusters
+            indizes_clustersize = np.nonzero(clusters_flattend == clus)
+            indizes = np.take(ind_only_one_cluster, indizes_clustersize)[0]
+            hitted = np.take(data["Clusters"], indizes)
+            hitted_flatten = np.concatenate(hitted).ravel()
+
+            hit_plot.hist(hitted_flatten, range=(0, 256), bins=256,
+                        alpha=0.3, color=colour[clus-1],
+                        label="Clustersize: {!s}".format(clus))
+
+        hit_plot.legend()
+        return hit_plot
+
     def plot_hitmap(self, cfg, obj, fig=None):
         """Plots the hitmap of the measurement."""
+        # Todo: plot hitmap per clustersize
+
         data = obj["MainAnalysis"]["base"]
         hitmap_plot = handle_sub_plots(fig, cfg)
         hitmap_plot.set_title("Event Hitmap")
@@ -443,25 +476,46 @@ class PlotData:
 
             data = obj["MainAnalysis"]["ChargeSharing"]
             plot = fig.add_subplot(cfg)
-            counts, edges, im = plot.hist(data["eta"], bins=300, range=(0, 1), alpha=0.4, color="b")
-            # left = stats.norm.pdf(data["fits"][2][:100], loc=data["fits"][0][0], scale=data["fits"][0][1])
-            # right = stats.norm.pdf(data["fits"][2], loc=data["fits"][1][0], scale=data["fits"][1][1])
-            # plot.plot(data["fits"][2][:100], left,"r--", color="r")
-            # plot.plot(data["fits"][2], right,"r--", color="r")
+            counts, edges, im = plot.hist(data["eta"], bins=200, range=(0, 1), alpha=0.4, color="b")
             plot.set_xlabel('eta')
             plot.set_ylabel('entries')
             plot.set_title('Eta distribution')
+
+            if "PositionResolution" in obj["MainAnalysis"]:
+                data2 = obj["MainAnalysis"]["PositionResolution"]
+                plot.plot(data["fits"]["eta"][1][:-1], data2["N_eta"], color="red")
 
     def plot_theta_distribution(self, cfg, obj, fig=None):
         """Plots the eta distribution of the chargesharing analysis"""
 
         data = obj["MainAnalysis"]["ChargeSharing"]
         plot = fig.add_subplot(cfg)
-        counts, edges, im = plot.hist(data["theta"] / np.pi, bins=300, alpha=0.4, color="b", range=(0, 0.5))
+        counts, edges, im = plot.hist(data["theta"] / np.pi, bins=200, alpha=0.4, color="b", range=(0, 0.5))
         plot.set_xlabel('theta/Pi')
         plot.set_ylabel('entries')
         plot.set_title('Theta distribution')
 
+        if "PositionResolution" in obj["MainAnalysis"]:
+            data2 = obj["MainAnalysis"]["PositionResolution"]
+            plot.plot(data["fits"]["theta"][1][:-1]/np.pi, data2["N_theta"], color="red")
+
+    def plot_eta_algorithm_positions(self, cfg, obj, fig=None):
+        """Eta algorithm positions plot"""
+        data = obj["MainAnalysis"]["PositionResolution"]
+        plot = fig.add_subplot(cfg)
+        plot.set_xlabel('Position [um]')
+        plot.set_ylabel('Hits [#]')
+        plot.set_title('Hit positions with eta')
+        counts, edges, im = plot.hist(data["eta"], bins=50, alpha=0.4, color="b")
+
+    def plot_theta_algorithm_positions(self, cfg, obj, fig=None):
+        """Eta algorithm positions plot"""
+        data = obj["MainAnalysis"]["PositionResolution"]
+        plot = fig.add_subplot(cfg)
+        plot.set_xlabel('Position [um]')
+        plot.set_ylabel('Hits [#]')
+        plot.set_title('Hit positions with theta')
+        counts, edges, im = plot.hist(data["theta"], bins=50, alpha=0.4, color="b")
 
     def plot_efficiency(self, obj, fig=None, aim_eff=0.95,
                         max_range=10000, step_size=100):
