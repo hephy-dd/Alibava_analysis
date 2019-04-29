@@ -517,20 +517,25 @@ class PlotData:
         plot.set_title('Hit positions with theta')
         counts, edges, im = plot.hist(data["theta"], bins=50, alpha=0.4, color="b")
 
-    def plot_efficiency(self, obj, fig=None, aim_eff=0.95,
-                        max_range=10000, step_size=100):
+    def plot_efficiency(self, cfg, obj, fig=None):
         """Plot efficiency of seed signals vs. applied threshold and
         show the maximum threshold for aim_eff"""
-        plot = handle_sub_plots(fig, 337)
+
+
+        plot = handle_sub_plots(fig, cfg)
         data = obj.outputdata["Langau"]
+
+        aim_eff = self.cfg["Efficiency_plot"]["aim_eff"]
+        max_range = self.cfg["Efficiency_plot"]["max_range"]
+        step_size = self.cfg["Efficiency_plot"]["step_size"]
+
         eff_lst = []
         step_lst = np.arange(0, max_range, step_size)
         tot_len = len(data["signal_SC"])
         for step in step_lst:
             eff_lst.append(len(np.nonzero(data["signal_SC"] > step)[0])/tot_len)
         plot.plot(step_lst, eff_lst, "r--", label="Efficiency")
-        threshold = round(np.polyval(
-            np.polyfit(eff_lst, step_lst, deg=5, full=False), aim_eff))
+        threshold = round(np.polyval(np.polyfit(eff_lst, step_lst, deg=5, full=False), aim_eff))
         if threshold > max_range:
             threshold = "> " + str(max_range)
         else:
