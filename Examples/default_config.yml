@@ -4,8 +4,8 @@ Pedestal_file: \\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\pedestal_h5
 Delay_scan: \\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\delay_h5
 Charge_scan: \\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\charge_h5
 Measurement_file: \\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\200V_00deg.h5
-Output_folder: ""
-Output_name: ""
+Output_folder: C:\Users\dbloech\Desktop\Alibava_Plots
+Output_name: "JourFixe"
 isBinary: False # If the files provided are Alibava binaries (True) or hdf5 (False) file types
 use_charge_cal: True
 

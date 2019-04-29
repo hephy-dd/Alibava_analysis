@@ -2,7 +2,7 @@
 # pylint: disable=R0201,C0103,E0401,R0913
 import numpy as np
 import logging
-from scipy.stats import norm
+from scipy.stats import norm, rv_continuous
 import matplotlib.pyplot as plt
 import logging
 # import pylandau
@@ -521,36 +521,40 @@ class PlotData:
         """Plot efficiency of seed signals vs. applied threshold and
         show the maximum threshold for aim_eff"""
 
+        if "Langau" in obj["MainAnalysis"]:
+            plot = handle_sub_plots(fig, cfg)
+            data = obj["MainAnalysis"]["Langau"]
 
-        plot = handle_sub_plots(fig, cfg)
-        data = obj.outputdata["Langau"]
+            aim_eff = self.cfg["Efficiency_plot"]["aim_eff"]
+            max_range = self.cfg["Efficiency_plot"]["max_range"]
+            step_size = self.cfg["Efficiency_plot"]["step_size"]
 
-        aim_eff = self.cfg["Efficiency_plot"]["aim_eff"]
-        max_range = self.cfg["Efficiency_plot"]["max_range"]
-        step_size = self.cfg["Efficiency_plot"]["step_size"]
 
-        eff_lst = []
-        step_lst = np.arange(0, max_range, step_size)
-        tot_len = len(data["signal_SC"])
-        for step in step_lst:
-            eff_lst.append(len(np.nonzero(data["signal_SC"] > step)[0])/tot_len)
-        plot.plot(step_lst, eff_lst, "r--", label="Efficiency")
-        threshold = round(np.polyval(np.polyfit(eff_lst, step_lst, deg=5, full=False), aim_eff))
-        if threshold > max_range:
-            threshold = "> " + str(max_range)
-        else:
-            threshold = str(threshold)
-        textstr = '\n'.join((
-            "Sth @ %s = %s" %(str(aim_eff), threshold),
-            "Events = %.f" %(tot_len)))
-        plot.text(0.1, 0.2, textstr, transform=plot.transAxes,
-                  fontsize=10,
-                  verticalalignment='top',
-                  bbox=dict(boxstyle='round',
-                            facecolor='white',
-                            alpha=0.5))
-        plot.set_xlabel("Threshold [e]")
-        plot.set_ylabel("Efficiency [%]")
-        plot.set_title("Efficiency vs. Seed Threshold")
-        plot.legend()
-        return plot
+            step_lst = np.arange(0, max_range+step_size, step_size)
+            eff_lst = np.zeros(len(step_lst), dtype=np.float)
+            tot_len = len(data["signal_SC"])
+            # In principal its a survival function what we calculate here
+            # Todo: Use the scipy version for the survival function rv_continuous.sf
+            for i, step in enumerate(step_lst):
+                eff_lst[i] = np.count_nonzero(data["signal_SC"] > step)/tot_len
+            plot.plot(step_lst, eff_lst, "r--", label="Efficiency")
+            index = np.where(eff_lst >= aim_eff)[0][-1]
+            if step_lst[index] >= max_range:
+                threshold = "> {}".format(max_range)
+            else:
+                threshold = str(step_lst[index])
+            textstr = '\n'.join((
+                "Sth @ %s = %s" %(str(aim_eff), threshold),
+                "Events = %.f" %(tot_len)))
+            plot.text(0.5, 0.7, textstr, transform=plot.transAxes,
+                      fontsize=10,
+                      verticalalignment='top',
+                      bbox=dict(boxstyle='round',
+                                facecolor='white',
+                                alpha=0.5))
+            plot.set_xlabel("Threshold [e]")
+            plot.set_ylabel("Efficiency [%]")
+            plot.set_title("Efficiency vs. Seed Threshold")
+            plot.fill_between(step_lst, 0, eff_lst, facecolor='blue', alpha=0.2)
+            plot.legend()
+            return plot
