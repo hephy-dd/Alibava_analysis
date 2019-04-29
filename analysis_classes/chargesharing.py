@@ -56,7 +56,7 @@ class ChargeSharing:
         # Data containing the al and ar values as list entries data[0] --> al
         # Take the data from the Signal data
         raw = np.take(self.data["base"]["Signal"], indizes)
-        raw = np.reshape(np.concatenate(raw), (len(raw), self.main.numchan))
+        raw = np.reshape(np.concatenate(raw), (len(raw), self.main.numChan))
         # Find the channels with the hits
         hits = np.concatenate(np.take(self.data["base"]["Clusters"], indizes))
         al = np.zeros(len(indizes))  # Amplitude left and right

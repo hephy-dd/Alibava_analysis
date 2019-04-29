@@ -112,7 +112,7 @@ class BaseAnalysis:
                                                               np.mean(self.main.CMN),
                                                               np.mean(self.main.CMsig),
                                                               self.main.noise,
-                                                              self.main.numchan,
+                                                              self.main.numChan,
                                                               self.main.SN_cut,
                                                               self.main.SN_ratio,
                                                               self.main.SN_cluster,
