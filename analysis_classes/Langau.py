@@ -240,7 +240,7 @@ class Langau:
             # Finds the first element which is higher as threshold non optimized
 
         sigma = np.std(hist)
-        mpv, eta, sigma, A = edges[ind_xmin], 1, 1, np.max(hist)
+        mpv, eta, sigma, A = edges[ind_xmin], sigma, sigma, np.max(hist)
 
         # Fit with constrains
         converged = False

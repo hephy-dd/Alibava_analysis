@@ -51,6 +51,8 @@ class Calibration:
         self.isBinary = configs.get("isBinary", "False")
         self.use_gain_per_channel = configs.get("use_gain_per_channel", True)
         self.numChan = configs.get("numChan", 256)
+        self.degpoly = configs.get("charge_cal_polynom", 5)
+        self.range = configs.get("range_ADC_fit", [])
         self.ADC_sig = None
         self.configs = configs
 
@@ -150,22 +152,40 @@ class Calibration:
             # Calculate the mean over all channels for every pulse and then calc the perform
             # a poly fit for the mean gain curve
             self.mean_sig_all_ch = np.mean(self.meansig_charge, axis=1)
-            fit_params = [(sig, pul) for sig, pul in zip(self.mean_sig_all_ch, self.pulses) if sig > 0]
+            if self.mean_sig_all_ch[0] <= self.range[0] and self.mean_sig_all_ch[-1] >= self.range[0]:
+                xminarg = np.argwhere(self.mean_sig_all_ch <= self.range[0])[-1][0]
+                xmaxarg = np.argwhere(self.mean_sig_all_ch <= self.range[1])[-1][0]
+            else:
+                self.log.error("Range for charge cal poorly conditioned!!!")
+                xmaxarg = len(self.mean_sig_all_ch) - 1
+                xminarg = 0
+
+            fit_params = [(sig, pul) for sig, pul in zip(self.mean_sig_all_ch[xminarg:xmaxarg],
+                                                         self.pulses[xminarg:xmaxarg]) if sig > 0]
             self.meancoeff = np.polyfit([tup[0] for tup in fit_params],
                                         [tup[1] for tup in fit_params],
-                                        deg=5, full=False)
+                                        deg=self.degpoly, full=False)
             self.log.info("Mean fit coefficients over all channels are: %s", self.meancoeff)
 
             # Calculate the gain curve for EVERY channel
-            self.channel_coeff = np.zeros([self.numChan, 6])
+            self.channel_coeff = np.zeros([self.numChan, self.degpoly+1])
             channel_offset = 0
             for i in range(self.numChan):
                 if i not in self.noisy_channels:
                     self.log.debug("Fitting channel: {}".format(i))
                     try:
-                        self.channel_coeff[i] = np.polyfit(self.meansig_charge[:,channel_offset],
-                                                            self.pulses,
-                                                            deg=5, full=False)
+                        mean_sig = self.meansig_charge[:,channel_offset]
+                        if mean_sig[0] <= self.range[0] and mean_sig[-1] >= self.range[0]:
+                            xminarg = np.argwhere(mean_sig <= self.range[0])[-1][0]
+                            xmaxarg = np.argwhere(mean_sig <= self.range[1])[-1][0]
+                        else:
+                            self.log.error("Range for charge cal poorly conditioned!!!")
+                            xmaxarg = len(mean_sig) - 1
+                            xminarg = 0
+
+                        self.channel_coeff[i] = np.polyfit(mean_sig[xminarg:xmaxarg],
+                                                            self.pulses[xminarg:xmaxarg],
+                                                            deg=self.degpoly, full=False)
                     except Exception as err:
                         if "SVD did not converge" in str(err):
                             self.log.error("SVD did not converge in Linear Least Squares for channel {}"

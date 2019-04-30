@@ -61,6 +61,8 @@ class ChargeSharing:
         hits = np.concatenate(np.take(self.data["base"]["Clusters"], indizes))
         al = np.zeros(len(indizes))  # Amplitude left and right
         ar = np.zeros(len(indizes))
+        strl = np.zeros(len(indizes)) # Strips hits for left side
+        strr = np.zeros(len(indizes)) # Strips hits for left side
         # Order the hits assecnding (they are channel numbers)
         il = np.min(hits, axis=1)  # Indizes of left and right
         ir = np.max(hits, axis=1)
@@ -69,10 +71,12 @@ class ChargeSharing:
         for i, event, ali, ari, l, r in zip(range(len(al)), raw, al, ar, il, ir):
             al[i] = event[l]  # So always the left strip is choosen
             ar[i] = event[r]  # Same with the right strip
+            strl[i] = l
+            strr[i] = r
 
         # Convert ADC to actual energy
-        al = self.main.calibration.convert_ADC_to_e(al)
-        ar = self.main.calibration.convert_ADC_to_e(ar)
+        al = self.main.calibration.convert_ADC_to_e(al, strl)
+        ar = self.main.calibration.convert_ADC_to_e(ar, strr)
 
         # Calculate eta and theta
         final_data = np.array([al, ar])

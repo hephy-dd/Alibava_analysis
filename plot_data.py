@@ -133,7 +133,6 @@ class PlotData:
     def plot_signal_conversion_fit(self, cfg, obj, fig):
         """Plots test pulses as a function of ADC singals. Shows conversion
         fit that is used to convert ADC signals to e signals."""
-        # plot = fig.add_subplot(221)
         data = obj["Calibration"]
         plot = handle_sub_plots(fig, cfg)
         plot.set_xlabel('Mean Signal [ADC]')
@@ -145,6 +144,9 @@ class PlotData:
                   data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
                   linestyle="--", color="r", label="Conversion fit")
         plot.legend()
+
+    def plot_signal_conversion_fit_single(self, cfg, obj, fig):
+        """Plot all individual fits here"""
 
     def plot_signal_conversion_fit_detail(self, cfg, obj, fig):
         """Zooms into the the important region of the signal conversion plot
