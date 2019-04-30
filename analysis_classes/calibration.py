@@ -50,6 +50,7 @@ class Calibration:
         self.meansig_delay = []  # mean per pulse per channel
         self.isBinary = configs.get("isBinary", "False")
         self.use_gain_per_channel = configs.get("use_gain_per_channel", True)
+        self.numChan = configs.get("numChan", 256)
         self.ADC_sig = None
         self.configs = configs
 
@@ -156,13 +157,23 @@ class Calibration:
             self.log.info("Mean fit coefficients over all channels are: %s", self.meancoeff)
 
             # Calculate the gain curve for EVERY channel
-            self.channel_coeff = np.zeros([len(self.meansig_charge[1]),5])
-            for i in range(len(self.channel_coeff)):
-                self.channel_coeff[i] = np.polyfit(self.meansig_charge[:,i],
-                                                    self.pulses,
-                                                    deg=5, full=False)
+            self.channel_coeff = np.zeros([self.numChan, 6])
+            channel_offset = 0
+            for i in range(self.numChan):
+                if i not in self.noisy_channels:
+                    self.log.debug("Fitting channel: {}".format(i))
+                    try:
+                        self.channel_coeff[i] = np.polyfit(self.meansig_charge[:,channel_offset],
+                                                            self.pulses,
+                                                            deg=5, full=False)
+                    except Exception as err:
+                        if "SVD did not converge" in str(err):
+                            self.log.error("SVD did not converge in Linear Least Squares for channel {}"
+                                           " this channel will be added to noisy channels!".format(i))
+                            self.noisy_channels = np.append(self.noisy_channels, i)
+                    channel_offset += 1
 
-    def convert_ADC_to_e(self, signals_adc, channels=()):
+    def convert_ADC_to_e(self, signals_adc, channels=(), use_mean=False):
         """
         Convert an array of ADC signals to electron signal
         If the parameter, use_gain_per_channel is True in the configs then channels has to be set!!!
@@ -175,16 +186,18 @@ class Calibration:
         """
 
         # use the mean coeff out of all channels -> Fast but can lead to errors if the calibration is not good
-        if not self.use_gain_per_channel:
+        if not self.use_gain_per_channel or use_mean:
             return np.absolute(np.polyval(self.meancoeff, signals_adc))
 
         # Use gain per channel for calculations. Warning: order of results list is ordered per channel!!!
         else:
-            assert len(signals_adc) != len(channels),"If you want to use gain_per_channel calculations please pass" \
-                                                     "lists of same size. Passed lists did not have same length." \
-                                                     "Aborting Analysis"
+            if len(signals_adc) != len(channels):
+                self.log.error("If you want to use gain_per_channel calculations please pass " \
+                                                     "lists of same size. Passed lists did not have same length.")
+                return np.array([])
+
             result = np.array([])
-            unique_ch = np.unique(channels)
+            unique_ch = np.unique(channels).astype(np.int)
             signals_per_channel = []
             # Order the signals per channel so calculations can be speed up
             for ch in unique_ch:

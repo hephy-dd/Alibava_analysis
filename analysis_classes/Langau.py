@@ -93,47 +93,49 @@ class Langau:
             finalNoise = np.append(finalNoise, cluster["noise"])
 
         # Fit the langau to the summ of all individual clusters
-        coeff, _, _, error_bins = self.fit_langau(finalE,
+        coeff, _, _, error_bins, edges= self.fit_langau(finalE,
                                                   finalNoise,
                                                   bins=self.results_dict["bins"])
 
         self.results_dict["signal"] = finalE
         self.results_dict["noise"] = finalNoise
         self.results_dict["langau_coeff"] = coeff
+        plotxrange = np.arange(0., edges[-1], edges[-1] / 1000.)
         self.results_dict["langau_data"] = [
-            np.arange(1., 100000., 1000.),
-            pylandau.langau(np.arange(1., 100000., 1000.),
-                            *coeff)]  # aka x and y data
+            plotxrange,pylandau.langau(plotxrange,*coeff)
+        ]  # aka x and y data
         self.results_dict["data_error"] = error_bins
 
         # Seed cut langau, taking only the bare hit channels which are above seed cut levels
         if self.seed_cut_langau:
             seed_cut_channels = self.data["base"]["Channel_hit"]
             signals = self.data["base"]["Signal"]
-            finalE = []
             seedcutADC = []
+            seedcutChannels = []
             for i, signal in enumerate(tqdm(signals, desc="(langau SC) Processing events")):
                 if signal[seed_cut_channels[i]].any():
                     seedcutADC.append(signal[seed_cut_channels[i]])
+                    seedcutChannels.append(seed_cut_channels[i])
 
             self.log.info("Converting ADC to electrons for SC Langau...")
-            converted = self.main.calibration.convert_ADC_to_e(seedcutADC)
-            for conv in converted:
-                finalE.append(sum(conv))
-            finalE = np.array(finalE, dtype=np.float32)
+            if self.Charge_scale:
+                converted = self.main.calibration.convert_ADC_to_e(np.concatenate(seedcutADC), np.concatenate(seedcutChannels))
+            else:
+                converted = np.absolute(np.concatenate(seedcutADC))
+            finalE = np.array(converted, dtype=np.float32)
 
             # get rid of 0 events
             indizes = np.nonzero(finalE > 0)[0]
             nogarbage = finalE[indizes]
             indizes = np.nonzero(nogarbage < self.Ecut)[0]  # ultra_high_energy_cut
-            coeff, _, _, error_bins = self.fit_langau(
+            coeff, _, _, error_bins, edges = self.fit_langau(
                 nogarbage[indizes], bins=self.results_dict["bins"])
             self.results_dict["signal_SC"] = nogarbage[indizes]
             self.results_dict["langau_coeff_SC"] = coeff
+            plotxrange = np.arange(0., edges[-1], edges[-1]/1000.)
             self.results_dict["langau_data_SC"] = [
-                np.arange(1., 100000., 1000.),
-                pylandau.langau(np.arange(1., 100000., 1000.),
-                                *coeff)]  # aka x and y data
+                plotxrange,pylandau.langau(plotxrange,*coeff)
+            ]  # aka x and y data
 
 #         Old attempts for multiprocessing, no speed up seen here
 #             # Try joblib
@@ -181,25 +183,38 @@ class Langau:
                         ClusInd[0].extend([i])
                         ClusInd[1].extend([j])
 
-            signal_clst_event = []
-            noise_clst_event = []
+            signal_clst_event = np.zeros([len(ClusInd[0]), size])
+            noise_clst_event = np.zeros([len(ClusInd[0]), size])
+            channels_hit_event = np.zeros([len(ClusInd[0]), size])
             #for i, ind in enumerate(tqdm(ClusInd[0], desc="(langau) Processing event")):
             for i, ind in enumerate(ClusInd[0]):
                 y = ClusInd[1][i]
                 # Signal calculations
-                signal_clst_event.append(np.take(valid_events_Signal[ind], valid_events_clusters[ind][y]))
+                signal_clst_event[i] = np.take(valid_events_Signal[ind], valid_events_clusters[ind][y])
                 # Noise Calculations
-                noise_clst_event.append(
-                    np.take(self.main.noise, valid_events_clusters[ind][y]))  # Get the Noise of an event
+                noise_clst_event[i] = np.take(self.main.noise, valid_events_clusters[ind][y])  # Get the Noise of an event
+                # Save channels at which the hit happend
+                channels_hit_event[i] = np.array(valid_events_clusters[ind][y])
 
-            totalE = np.sum(
-                self.main.calibration.convert_ADC_to_e(signal_clst_event),
-                axis=1)
+            # Todo: Due to the sum of all channels prior to conversion a need to choose a channel for
+            # the gain. Therfore, in the future it would be good to sperately calculate the gain for
+            # every channel and then build the sum. But the error should be minimal.
+
+            totalE = np.zeros([len(channels_hit_event[0]), len(channels_hit_event)])
+            for part in range(len(channels_hit_event[0])):
+                if self.Charge_scale:
+                    totalE[part] = self.main.calibration.convert_ADC_to_e(signal_clst_event[:,part], channels_hit_event[:,part])
+                else:
+                    totalE[part] = np.absolute(signal_clst_event[:,part])
+            totalE = np.sum(totalE, axis=0)
+
 
             # eError is a list containing electron signal noise
-            totalNoise = np.sqrt(np.sum(
-                self.main.calibration.convert_ADC_to_e(noise_clst_event),
-                axis=1))
+            if self.Charge_scale:
+                totalNoise = np.sqrt(
+                    self.main.calibration.convert_ADC_to_e(np.sum(noise_clst_event,axis=1), channels_hit_event[:,0]))
+            else:
+                totalNoise = np.sqrt(np.sum(noise_clst_event,axis=1))
 
             preresults = {"signal": totalE, "noise": totalNoise}
 
@@ -223,7 +238,8 @@ class Langau:
             ind_xmin = np.argwhere(hist > lancut)[0]
             # Finds the first element which is higher as threshold non optimized
 
-        mpv, eta, sigma, A = 27000, 1500, 5000, np.max(hist)
+        sigma = np.std(hist)
+        mpv, eta, sigma, A = edges[ind_xmin], 1, 1, np.max(hist)
 
         # Fit with constrains
         converged = False
@@ -235,11 +251,12 @@ class Langau:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 # create a text trap and redirect stdout
-                # Warning: astype(float) is importanmt somehow, otherwise funny error happens one
+                # Warning: astype(float) is important somehow, otherwise funny error happens one
                 # some machines where it tells you double_t and float are not possible
                 coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1].astype(float),
-                                        hist[ind_xmin:].astype(float), absolute_sigma=True, p0=(mpv, eta, sigma, A),
-                                        bounds=(1, 500000))
+                                        hist[ind_xmin:].astype(float), absolute_sigma=False, p0=(mpv, eta, sigma, A),
+                                        bounds=([0,1,1, 0], [edges[-1],sigma*5,sigma*5, np.max(hist)*1.5]))
+                self.log.debug("Langau coeff: {}".format(coeff))
             if abs(coeff[0] - oldmpv) > diff:
                 mpv, eta, sigma, A = coeff
                 oldmpv = mpv
@@ -249,7 +266,7 @@ class Langau:
                 converged = True
                 warnings.warn("Langau has not converged after 50 attempts!")
 
-        return coeff, pcov, hist, binerror
+        return coeff, pcov, hist, binerror, edges
 
     def get_num_clusters(self, data, num_cluster):
         """

@@ -142,7 +142,7 @@ class PlotData:
         plot.plot(data.mean_sig_all_ch, data.pulses,
                   label="Mean signal over all channels")
         plot.plot(data.mean_sig_all_ch,
-                  data.convert_ADC_to_e(data.mean_sig_all_ch),
+                  data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
                   linestyle="--", color="r", label="Conversion fit")
         plot.legend()
 
@@ -161,7 +161,7 @@ class PlotData:
                   data.pulses,
                   label="Mean signal over all channels")
         plot.plot(data.mean_sig_all_ch,
-                  data.convert_ADC_to_e(data.mean_sig_all_ch),
+                  data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
                   linestyle="--", color="r", label="Conversion fit")
         plot.set_xlim(right=upper_lim_x)
         plot.set_ylim(top=upper_lim_y)
@@ -327,8 +327,12 @@ class PlotData:
             # plot.errorbar(data["langau_data"][0], data["langau_data"][1],
             #               np.sqrt(pylandau.langau(data["langau_data"][0], *data["langau_coeff"])),
             #               fmt=".", color="r", label="Error of Fit")
+        #if self.cfg["Langau"].get("Charge_scale"):
+        #    units = "e"
+        #else:
+        #    units = "ADC"
 
-        plot.set_xlabel('Cluster Signal [e]')
+        plot.set_xlabel('Cluster Signal')
         plot.set_ylabel('Events [#]')
         # plot.set_title('All clusters Langau from file: {!s}'.format(file))
 
@@ -344,6 +348,19 @@ class PlotData:
                     "To many histograms for this plot. "
                     "Colorscheme only supports seven different histograms. Extend if need be!")
                 continue
+
+        textstr = '\n'.join((
+            "mpv = %.f" % (data["langau_coeff"][0]),
+            "eta = %.2f" % (data["langau_coeff"][1]),
+            "sigma = %.2f" % (data["langau_coeff"][2]),
+            "A = %.2f" % (data["langau_coeff"][3])))
+        # "entries = %.f" %(len(gain_lst))))
+        plot.text(0.6, 0.7, textstr, transform=plot.transAxes,
+                  fontsize=10,
+                  verticalalignment='top',
+                  bbox=dict(boxstyle='round',
+                            facecolor='white',
+                            alpha=0.5))
 
         plot.legend()
         return plot
@@ -380,7 +397,13 @@ class PlotData:
                 # plot.errorbar(data["langau_data_SC"][0], data["langau_data_SC"][1],
                 #               np.sqrt(pylandau.langau(data["langau_data_SC"][0], *data["langau_coeff_SC"])),
                 #               fmt=".", color="r", label="Error of Fit")
-            plot.set_xlabel('Seed Signal [e]')
+
+            #if self.cfg["Langau"].get("Charge_scale"):
+            #    units = "e"
+           #else:
+            #    units = "ADC"
+
+            plot.set_xlabel('Seed Signal')
             plot.set_ylabel('Events [#]')
             # if fig is None:
             plot.set_title('Seed Signal in e')
