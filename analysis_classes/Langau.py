@@ -95,7 +95,8 @@ class Langau:
         # Fit the langau to the summ of all individual clusters
         coeff, _, _, error_bins, edges= self.fit_langau(finalE,
                                                   finalNoise,
-                                                  bins=self.results_dict["bins"])
+                                                  bins=self.results_dict["bins"],
+                                                  cut = self.ClusterCut)
 
         self.results_dict["signal"] = finalE
         self.results_dict["noise"] = finalNoise
@@ -129,7 +130,7 @@ class Langau:
             nogarbage = finalE[indizes]
             indizes = np.nonzero(nogarbage < self.Ecut)[0]  # ultra_high_energy_cut
             coeff, _, _, error_bins, edges = self.fit_langau(
-                nogarbage[indizes], bins=self.results_dict["bins"])
+                nogarbage[indizes], bins=self.results_dict["bins"], cut = self.SCCut)
             self.results_dict["signal_SC"] = nogarbage[indizes]
             self.results_dict["langau_coeff_SC"] = coeff
             plotxrange = np.arange(0., edges[-1], edges[-1]/1000.)
@@ -220,7 +221,7 @@ class Langau:
 
             self.results_dict["Clustersize"].append(preresults)
 
-    def fit_langau(self, x, errors=np.array([]), bins=500):
+    def fit_langau(self, x, errors=np.array([]), bins=500, cut=0.33):
         """Fits the langau to data"""
         hist, edges = np.histogram(x, bins=bins)
         if errors.any():
@@ -229,7 +230,7 @@ class Langau:
             binerror = np.array([])
 
         # Cut off noise part
-        lancut = np.max(hist) * 0.33  # Find maximum of hist and get the cut
+        lancut = np.max(hist) * cut  # Find maximum of hist and get the cut
         # TODO: Bug when using optimized vs non optimized !!!
         try:
             ind_xmin = np.argwhere(hist > lancut)[0][0]

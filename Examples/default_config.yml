@@ -19,7 +19,7 @@ Manual_mask: [] # Manual channel masking
 Chips: [1,2] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
 numChan: 256
 timingWindow:
-  - 0 # Minimum timing window
+  - 20 # Minimum timing window
   - 250 # Maximum timing window
 max_cluster_size: 7 # Directly affects runtime!!!
 sensor_type: "n-in-p" # Sensor Material
@@ -39,6 +39,8 @@ Langau:
   bins: 200 # Define how many bins the Langau plots should have
   fitLangau: True # Fit a langau or not (sometimes the data does not represent a langau at all)
   Charge_scale: False # Convert ADC to electrons
+  ClusterCut: 0.33 # Cut from maximum height of langau, at which the fit will start for cluster Langau
+  SCCut: 0.8 # Cut from maximum height of langau, at which the fit will start for SC langau
 
 PositionResolution:
   pitch: 100 # um
