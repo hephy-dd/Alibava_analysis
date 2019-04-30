@@ -49,6 +49,7 @@ class Calibration:
         self.delay_cal = []
         self.meansig_delay = []  # mean per pulse per channel
         self.isBinary = configs.get("isBinary", "False")
+        self.use_gain_per_channel = configs.get("use_gain_per_channel", True)
         self.ADC_sig = None
         self.configs = configs
 
@@ -145,26 +146,55 @@ class Calibration:
                 self.log.warning("Charge offset is greater then 5 ADC! This "
                                  "may be a result of bad calibration!")
 
-            # transpose matrix from signal per channel per pulse to signal per pulse per channel
-            data = np.array(self.meansig_charge).transpose()
+            # Calculate the mean over all channels for every pulse and then calc the perform
+            # a poly fit for the mean gain curve
             self.mean_sig_all_ch = np.mean(self.meansig_charge, axis=1)
-            # for sig_per_pulse in data:
-                # Since you want to convert ADC to e, you need to fit eSignal(ADCSignal)
-                # self.coeff_per_ch.append(np.polyfit(
-                #     sig_per_pulse, self.pulses, deg=5, full=False))
-            # only consider signals that are larger than zero to improve fit in sensitive region
-            fit_params = [(sig, pul) for sig, pul in \
-                zip(self.mean_sig_all_ch, self.pulses) if sig > 0]
+            fit_params = [(sig, pul) for sig, pul in zip(self.mean_sig_all_ch, self.pulses) if sig > 0]
             self.meancoeff = np.polyfit([tup[0] for tup in fit_params],
                                         [tup[1] for tup in fit_params],
                                         deg=5, full=False)
-            self.log.info("Mean fit coefficients over all channels: %s",
-                          self.meancoeff)
-            # self.coeff_test(data)
+            self.log.info("Mean fit coefficients over all channels are: %s", self.meancoeff)
 
-    def convert_ADC_to_e(self, x):
-        """Convert an array of ADC signals to electron signal"""
-        return np.absolute(np.polyval(self.meancoeff, x))
+            # Calculate the gain curve for EVERY channel
+            self.channel_coeff = np.zeros([len(self.meansig_charge[1]),5])
+            for i in range(len(self.channel_coeff)):
+                self.channel_coeff[i] = np.polyfit(self.meansig_charge[:,i],
+                                                    self.pulses,
+                                                    deg=5, full=False)
+
+    def convert_ADC_to_e(self, signals_adc, channels=()):
+        """
+        Convert an array of ADC signals to electron signal
+        If the parameter, use_gain_per_channel is True in the configs then channels has to be set!!!
+        In this case the gain will be calculated for each channel indipendently. Otherwise the mean
+        gain will be used.
+
+        :param signals_adc: The ADC signal which should be converted to electrons
+        :param channels:  Optional parameter, it defines on which channel the corresponding ADC was aquired
+        :return:
+        """
+
+        # use the mean coeff out of all channels -> Fast but can lead to errors if the calibration is not good
+        if not self.use_gain_per_channel:
+            return np.absolute(np.polyval(self.meancoeff, signals_adc))
+
+        # Use gain per channel for calculations. Warning: order of results list is ordered per channel!!!
+        else:
+            assert len(signals_adc) != len(channels),"If you want to use gain_per_channel calculations please pass" \
+                                                     "lists of same size. Passed lists did not have same length." \
+                                                     "Aborting Analysis"
+            result = np.array([])
+            unique_ch = np.unique(channels)
+            signals_per_channel = []
+            # Order the signals per channel so calculations can be speed up
+            for ch in unique_ch:
+                signals_per_channel.append(np.take(signals_adc, np.nonzero(channels==ch)))
+
+            for sig, ch in zip(signals_per_channel, unique_ch):
+                result = np.append(result, np.polyval(self.channel_coeff[ch], sig))
+
+            return np.absolute(result)
+
 
     def gain_calc(self, cut=1.5):
         """Calculates the gain per channel per pulse. Ignores values for
