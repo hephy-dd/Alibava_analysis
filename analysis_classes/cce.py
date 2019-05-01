@@ -1,19 +1,16 @@
 """This file contains the class for analysing the charge collection
 efficiency"""
-
 import logging
-
 import matplotlib.pyplot as plt
-
 
 class CCE:
     """This function has actually plots the the CCE plot"""
 
-    def __init__(self, main_analysis):
+    def __init__(self, main_analysis, logger=None):
         """Initialize some important parameters"""
+        self.log = logger or logging.getLogger(__class__.__name__)
         self.main = main_analysis
         self.data = self.main.outputdata.copy()
-        self.log = logging.getLogger()
 
     def run(self):
         pass
@@ -33,7 +30,7 @@ class CCE:
             file = str(
                 path.split("\\")[-1].split('.')[0])  # Find the filename, warning these files must have been processed
             if self.data[file]:
-                ypos.append(self.data[file]["langau"]["langau_coeff"][0])  # First value is the mpv
+                ypos.append(self.data[file]["Langau"]["langau_coeff"][0])  # First value is the mpv
                 if not y0:
                     y0 = ypos[-1]
                 ypos[-1] = ypos[-1] / y0
