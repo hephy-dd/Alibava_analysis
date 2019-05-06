@@ -1,25 +1,25 @@
 ---
 # Some files to load in, and store data
-Pedestal_file: \\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\pedestal_h5.h5
-Delay_scan: \\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\delay_h5
-Charge_scan: \\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\calibration_h5.h5
-Measurement_file: \\HEROS\dbloech\Alibava_measurements\binaryhdf5cal\200V_20deg.h5
+Pedestal_file: \\HEROS\dbloech\Alibava_measurements\KIT_Irradiated\config\pedestal.h5
+Delay_scan: \\\HEROS\dbloech\Alibava_measurements\KIT_Irradiated\config\delay.h5
+Charge_scan: \\HEROS\dbloech\Alibava_measurements\KIT_Irradiated\config\charge.h5
+Measurement_file: \\HEROS\dbloech\Alibava_measurements\KIT_Irradiated\VPX28441_26\100k_600V_m20d.h5
 Output_folder: C:\Users\dbloech\Desktop\Alibava_Plots
-Output_name: "Calibration_fix_2"
+Output_name: ""
 isBinary: False # If the files provided are Alibava binaries (True) or hdf5 (False) file types
 use_charge_cal: True
 
 # Event analysis parameters
 Processes: 1 # High numbers of processes causes huge memory overhead, only use when more than 100G are available for large files!!!
-SN_cut: 6 # Minimum height of hit
-SN_ratio: 0.4 # Ratio at which the program searches for nearby hits below the SN cut
+SN_cut: 8 # Minimum height of hit
+SN_ratio: 0.2 # Ratio at which the program searches for nearby hits below the SN cut
 SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
 Noise_cut: 0.5 # Here the unit is ADC over median of all strips. This discriminates noisy strips.
-Manual_mask: [41] # Manual channel masking
-Chips: [1,2] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
+Manual_mask: [33,96] # Manual channel masking
+Chips: [1] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
 numChan: 256
 timingWindow:
-  - 20 # Minimum timing window
+  - 0 # Minimum timing window
   - 250 # Maximum timing window
 max_cluster_size: 7 # Directly affects runtime!!!
 sensor_type: "n-in-p" # Sensor Material
@@ -37,12 +37,12 @@ Langau:
   clustersize: [1,2,3] # Defines which cluster sizes should be fitted with a langau, list of values defines only these, negative values are for all clustersizes
   numClus: [1,2,3] # Define which/how many clusters per event are taken into account for calculations
   seed_cut_langau: True # If you want a langau from the seed cut strips only or not
-  energyCutOff: 100000 # Define where the high energy cutoff is applied in electrons/ADC
-  bins: 200 # Define how many bins the Langau plots should have
+  energyCutOff: 500 # Define where the high energy cutoff is applied in electrons/ADC
+  bins: 100 # Define how many bins the Langau plots should have
   fitLangau: True # Fit a langau or not (sometimes the data does not represent a langau at all)
-  Charge_scale: True # Convert ADC to electrons
+  Charge_scale: False # Convert ADC to electrons
   ClusterCut: 0.33 # Cut from maximum height of langau, at which the fit will start for cluster Langau
-  SCCut: 0.80 # Cut from maximum height of langau, at which the fit will start for SC langau
+  SCCut: 0.33 # Cut from maximum height of langau, at which the fit will start for SC langau
 
 PositionResolution:
   pitch: 100 # um

@@ -76,11 +76,12 @@ def load_plugins(valid_plugins):
         - valid_plugins (str): class names"""
     all_plugins = {}
     all_analysis_files = os.listdir("./analysis_classes/")
-    for file in all_analysis_files:
-        for plugin in valid_plugins:
-            if os.path.splitext(file)[0].lower() == plugin.lower():
-                all_plugins[plugin] = \
-                    locate("analysis_classes." + plugin + "." + plugin)
+    if valid_plugins:
+        for file in all_analysis_files:
+            for plugin in valid_plugins:
+                if os.path.splitext(file)[0].lower() == plugin.lower():
+                    all_plugins[plugin] = \
+                        locate("analysis_classes." + plugin + "." + plugin)
     return all_plugins
 
 def create_dictionary(abs_filepath):
