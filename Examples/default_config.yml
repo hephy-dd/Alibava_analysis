@@ -12,7 +12,7 @@ use_charge_cal: True
 # Event analysis parameters
 Processes: 1 # High numbers of processes causes huge memory overhead, only use when more than 100G are available for large files!!!
 SN_cut: 8 # Minimum height of hit
-SN_ratio: 0.2 # Ratio at which the program searches for nearby hits below the SN cut
+SN_ratio: 0.4 # Ratio at which the program searches for nearby hits below the SN cut
 SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
 Noise_cut: 0.5 # Here the unit is ADC over median of all strips. This discriminates noisy strips.
 Manual_mask: [33,96] # Manual channel masking
@@ -23,10 +23,11 @@ timingWindow:
   - 250 # Maximum timing window
 max_cluster_size: 7 # Directly affects runtime!!!
 sensor_type: "n-in-p" # Sensor Material
+calibrate_gain_to: negative # parameters to calibrate the gain pulses to a specific polarity, options are negative, positive, both
 automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
 #optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true, or may be misleading
-charge_cal_polynom: 5 # Degree of poly to fit at charge cal curves
-range_ADC_fit: [5,400] # range in which will be fitted in ADC if you pass an empty list all data will be used
+charge_cal_polynom: 2 # Degree of poly to fit at charge cal curves
+range_ADC_fit: [5,150] # range in which will be fitted in ADC if you pass an empty list all data will be used
 additional_analysis:
     - Langau
     #- CCE
@@ -37,10 +38,10 @@ Langau:
   clustersize: [1,2,3] # Defines which cluster sizes should be fitted with a langau, list of values defines only these, negative values are for all clustersizes
   numClus: [1,2,3] # Define which/how many clusters per event are taken into account for calculations
   seed_cut_langau: True # If you want a langau from the seed cut strips only or not
-  energyCutOff: 500 # Define where the high energy cutoff is applied in electrons/ADC
+  energyCutOff: 50000 # Define where the high energy cutoff is applied in electrons/ADC
   bins: 100 # Define how many bins the Langau plots should have
   fitLangau: True # Fit a langau or not (sometimes the data does not represent a langau at all)
-  Charge_scale: False # Convert ADC to electrons
+  Charge_scale: True # Convert ADC to electrons
   ClusterCut: 0.33 # Cut from maximum height of langau, at which the fit will start for cluster Langau
   SCCut: 0.33 # Cut from maximum height of langau, at which the fit will start for SC langau
 

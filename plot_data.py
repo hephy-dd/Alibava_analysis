@@ -140,9 +140,13 @@ class PlotData:
         plot.set_title('Signal Fit - ADC Signal vs. e Signal')
         plot.plot(data.mean_sig_all_ch, data.pulses,
                   label="Mean signal over all channels")
-        plot.plot(data.mean_sig_all_ch,
-                  data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
-                  linestyle="--", color="r", label="Conversion fit")
+        #plot.plot(data.mean_sig_all_ch,
+        #          data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
+        #          linestyle="--", color="r", label="Conversion fit")
+        plot.errorbar(data.mean_sig_all_ch,
+                    data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
+                    yerr=data.convert_ADC_to_e(data.mean_std_all_ch, use_mean=True), markersize=1, color="red",
+                      label="Conversion fit")
         plot.legend()
 
     def plot_signal_conversion_fit_single(self, cfg, obj, fig):
@@ -162,9 +166,14 @@ class PlotData:
         plot.plot(data.mean_sig_all_ch,
                   data.pulses,
                   label="Mean signal over all channels")
-        plot.plot(data.mean_sig_all_ch,
-                  data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
-                  linestyle="--", color="r", label="Conversion fit")
+        #plot.plot(data.mean_sig_all_ch,
+        #          data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
+        #          linestyle="--", color="r", label="Conversion fit")
+
+        plot.errorbar(data.mean_sig_all_ch,
+                      data.convert_ADC_to_e(data.mean_sig_all_ch, use_mean=True),
+                      yerr=data.convert_ADC_to_e(data.mean_std_all_ch, use_mean=True), markersize=1, color="red",
+                      label="Conversion fit")
         plot.set_xlim(right=upper_lim_x)
         plot.set_ylim(top=upper_lim_y)
         plot.legend()
