@@ -235,8 +235,10 @@ class Calibration:
                         while not std_ok:
                             if xminarg == xmaxarg:
                                 # Todo: make it possible to run nontheless
-                                self.log.error("Could not find satisfying std value for charge cal. This may happen"
-                                               " with bad calibration. Further calculations will fail!")
+                                self.log.error("Could not find satisfying std value for charge cal in channel {}. This may happen"
+                                               " with bad calibration. Further calculations may fail! This channel"
+                                               " will be added to noisy channels!".format(i))
+                                self.noisy_channels = np.append(self.noisy_channels, [channel_offset])
                             if mean_sig[xminarg]*0.4 <= sig_std[xminarg]:
                                 xminarg += 1
                             else:
@@ -270,6 +272,9 @@ class Calibration:
         :param channels:  Optional parameter, it defines on which channel the corresponding ADC was aquired
         :return:
         """
+
+        # Ensure that all signals are positive, since the cal is done with positive or flipped negative signals
+        signals_adc = np.abs(signals_adc)
 
         # use the mean coeff out of all channels -> Fast but can lead to errors if the calibration is not good
         if not self.use_gain_per_channel or use_mean:
