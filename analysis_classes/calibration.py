@@ -179,7 +179,7 @@ class Calibration:
             offset = self.meansig_charge[1] # because first value is usually garbage
             if np.mean(offset) > 5:
                 self.log.warning("Charge offset is greater then 5 ADC! This "
-                                 "may be a result of bad calibration! Offset: {}".format(offset))
+                                 "may be a result of bad calibration! Offset: {}".format(np.mean(offset)))
             #self.meansig_charge = self.meansig_charge - offset
             #for i, pul in enumerate(self.meansig_charge):
             #    for j, val in enumerate(pul):
@@ -213,7 +213,6 @@ class Calibration:
 
             # Calculate the gain curve for EVERY channel-------------------------------------------
             self.channel_coeff = np.zeros([self.numChan, self.degpoly+1])
-            channel_offset = 0
             for i in range(self.numChan):
                 if i not in self.noisy_channels:
                     #self.log.debug("Fitting channel: {}".format(i))
@@ -221,13 +220,16 @@ class Calibration:
                         # Taking the correct channel from the means, this has the length of pulses, and the correct
                         # polarity is already accored to. Warning first value will always be cutted away,
                         # to ensure better convergence while fitting!!!
-                        mean_sig = self.meansig_charge[1:,channel_offset]
-                        sig_std = self.sig_std[1:, channel_offset]
+                        mean_sig = self.meansig_charge[1:,i]
+                        sig_std = self.sig_std[1:, i]
                         # Find the range for the fit
-                        if not mean_sig[0] <= self.range[0] and not mean_sig[-1] >= self.range[0]:
+                        if mean_sig[0] <= self.range[0] and mean_sig[-1] >= self.range[0]:
+                            xminarg = np.argwhere(mean_sig <= self.range[0])[-1][0]
+                            xmaxarg = np.argwhere(mean_sig <= self.range[1])[-1][0]
+                        else:
                             self.log.error("Range for charge cal for channel {} may be poorly conditioned!!!".format(i))
-                        xminarg = np.argwhere(mean_sig <= self.range[0])[-1][0]
-                        xmaxarg = np.argwhere(mean_sig <= self.range[1])[-1][0]
+                            xminarg = 0
+                            xmaxarg = len(mean_sig)
 
                         # In the beginning of the pulses the error can be huge. Therefore, check if std is small enough
                         # Otherwise search for point, which has a low enough std
@@ -238,18 +240,12 @@ class Calibration:
                                 self.log.error("Could not find satisfying std value for charge cal in channel {}. This may happen"
                                                " with bad calibration. Further calculations may fail! This channel"
                                                " will be added to noisy channels!".format(i))
-                                self.noisy_channels = np.append(self.noisy_channels, [channel_offset])
+                                self.noisy_channels = np.append(self.noisy_channels, [i])
                             if mean_sig[xminarg]*0.4 <= sig_std[xminarg]:
                                 xminarg += 1
                             else:
                                 std_ok = True
                                 break
-
-
-
-
-                        #    xmaxarg = len(mean_sig) - 1
-                        #    xminarg = 0
 
                         self.channel_coeff[i] = np.append(np.polyfit(mean_sig[xminarg:xmaxarg],
                                                             self.pulses[xminarg:xmaxarg],
@@ -259,7 +255,6 @@ class Calibration:
                             self.log.error("SVD did not converge in Linear Least Squares for channel {}"
                                            " this channel will be added to noisy channels!".format(i))
                             self.noisy_channels = np.append(self.noisy_channels, i)
-                    channel_offset += 1
 
     def convert_ADC_to_e(self, signals_adc, channels=(), use_mean=False):
         """
