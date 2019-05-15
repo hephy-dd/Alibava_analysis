@@ -254,9 +254,13 @@ class Langau:
                 # create a text trap and redirect stdout
                 # Warning: astype(float) is important somehow, otherwise funny error happens one
                 # some machines where it tells you double_t and float are not possible
-                coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1].astype(float),
-                                        hist[ind_xmin:].astype(float), absolute_sigma=False, p0=(mpv, eta, sigma, A),
-                                        bounds=([0,1,1, 0], [edges[-1],sigma*5,sigma*5, np.max(hist)*1.5]))
+                try:
+                    coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1].astype(float),
+                                            hist[ind_xmin:].astype(float), absolute_sigma=False, p0=(mpv, eta, sigma, A),
+                                            bounds=([0,1,1, 0], [edges[-1],sigma*5,sigma*5, np.max(hist)*1.5]))
+                except Exception as err:
+                    self.log.error("Langau fit did not converge with error: {}".format(err))
+                    return [1,1,1,1], None, hist, binerror, edges
                 self.log.debug("Langau coeff: {}".format(coeff))
             if abs(coeff[0] - oldmpv) > diff:
                 mpv, eta, sigma, A = coeff

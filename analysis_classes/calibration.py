@@ -81,7 +81,7 @@ class Calibration:
         self.ADC_sig = 1.
         self.charge_sig = 1.
         self.chargecoeff = [np.array(self.configs["Gain_params"]) for i in range(256)]
-        self.gain_calc()
+        #self.gain_calc()
         # So every strip has the same gain
 
 
