@@ -1,37 +1,44 @@
 ---
 # Some files to load in, and store data
-Pedestal_file: \\HEROS\dbloech\Alibava_measurements\VC811929\Pedestal.hdf5
+Pedestal_file: \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\pedestal.h5
 Delay_scan: ""
-Charge_scan: ""
-Measurement_file: \\HEROS\dbloech\Alibava_measurements\VC811929\350V.hdf5
+Charge_scan: \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\charge.h5
+Measurement_file:
+  #- \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\10deg_100V_50k.h5
+  #- \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\10deg_170V_50k.h5
+  #- \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\10deg_190V_50k.h5
+  #- \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\10deg_210V_50k.h5
+  #- \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\10deg_230V_50k.h5
+  #- \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\10deg_250V_50k.h5
+  - \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\10deg\10deg_300V_50k.h5
+
 Output_folder: C:\Users\dbloech\Desktop\Alibava_Plots
-Output_name: "VC811929_350V"
+Output_name: ""
 isBinary: False # If the files provided are Alibava binaries (True) or hdf5 (False) file types
-use_charge_cal: True
-Gain_params: [220, 0]
+use_charge_cal: True # Defines if to use the passed charge scan (calibration) file or not
+Gain_params: [220, 0] # if use_charge_cal == False then these parameters will be used for the gain calc
 
 # Event analysis parameters
 Processes: 1 # High numbers of processes causes huge memory overhead, only use when more than 100G are available for large files!!!
-SN_cut: 6 # Minimum height of hit
-SN_ratio: 0.3 # Ratio at which the program searches for nearby hits below the SN cut
+SN_cut: 70 # Minimum height of hit
+SN_ratio: 1 # Ratio at which the program searches for nearby hits below the SN cut
 SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
 Noise_cut: 0.5 # Here the unit is ADC over median of all strips. This discriminates noisy strips.
 Manual_mask: [] # Manual channel masking
-Chips: [1,2] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
+Chips: [2] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
 numChan: 256
 timingWindow:
   - 0 # Minimum timing window
   - 150 # Maximum timing window
-max_cluster_size: 7 # Directly affects runtime!!!
+max_cluster_size: 20 # Directly affects runtime!!!
 sensor_type: "n-in-p" # Sensor Material
 calibrate_gain_to: negative # parameters to calibrate the gain pulses to a specific polarity, options are negative, positive, both
 automasking: True # Tries to find non physical or garbage hits (wrong ADC direction) and excludes them from calculation (costs moderate CPU)
 #optimize: True # Use Numba jit optimizer or not --> Warning no progress bar can be shown with this true, or may be misleading
 charge_cal_polynom: 2 # Degree of poly to fit at charge cal curves
-range_ADC_fit: [20,150] # range in which will be fitted in ADC if you pass an empty list all data will be used
+range_ADC_fit: [50,150] # range in which will be fitted in ADC if you pass an empty list all data will be used
 additional_analysis:
     - Langau
-    #- CCE
     #- ChargeSharing
     #- PositionResolution
 
@@ -39,7 +46,7 @@ Langau:
   clustersize: [1,2,3] # Defines which cluster sizes should be fitted with a langau, list of values defines only these, negative values are for all clustersizes
   numClus: [1,2,3] # Define which/how many clusters per event are taken into account for calculations
   seed_cut_langau: True # If you want a langau from the seed cut strips only or not
-  energyCutOff: 500 # Define where the high energy cutoff is applied in electrons/ADC
+  energyCutOff: 500000 # Define where the high energy cutoff is applied in electrons/ADC
   bins: 200 # Define how many bins the Langau plots should have, in case of convergenz problems tune this number!
   fitLangau: False # Fit a langau or not (sometimes the data does not represent a langau at all)
   Charge_scale: False # Convert ADC to electrons

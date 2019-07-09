@@ -118,8 +118,9 @@ class Langau:
                     seedcutADC.append(signal[seed_cut_channels[i]])
                     seedcutChannels.append(seed_cut_channels[i])
 
-            self.log.info("Converting ADC to electrons for SC Langau...")
+
             if self.Charge_scale:
+                self.log.info("Converting ADC to electrons for SC Langau...")
                 converted = self.main.calibration.convert_ADC_to_e(np.concatenate(seedcutADC), np.concatenate(seedcutChannels))
             else:
                 converted = np.absolute(np.concatenate(seedcutADC))
@@ -198,32 +199,41 @@ class Langau:
                 channels_hit_event[i] = np.array(valid_events_clusters[ind][y])
 
             # Todo: Due to the sum of all channels prior to conversion a need to choose a channel for
-            # the gain. Therfore, in the future it would be good to sperately calculate the gain for
+            # the gain. Therefore, in the future it would be good to separately calculate the gain for
             # every channel and then build the sum. But the error should be minimal.
 
-            totalE = np.zeros([len(channels_hit_event[0]), len(channels_hit_event)])
-            for part in range(len(channels_hit_event[0])):
+            try:
+                totalE = np.zeros([len(channels_hit_event[0]), len(channels_hit_event)])
+                for part in range(len(channels_hit_event[0])):
+                    if self.Charge_scale:
+                        totalE[part] = self.main.calibration.convert_ADC_to_e(signal_clst_event[:,part], channels_hit_event[:,part])
+                    else:
+                        totalE[part] = np.absolute(signal_clst_event[:,part])
+                totalE = np.sum(totalE, axis=0)
+
+
+                # eError is a list containing electron signal noise
                 if self.Charge_scale:
-                    totalE[part] = self.main.calibration.convert_ADC_to_e(signal_clst_event[:,part], channels_hit_event[:,part])
+                    totalNoise = np.sqrt(
+                        self.main.calibration.convert_ADC_to_e(np.sum(noise_clst_event,axis=1), channels_hit_event[:,0]))
                 else:
-                    totalE[part] = np.absolute(signal_clst_event[:,part])
-            totalE = np.sum(totalE, axis=0)
+                    totalNoise = np.sqrt(np.sum(noise_clst_event,axis=1))
 
-
-            # eError is a list containing electron signal noise
-            if self.Charge_scale:
-                totalNoise = np.sqrt(
-                    self.main.calibration.convert_ADC_to_e(np.sum(noise_clst_event,axis=1), channels_hit_event[:,0]))
-            else:
-                totalNoise = np.sqrt(np.sum(noise_clst_event,axis=1))
-
-            preresults = {"signal": totalE, "noise": totalNoise}
+                preresults = {"signal": totalE, "noise": totalNoise}
+            except:
+                self.log.critical("Clustersize analysis of size: {} seems to have no entries skipping this clustersize. "
+                                  "Warning this is VERY uncommon please make sure the other data is correct!!!".format(size))
+                preresults = {"signal": np.zeros(1), "noise": np.zeros(0)}
 
             self.results_dict["Clustersize"].append(preresults)
 
     def fit_langau(self, x, errors=np.array([]), bins=500, cut=0.33):
         """Fits the langau to data"""
         hist, edges = np.histogram(x, bins=bins)
+        # If no histogram could be made
+        if not hist.any():
+            self.log.critical("Insufficient data to make a histogram, langau fit aborted! ")
+            return [1, 1, 1, 1], None, [0], [0], [0,1]
         if errors.any():
             binerror = self.calc_hist_errors(x, errors, edges)
         else:
@@ -236,7 +246,11 @@ class Langau:
             ind_xmin = np.argwhere(hist > lancut)[0][0]
             # Finds the first element which is higher as threshold optimized
         except:
-            ind_xmin = np.argwhere(hist > lancut)[0]
+            ind_xmin = np.argwhere(hist > lancut)
+            if ind_xmin.any():
+                ind_xmin[0]
+            else:
+                ind_xmin = 0
             # Finds the first element which is higher as threshold non optimized
 
         sigma = np.std(hist)
