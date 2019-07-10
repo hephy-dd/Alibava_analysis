@@ -11,12 +11,12 @@ from analysis_classes.utilities import create_dictionary
 
 class PlotData:
     """Plots for ALiBaVa Analysis"""
-    def __init__(self, logger=None):
+    def __init__(self, config_path, logger=None):
         self.log = logger or logging.getLogger(__class__.__name__)
         # canvas for plotting the data [width, height (inches)]
 
         self.log = logging.getLogger(__name__)
-        self.cfg = create_dictionary("plot_cfg.yml")
+        self.cfg = create_dictionary(config_path)
         #self.groups["Brace yourself! plots are comming"] = np.concatenate([x for x in self.groups.items()])
 
     def plot_data(self, mcfg, obj, group=None, fig_name=None):
