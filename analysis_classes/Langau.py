@@ -254,7 +254,10 @@ class Langau:
             # Finds the first element which is higher as threshold non optimized
 
         sigma = np.std(hist)
+        data_min = np.argwhere(hist > 100) # Finds the minimum bound for the fit
+        print(data_min[-1])
         mpv, eta, sigma, A = edges[ind_xmin], sigma, sigma, np.max(hist)
+        self.log.debug("Langau first guess: {} {} {} {}".format(mpv, eta, sigma, A))
 
         # Fit with constrains
         converged = False
@@ -271,7 +274,8 @@ class Langau:
                 try:
                     coeff, pcov = curve_fit(pylandau.langau, edges[ind_xmin:-1].astype(float),
                                             hist[ind_xmin:].astype(float), absolute_sigma=False, p0=(mpv, eta, sigma, A),
-                                            bounds=([0,1,1, 0], [edges[-1],sigma*5,sigma*5, np.max(hist)*1.5]))
+                                            #bounds=([150,1,1, np.max(hist)*0.5], [300,sigma*5,sigma*5, np.max(hist)*1.5]))
+                                            bounds=([data_min[-1],1,1, np.max(hist)*0.5], [edges[-1],sigma*2,sigma*2, np.max(hist)*1.5]))
                 except Exception as err:
                     self.log.error("Langau fit did not converge with error: {}".format(err))
                     return [1,1,1,1], None, hist, binerror, edges
