@@ -255,7 +255,7 @@ class Langau:
 
         sigma = np.std(hist)
         data_min = np.argwhere(hist > 100) # Finds the minimum bound for the fit
-        print(data_min[-1])
+        #print(data_min[-1])
         mpv, eta, sigma, A = edges[ind_xmin], sigma, sigma, np.max(hist)
         self.log.debug("Langau first guess: {} {} {} {}".format(mpv, eta, sigma, A))
 

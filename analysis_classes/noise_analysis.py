@@ -35,7 +35,7 @@ class NoiseAnalysis:
             # Only use events with good timing, here always the case
             self.noise_cut = configs.get("Noise_cut", 5.)
             self.which_strips = configs.get("Chips", (1, 2))
-            self.max_channels = configs.get("Maximum_channels", 256)
+            self.max_channels = configs.get("numChan", 256)
             self.mask = configs.get("Manual_mask", [])
             self.goodevents = np.nonzero(self.data["events"]["time"][:] >= 0)
             self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float32)
