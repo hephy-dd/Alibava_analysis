@@ -10,7 +10,6 @@
 .idea/**
 Alibava_examples/**
 old/**
-*.hdf5
 test.py
 *.nbi
 *.nbc
