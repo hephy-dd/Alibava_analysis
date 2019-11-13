@@ -38,6 +38,14 @@ def read_meas_files(cfg):
         cal_files = [cal_files]
         run_files = [run_files]
 
+    # Case where only one pedestal and cal file but several run files, use the same pedestal and cal for all runs
+    elif (isinstance(run_files, list) and isinstance(ped_files, str) and isinstance(cal_files, str)):
+        #self.log.info("Several run files for only one pedestal and calibration file. "
+        #              "Same calibration and pedestal file for all measurement files will be used")
+        ped_files = [ped_files for i in run_files]
+        cal_files = [cal_files for i in run_files]
+
+
     else:
         raise ValueError("Pedestal, calibration and measurement files must "
                          "either be passed as strings or as "
@@ -76,11 +84,12 @@ def load_plugins(valid_plugins):
         - valid_plugins (str): class names"""
     all_plugins = {}
     all_analysis_files = os.listdir("./analysis_classes/")
-    for file in all_analysis_files:
-        for plugin in valid_plugins:
-            if os.path.splitext(file)[0].lower() == plugin.lower():
-                all_plugins[plugin] = \
-                    locate("analysis_classes." + plugin + "." + plugin)
+    if valid_plugins:
+        for file in all_analysis_files:
+            for plugin in valid_plugins:
+                if os.path.splitext(file)[0].lower() == plugin.lower():
+                    all_plugins[plugin] = \
+                        locate("analysis_classes." + plugin + "." + plugin)
     return all_plugins
 
 def create_dictionary(abs_filepath):

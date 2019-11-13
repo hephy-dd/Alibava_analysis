@@ -8,7 +8,8 @@
 
 # Ignore the content of some folders
 .idea/**
-*.hdf5
+Alibava_examples/**
+old/**
 test.py
 *.nbi
 *.nbc
