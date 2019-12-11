@@ -45,7 +45,6 @@ def main(args):
                 fileName = os.path.basename(os.path.splitext(run)[0])
             else:
                 fileName = cfg["Output_name"]
-            plt.close("all")
             save_all_plots(fileName, cfg["Output_folder"], dpi=300)
             if cfg.get("Pickle_output", False):
                 save_dict(run_data.outputdata,
@@ -54,6 +53,8 @@ def main(args):
 
     if args.show_plots:
         plot.show_plots()
+
+    plt.close("all")
 
 if __name__ == "__main__":
 
