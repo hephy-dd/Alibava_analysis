@@ -21,7 +21,10 @@ def main(args):
     plot = PlotData(os.path.join(os.getcwd(),ext,cfg.get("plot_config_file", "plot_cfg.yml")))
     results = {}
 
-    for ped, cal, run in read_meas_files(cfg):
+    meas_files = read_meas_files(cfg)
+    it = 0
+    for ped, cal, run in meas_files:
+        it+=1
 
         ped_data = NoiseAnalysis(ped, configs=cfg)
 
@@ -38,6 +41,8 @@ def main(args):
         results["MainAnalysis"] = run_data.results
 
         # Start plotting all results
+        if it > 1:  # Closing the old files
+            plt.close("all")
         plot.plot_data(cfg, results, group="from_file")
 
         if cfg.get("Output_folder", "") and cfg.get("Output_name", ""):
@@ -51,7 +56,7 @@ def main(args):
                           os.path.join(cfg["Output_folder"],
                                        cfg["Output_name"], ".dba"))
 
-    if args.show_plots:
+    if args.show_plots and it==1:
         plot.show_plots()
 
     plt.close("all")
