@@ -52,6 +52,7 @@ class NoiseAnalysis:
             self.signal = np.array(self.data["events"]["signal"][:], dtype=np.float32)
 
 
+            # First Noise calculation without masking to get an idea of the data
             self.noise, self.CMnoise, self.CMsig = \
                     nb_noise_calc(self.signal, self.pedestal)
             self.noisy_strips, self.good_strips = \
