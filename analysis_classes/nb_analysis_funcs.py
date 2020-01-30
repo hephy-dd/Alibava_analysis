@@ -279,20 +279,25 @@ def nb_noise_calc(events, pedestal, tot_noise=False):
     # Calculate the common mode noise for every channel
     # Get the signal from event and subtract pedestal
     cm = np.subtract(events, pedestal, dtype=np.float32)
-    # Calculate the standard deviation
-    CMsig = np.std(cm, axis=1)
-    # Now calculate the mean from the cm to get the actual common mode noise
-    CMnoise = np.mean(cm, axis=1)
+    # Calculate the common mode
+    keep = np.array(list(range(0,len(events))))
+    for i in range(3): # Go over 3 times to get even the less dominant outliers
+        CMsig = np.std(cm[keep], axis=1)
+        # Now calculate the mean from the cm to get the actual common mode noise
+        CMnoise = np.mean(cm[keep], axis=1)
+        # Find common mode which is lower/higher than 1 sigma
+        keep = np.where(np.logical_and(CMnoise<(CMnoise+2.5*CMsig), CMnoise>(CMnoise-2.5*CMsig)))[0]
     # Calculate the noise of channels
     # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
-    score = np.subtract(cm, CMnoise[:, None], dtype=np.float32)
+    score = np.subtract(cm[keep], CMnoise[keep][:,None], dtype=np.float32)
     # This is a trick with the dimensions of ndarrays, score = shape[ (x,y) - x,1 ]
     # is possible otherwise a loop is the only way
     noise = np.std(score, axis=0)
+    noiseNC = np.std(cm[keep], axis=0)
     if tot_noise is False:
-        return noise, CMnoise, CMsig
+        return noise, noiseNC, CMnoise, CMsig
     # convert score matrix into an 1-d array --> np.concatenate(score, axis=0))
-    return noise, CMnoise, CMsig, np.concatenate(score, axis=0)
+    return noise, noiseNC, CMnoise, CMsig, np.concatenate(score, axis=0)
 
 #jit(nogil=gil, cache=True)
 #def nb_process_event(events, pedestal, meanCMN, meanCMsig, noise, numchan, noisy_strips):

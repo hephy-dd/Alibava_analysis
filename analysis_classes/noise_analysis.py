@@ -31,6 +31,7 @@ class NoiseAnalysis:
             self.numevents = len(self.data["events"]["signal"])
             self.pedestal = np.zeros(self.numchan, dtype=np.float32)
             self.noise = np.zeros(self.numchan, dtype=np.float32)
+            self.noiseNCM = np.zeros(self.numchan, dtype=np.float32)
 
             # Only use events with good timing, here always the case
             self.noise_cut = configs.get("Noise_cut", 5.)
@@ -38,8 +39,10 @@ class NoiseAnalysis:
             self.max_channels = configs.get("numChan", 256)
             self.mask = configs.get("Manual_mask", [])
             self.goodevents = np.nonzero(self.data["events"]["time"][:] >= 0)
-            self.CMnoise = np.zeros(len(self.goodevents[0]), dtype=np.float32)
-            self.CMsig = np.zeros(len(self.goodevents[0]), dtype=np.float32)
+            self.CMnoise = np.zeros(self.numchan, dtype=np.float32)
+            self.CMnoise_raw = np.zeros(self.numchan, dtype=np.float32)
+            self.CMsig = np.zeros(self.numchan, dtype=np.float32)
+            self.CMsig_raw = np.zeros(self.numchan, dtype=np.float32)
             self.score = np.zeros((len(self.goodevents[0]), self.numchan),
                                   dtype=np.float32)
             self.median_noise = None
@@ -53,7 +56,7 @@ class NoiseAnalysis:
 
 
             # First Noise calculation without masking to get an idea of the data
-            self.noise, self.CMnoise, self.CMsig = \
+            self.noise, self.noiseNCM, self.CMnoise_raw, self.CMsig_raw = \
                     nb_noise_calc(self.signal, self.pedestal)
             self.noisy_strips, self.good_strips = \
                         self.detect_noisy_strips(self.noise, self.noise_cut)
@@ -63,7 +66,7 @@ class NoiseAnalysis:
             # Redefine good strips and noisy strips
             self.good_strips = np.intersect1d(self.chip_selection, self.good_strips)
             self.noisy_strips = np.append(self.noisy_strips,self.masked_channels)
-            self.noise_corr, self.CMnoise, self.CMsig, self.total_noise = \
+            self.noise_corr, self.noiseNCM_corr, self.CMnoise, self.CMsig, self.total_noise = \
                         nb_noise_calc(self.signal[:, self.good_strips],
                                       self.pedestal[self.good_strips], True)
         else:

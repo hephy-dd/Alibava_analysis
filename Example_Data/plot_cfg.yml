@@ -1,15 +1,27 @@
 Render:
-    Pedestal:
+    Pedestal, Noise and Common Mode:
         Plots:
             - plot_noise_ch
             - plot_pedestal
             - plot_cm
             - plot_noise_hist
+            - plot_noiseNonCMCorr_ch
         arrangement:
-            - 221
-            - 222
-            - 223
-            - 224
+            - 321
+            - 322
+            - 323
+            - 324
+            - 325
+
+        #Common Mode:
+        #    Plots:
+        #        - plot_cm
+        #         - plot_cm_ch
+        #        - plot_cmsig_ch
+        #    arrangement:
+        #        - 221
+        #        - 222
+        #        - 223
     Calibration:
         Plots:
             - plot_signal_conversion_fit
@@ -83,5 +95,5 @@ Timing2Dhist:
 
 Efficiency_plot:
     aim_eff: 0.95 # Target efficiency
-    max_range: 500 # Upper bound of efficiency bound in electrons
-    step_size: 1 # Granularity of the plot in electrons
+    max_range: 100000 # Upper bound of efficiency bound in electrons
+    step_size: 100 # Granularity of the plot in electrons

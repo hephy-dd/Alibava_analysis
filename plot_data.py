@@ -44,14 +44,14 @@ class PlotData:
         plt.draw()
         plt.show()
 
-    ### Pedestal Plots ###
+    ### Pedestal Noise Plots ###
     def plot_noise_ch(self, cfg, obj, fig=None):
-        """plot noise per channel"""
+        """plot noise per channel with commom mode correction"""
         data = obj["NoiseAnalysis"]
 
         noise_plot = handle_sub_plots(fig, cfg)
         noise_plot.bar(np.arange(data.numchan), data.noise, 1.,
-                       alpha=0.4, color="b", label="Noise level per strip")
+                       alpha=0.4, color="b", label="Noise level per strip (CMC)")
         # plot line idicating masked and unmasked channels
         valid_strips = np.zeros(data.numchan)
         valid_strips[data.noisy_strips] = 1
@@ -67,7 +67,7 @@ class PlotData:
 
         noise_plot.set_xlabel('Channel [#]')
         noise_plot.set_ylabel('Noise [ADC]')
-        noise_plot.set_title('Noise levels per Channel')
+        noise_plot.set_title('Noise levels per Channel (CMC)')
         noise_plot.legend(loc='upper right')
         return noise_plot
 
@@ -84,6 +84,26 @@ class PlotData:
         pede_plot.set_ylim(bottom=min(data.pedestal) - 50.)
         pede_plot.legend(loc='upper right')
         return pede_plot
+
+    def plot_noiseNonCMCorr_ch(self, cfg, obj, fig=None):
+        """plot noise per channel"""
+        data = obj["NoiseAnalysis"]
+
+        noise_plot = handle_sub_plots(fig, cfg)
+        noise_plot.bar(np.arange(data.numchan), data.noiseNCM, 1.,
+                       alpha=0.4, color="b", label="Noice level per strip")
+        # plot line idicating masked and unmasked channels
+        valid_strips = np.zeros(data.numchan)
+        valid_strips[data.noisy_strips] = 1
+        noise_plot.plot(np.arange(data.numchan), valid_strips, color="r",
+                        label="Masked strips")
+
+        # Plot the threshold for deciding a good channel
+        noise_plot.set_xlabel('Channel [#]')
+        noise_plot.set_ylabel('Common mode [ADC]')
+        noise_plot.set_title('Noise level per Channel')
+        noise_plot.legend(loc='upper right')
+        return noise_plot
 
     def plot_cm(self, cfg, obj, fig=None):
         """Plot the common mode distribution"""
