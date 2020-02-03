@@ -36,7 +36,7 @@ class PlotData:
                         plot_func(cfg, obj, fig)
                     except Exception as err:
                         self.log.error("Plotting function {} raised an error. Error: {}".format(funcname, err))
-                fig.subplots_adjust(hspace = 0.3) # Adjusts the padding so nothing is overlapping
+                fig.subplots_adjust(hspace = 0.4) # Adjusts the padding so nothing is overlapping
                 fig.subplots_adjust(wspace = 0.3) # Adjusts the padding so nothing is overlapping
 
     def show_plots(self):
@@ -652,7 +652,7 @@ class PlotData:
                       bbox=dict(boxstyle='round',
                                 facecolor='white',
                                 alpha=0.5))
-            plot.set_xlabel("Threshold [e]")
+            plot.set_xlabel("Threshold")
             plot.set_ylabel("Efficiency [%]")
             plot.set_title("Efficiency vs. Seed Threshold")
             plot.fill_between(step_lst, 0, eff_lst, facecolor='blue', alpha=0.2)
