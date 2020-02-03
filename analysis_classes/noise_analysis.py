@@ -56,7 +56,7 @@ class NoiseAnalysis:
 
 
             # First Noise calculation without masking to get an idea of the data
-            self.noise, self.noiseNCM, self.CMnoise_raw, self.CMsig_raw = \
+            self.noise_raw, self.noiseNCM_raw, self.CMnoise_raw, self.CMsig_raw = \
                     nb_noise_calc(self.signal, self.pedestal)
             self.noisy_strips, self.good_strips = \
                         self.detect_noisy_strips(self.noise, self.noise_cut)
@@ -66,9 +66,25 @@ class NoiseAnalysis:
             # Redefine good strips and noisy strips
             self.good_strips = np.intersect1d(self.chip_selection, self.good_strips)
             self.noisy_strips = np.append(self.noisy_strips,self.masked_channels)
-            self.noise_corr, self.noiseNCM_corr, self.CMnoise, self.CMsig, self.total_noise = \
+            noise_corr, noiseNCM_corr, self.CMnoise, self.CMsig, self.total_noise = \
                         nb_noise_calc(self.signal[:, self.good_strips],
                                       self.pedestal[self.good_strips], True)
+
+            # self.noise is only the non masked strips long. Make it to the full 256 strips long array so we can use it
+            # Insert the correct noise for the masked strips and for all else insert np.nan --> This way it raises an error
+            # if someone tries to access and claculate with it
+            it = 0
+            for i in range(self.numchan):
+                if i in self.good_strips: # If its a good strip then add it and increase the it for tracking
+                    self.noise[i] = noise_corr[it]
+                    self.noiseNCM[i] = noiseNCM_corr[it]
+                    it += 1
+                else:
+                    self.noise[i] = np.nan
+                    self.noiseNCM[i] = np.nan
+
+
+
         else:
             self.log.warning("No valid file, skipping pedestal run")
 

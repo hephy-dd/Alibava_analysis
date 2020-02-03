@@ -45,12 +45,38 @@ class PlotData:
         plt.show()
 
     ### Pedestal Noise Plots ###
-    def plot_noise_ch(self, cfg, obj, fig=None):
-        """plot noise per channel with commom mode correction"""
+    def plot_MaskedChannelNoise_ch(self, cfg, obj, fig=None):
+        """plot noise per channel with commom mode correction and the masked strips."""
         data = obj["NoiseAnalysis"]
 
         noise_plot = handle_sub_plots(fig, cfg)
         noise_plot.bar(np.arange(data.numchan), data.noise, 1.,
+                       alpha=0.4, color="b", label="Noise level per strip (CMC)")
+        # plot line idicating masked and unmasked channels
+        #valid_strips = np.zeros(data.numchan)
+        #valid_strips[data.noisy_strips] = 1
+        #noise_plot.plot(np.arange(data.numchan), valid_strips, color="r",
+        #                label="Masked strips")
+
+        # Plot the threshold for deciding a good channel
+        #xval = [0, data.numchan]
+        #yval = [data.median_noise + data.noise_cut,
+        #        data.median_noise + data.noise_cut]
+        #noise_plot.plot(xval, yval, "r--", color="g",
+        #                label="Threshold for noisy strips")
+
+        noise_plot.set_xlabel('Channel [#]')
+        noise_plot.set_ylabel('Noise [ADC]')
+        noise_plot.set_title('Noise levels per Channel (CMC)')
+        noise_plot.legend(loc='upper right')
+        return noise_plot
+
+    def plot_rawnoise_ch(self, cfg, obj, fig=None):
+        """plot noise per channel with commom mode correction"""
+        data = obj["NoiseAnalysis"]
+
+        noise_plot = handle_sub_plots(fig, cfg)
+        noise_plot.bar(np.arange(data.numchan), data.noise_raw, 1.,
                        alpha=0.4, color="b", label="Noise level per strip (CMC)")
         # plot line idicating masked and unmasked channels
         valid_strips = np.zeros(data.numchan)
@@ -67,7 +93,7 @@ class PlotData:
 
         noise_plot.set_xlabel('Channel [#]')
         noise_plot.set_ylabel('Noise [ADC]')
-        noise_plot.set_title('Noise levels per Channel (CMC)')
+        noise_plot.set_title('Raw Noise levels per Channel (CMC)')
         noise_plot.legend(loc='upper right')
         return noise_plot
 
@@ -80,7 +106,7 @@ class PlotData:
                       alpha=0.4, color="b", label="Pedestal")
         pede_plot.set_xlabel('Channel [#]')
         pede_plot.set_ylabel('Pedestal [ADC]')
-        pede_plot.set_title('Pedestal levels per Channel with noise')
+        pede_plot.set_title('Pedestal levels per Channel with noise (only non-masked)')
         pede_plot.set_ylim(bottom=min(data.pedestal) - 50.)
         pede_plot.legend(loc='upper right')
         return pede_plot
@@ -91,6 +117,26 @@ class PlotData:
 
         noise_plot = handle_sub_plots(fig, cfg)
         noise_plot.bar(np.arange(data.numchan), data.noiseNCM, 1.,
+                       alpha=0.4, color="b", label="Noise level per strip")
+        # plot line idicating masked and unmasked channels
+        #valid_strips = np.zeros(data.numchan)
+        #valid_strips[data.noisy_strips] = 1
+        #noise_plot.plot(np.arange(data.numchan), valid_strips, color="r",
+        #                label="Masked strips")
+
+        # Plot the threshold for deciding a good channel
+        noise_plot.set_xlabel('Channel [#]')
+        noise_plot.set_ylabel('Noise with common-mode [ADC]')
+        noise_plot.set_title('Noise level per Channel non-common-mode corrected')
+        noise_plot.legend(loc='upper right')
+        return noise_plot
+
+    def plot_rawnoiseNonCMCorr_ch(self, cfg, obj, fig=None):
+        """plot noise per channel"""
+        data = obj["NoiseAnalysis"]
+
+        noise_plot = handle_sub_plots(fig, cfg)
+        noise_plot.bar(np.arange(data.numchan), data.noiseNCM_raw, 1.,
                        alpha=0.4, color="b", label="Noice level per strip")
         # plot line idicating masked and unmasked channels
         valid_strips = np.zeros(data.numchan)

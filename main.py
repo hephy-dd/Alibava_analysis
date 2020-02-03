@@ -37,8 +37,9 @@ def main(args):
         cfg.update({"calibration": cal_data,
                     "noise_analysis": ped_data})
 
-        run_data = MainAnalysis(run, configs=cfg)
-        results["MainAnalysis"] = run_data.results
+        if run:
+            run_data = MainAnalysis(run, configs=cfg)
+            results["MainAnalysis"] = run_data.results
 
         # Start plotting all results
         if it > 1:  # Closing the old files
