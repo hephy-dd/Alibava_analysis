@@ -511,7 +511,7 @@ class PlotData:
         for timing in range(1, max_time):  # Timing of ALiBaVa
             timing_in = np.nonzero(np.logical_and(time >= timing - 1, time < timing))
             if len(timing_in[0]):
-                timing_data[timing - 1] = np.median(sum_singal[timing_in[0]])
+                timing_data[timing - 1] = np.mean(sum_singal[timing_in[0]])
             # var_timing_data[timing-1] = np.std(sum_singal[timing_in[0]])
 
         timing_plot.bar(np.arange(0, max_time), timing_data, alpha=0.4, color="b")  # , yerr=var_timing_data)
