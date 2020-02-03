@@ -1,7 +1,8 @@
 Render:
     Pedestal, Noise and Common Mode:
         Plots:
-            - plot_noise_ch
+            - plot_rawnoise_ch
+            - plot_MaskedChannelNoise_ch
             - plot_pedestal
             - plot_cm
             - plot_noise_hist
@@ -12,16 +13,8 @@ Render:
             - 323
             - 324
             - 325
+            - 326
 
-        #Common Mode:
-        #    Plots:
-        #        - plot_cm
-        #         - plot_cm_ch
-        #        - plot_cmsig_ch
-        #    arrangement:
-        #        - 221
-        #        - 222
-        #        - 223
     Calibration:
         Plots:
             - plot_signal_conversion_fit

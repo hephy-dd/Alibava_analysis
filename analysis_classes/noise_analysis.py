@@ -59,7 +59,7 @@ class NoiseAnalysis:
             self.noise_raw, self.noiseNCM_raw, self.CMnoise_raw, self.CMsig_raw = \
                     nb_noise_calc(self.signal, self.pedestal)
             self.noisy_strips, self.good_strips = \
-                        self.detect_noisy_strips(self.noise, self.noise_cut)
+                        self.detect_noisy_strips(self.noise_raw, self.noise_cut)
             # Mask chips of alibava
             self.chip_selection, self.masked_channels = \
                     self.mask_alibava_chips(self.which_strips, self.max_channels)
