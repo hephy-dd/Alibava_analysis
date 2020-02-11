@@ -46,7 +46,7 @@ def main(args):
             plt.close("all")
         plot.plot_data(cfg, results, group="from_file")
 
-        if cfg.get("Output_folder", "") and cfg.get("Output_name", ""):
+        if cfg.get("Output_folder", "") and cfg.get("Output_name", "") and cfg.get("Save_output", False):
             if cfg["Output_name"] == "generic":
                 fileName = os.path.basename(os.path.splitext(run)[0])
             else:
@@ -54,8 +54,10 @@ def main(args):
             save_all_plots(fileName, cfg["Output_folder"], dpi=300)
             if cfg.get("Pickle_output", False):
                 save_dict(run_data.outputdata,
-                          os.path.join(cfg["Output_folder"],
-                                       cfg["Output_name"], ".dba"))
+                          cfg["Output_folder"],
+                          cfg["Output_name"],
+                          cfg["Pickle_output"])
+
 
     if args.show_plots and it==1:
         plot.show_plots()

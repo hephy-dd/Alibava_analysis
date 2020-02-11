@@ -16,6 +16,8 @@ from six.moves import cPickle as pickle  # for performance
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import scipy.integrate as integrate
+import json
+from copy import deepcopy
 
 def read_meas_files(cfg):
     """Reads cfg file, returns lists of files and compares their length"""
@@ -359,11 +361,43 @@ class Bdata:
         """DOC of function"""
         return self.data[:,self.labels.index(label)]
 
-def save_dict(di_, filename_):
-    """DOC of function"""
+def save_dict(di_, filepath_, name_, type_):
+    """
+    Dict to save as type
+    :param di_: dict
+    :param filename_: filepath
+    :param type_: type of output
+    :return: None
+    """
+    if type_.lower() == "json":
+        # JSON serialize
+        LOG.info("Saving JSON file...")
+        save_dict_as_json(deepcopy(di_), os.path.join(os.path.normpath(filepath_)), name_)
 
-    with open(os.path.normpath(filename_), 'wb') as f:
-        pickle.dump(di_, f)
+    if type_.lower() == "pickle":
+        with open(os.path.join(os.path.normpath(filepath_),"{}.pickle".format(name_)) , 'wb') as f:
+            LOG.info("Saving pickle to file...")
+            pickle.dump(di_, f)
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+           return obj.tolist()
+        if isinstance(obj, Bdata):
+            data = {}
+            for key in obj.labels:
+                data[key] = obj[key].tolist()
+            return data
+        return json.JSONEncoder.default(self, obj)
+
+def save_dict_as_json(data, dirr, base_name):
+
+    # Create a json dump
+    json_dump = json.dumps(data, cls=NumpyEncoder)
+    # Write the data to file, the whole dic
+    with open(os.path.join(dirr, "{}.json".format(base_name)), 'w') as outfile:
+        json.dump(json_dump, outfile)
+
 
 def load_dict(filename_):
     """DOC of function"""
