@@ -13,5 +13,4 @@ old/**
 test.py
 *.nbi
 *.nbc
-config.yml
 *.orig
