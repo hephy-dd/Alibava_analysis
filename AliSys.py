@@ -1,5 +1,5 @@
 """Wrapper for full alibava analysis via console"""
-import os
+import os, sys
 from argparse import ArgumentParser
 from plot_data import PlotData
 from analysis_classes.utilities import create_dictionary
@@ -12,12 +12,12 @@ DEF = os.path.join(os.getcwd(), "Examples", "marius_config.yml")
 
 def main(args):
     """Start analysis"""
-    if args.config != "":
+    if args.config:
         cfg = create_dictionary(args.config)
         ext = os.path.dirname(args.config)
     else:
-        cfg = create_dictionary(DEF)
-
+        print("AliSys needs at least the --config parameter. Type AliSys --help to see all params")
+        sys.exit(0)
     plot = PlotData(os.path.join(os.getcwd(),ext,cfg.get("plot_config_file", "plot_cfg.yml")))
     results = {}
 

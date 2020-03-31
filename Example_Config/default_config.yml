@@ -1,14 +1,14 @@
 ---
 # Some files to load in, and store data
-Pedestal_file: C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Pedestal.h5
+Pedestal_file: C:\Users\domin\PycharmProjects\Alibava_analysis\Example_Data\Pedestal.hdf5
 Delay_scan: ""
-Charge_scan: C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\charge.h5
+Charge_scan: C:\Users\domin\PycharmProjects\Alibava_analysis\Example_Data\charge.hdf5
 Measurement_file:
-  - C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\270.hdf5
-  - C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\290.hdf5
-  - C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\310.hdf5
-  - C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\330.hdf5
-  - C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\350.hdf5
+  - C:\Users\domin\PycharmProjects\Alibava_analysis\Example_Data\270V.hdf5
+  #- C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\290.hdf5
+  #- C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\310.hdf5
+  #- C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\330.hdf5
+  #- C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\350.hdf5
   #- \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\0deg_r2\0deg_250V_50k.h5
   #- \\HEROS\dbloech\Alibava_measurements\LaserRuns\TempDep\0deg_r2\0deg_300V_50k.h5
 
