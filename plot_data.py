@@ -19,7 +19,7 @@ class PlotData:
         self.cfg = create_dictionary(config_path)
         #self.groups["Brace yourself! plots are comming"] = np.concatenate([x for x in self.groups.items()])
 
-    def plot_data(self, mcfg, obj, group=None, fig_name=None):
+    def start_plotting(self, mcfg, obj, group=None, fig_name=None):
         """Plots the data calculated by the framework. Suppress drawing and
         showing the canvas by setting "show" to False.
         Returns matplotlib.pyplot.figure object.

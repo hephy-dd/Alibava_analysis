@@ -357,6 +357,10 @@ class Bdata:
     def __repr__(self):
         return repr(self.data)
 
+    def keys(self):
+        """Returns the keys list"""
+        return self.labels
+
     def get(self, label):
         """DOC of function"""
         return self.data[:,self.labels.index(label)]

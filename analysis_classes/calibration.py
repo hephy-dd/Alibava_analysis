@@ -68,7 +68,6 @@ class Calibration:
             self.polarity = 0
 
         if not self.configs["use_charge_cal"]:
-            # TODO: is this correct? test it with the debugger
             self.use_predefined_cal_params()
             #self.delay_calibration_calc(file_path)
         elif file_path == "":

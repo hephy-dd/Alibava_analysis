@@ -44,7 +44,7 @@ def main(args):
         # Start plotting all results
         if it > 1:  # Closing the old files
             plt.close("all")
-        plot.plot_data(cfg, results, group="from_file")
+        plot.start_plotting(cfg, results, group="from_file")
 
         if cfg.get("Output_folder", "") and cfg.get("Output_name", "") and cfg.get("Save_output", False):
             if cfg["Output_name"] == "generic":
