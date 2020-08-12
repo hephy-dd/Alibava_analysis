@@ -8,7 +8,6 @@ from analysis_classes import NoiseAnalysis
 from analysis_classes import MainAnalysis
 from analysis_classes.utilities import save_all_plots, save_dict, read_meas_files
 import matplotlib.pyplot as plt
-DEF = os.path.join(os.getcwd(), "Examples", "marius_config.yml")
 
 def main(args):
     """Start analysis"""

@@ -54,6 +54,7 @@ class Calibration:
         self.numChan = configs.get("numChan", 256)
         self.degpoly = configs.get("charge_cal_polynom", 5)
         self.range = configs.get("range_ADC_fit", [])
+        self.offset = 0 # offset of adc to e conversion
         self.ADC_sig = None
         self.configs = configs
         self.mean_sig_all_ch = []
@@ -177,10 +178,10 @@ class Calibration:
 
             # For a pulse height of 0 one often finds non-zero values in meansig_charge
             # Use signals of 0 pulse as offset values and adjust rest accordingly
-            offset = self.meansig_charge[1] # because first value is usually garbage
-            if np.mean(offset) > 5:
+            self.offset = self.meansig_charge[1] # because first value is usually garbage
+            if np.mean(self.offset) > 5:
                 self.log.warning("Charge offset is greater then 5 ADC! This "
-                                 "may be a result of bad calibration! Offset: {}".format(np.mean(offset)))
+                                 "may be a result of bad calibration! Offset: {}".format(np.mean(self.offset)))
             #self.meansig_charge = self.meansig_charge - offset
             #for i, pul in enumerate(self.meansig_charge):
             #    for j, val in enumerate(pul):
@@ -189,9 +190,9 @@ class Calibration:
 
 
             # Calculate the mean over all channels for every pulse and then calc
-            # a poly fit for the mean gain curve
-            self.mean_sig_all_ch = np.mean(self.meansig_charge, axis=1)
-            self.mean_std_all_ch = np.mean(self.sig_std, axis=1)
+            # a poly fit for the median gain curve
+            self.mean_sig_all_ch = np.median(self.meansig_charge, axis=1)#-np.mean(self.offset)
+            self.mean_std_all_ch = np.median(self.sig_std, axis=1)#-np.mean(self.offset)
             if self.mean_sig_all_ch[0] <= self.range[0] and self.mean_sig_all_ch[-1] >= self.range[0]:
                 xminarg = np.argwhere(self.mean_sig_all_ch <= self.range[0])[-1][0]
                 xmaxarg = np.argwhere(self.mean_sig_all_ch <= self.range[1])[-1][0]
@@ -207,9 +208,9 @@ class Calibration:
                                                          self.pulses[xminarg:xmaxarg]) if sig > 0]
 
             # Generate poly fit a cut of the offset and append a 0 instead
-            self.meancoeff = np.append(np.polyfit([tup[0] for tup in fit_params],
+            self.meancoeff = np.polyfit([tup[0] for tup in fit_params],
                                         [tup[1] for tup in fit_params],
-                                        deg=self.degpoly, full=False)[:-1], [0])
+                                        deg=self.degpoly, full=False)
             self.log.info("Mean fit coefficients over all channels are: %s", self.meancoeff)
 
             # Calculate the gain curve for EVERY channel-------------------------------------------
@@ -257,7 +258,7 @@ class Calibration:
                                            " this channel will be added to noisy channels!".format(i))
                             self.noisy_channels = np.append(self.noisy_channels, i)
 
-    def convert_ADC_to_e(self, signals_adc, channels=(), use_mean=False):
+    def convert_ADC_to_e(self, signals_adc, channels=(), use_mean=False, sub_offset=True):
         """
         Convert an array of ADC signals to electron signal
         If the parameter, use_gain_per_channel is True in the configs then channels has to be set!!!
@@ -266,6 +267,8 @@ class Calibration:
 
         :param signals_adc: The ADC signal which should be converted to electrons
         :param channels:  Optional parameter, it defines on which channel the corresponding ADC was aquired
+        :param use_mean: Use the mean value instead
+        :param sub_offset: Subtract the offset or not (I recommend to use the offset)
         :return:
         """
 
@@ -292,6 +295,12 @@ class Calibration:
 
             for sig, ch in zip(signals_per_channel, unique_ch):
                 result = np.append(result, np.polyval(self.channel_coeff[ch], sig))
+
+            # Subtract the mean Offset to all calculated values if necessary
+            #if sub_offset:
+            #    offset = np.absolute(np.polyval(self.meancoeff, np.mean(self.offset)))
+            #    result = result-offset
+
 
             return np.absolute(result)
 

@@ -5,7 +5,7 @@ Pedestal_file: C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Exampl
 Delay_scan: ""
 Charge_scan: C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\charge.hdf5
 Measurement_file:
-    - C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\270V.hdf5
+    - C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\350V.hdf5
     #- C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example Data\290V.hdf5
     #- C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example Data\310V.hdf5
     #- C:\Users\dbloech\PycharmProjects\Doktorat\Alibava_analysis\Example_Data\330V.hdf5
@@ -14,7 +14,7 @@ Measurement_file:
 Save_output: False # General flag for saving the plots and so on
 Output_folder: C:\Users\dbloech\Desktop\test
 Output_name: "generic" # filename of the plot/s if you pass generic the basename of the run file will be used
-Pickle_output: pickle # Possible option are JSON, pickle
+#Pickle_output: pickle # Possible option are JSON, pickle
 isBinary: False # If the files provided are Alibava binaries (True) or hdf5 (False) file types
 use_charge_cal: True # Defines if to use the passed charge scan (calibration) file or not
 Gain_params: [220, 0] # if use_charge_cal == False then these parameters will be used for the gain calc
@@ -24,7 +24,7 @@ Gain_params: [220, 0] # if use_charge_cal == False then these parameters will be
 
 # Event analysis parameters
 Processes: 1 # High numbers of processes causes huge memory overhead, only use when more than 100G are available for large files!!!
-SN_cut: 6 # Minimum height of hit
+SN_cut: 7 # Minimum height of hit
 SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
 SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
 Noise_cut: 2 # Here the unit is ADC over median of all strips. This discriminates noisy strips.
@@ -33,8 +33,8 @@ Manual_mask: [38,39,40,41,42]
 Chips: [1] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
 numChan: 256
 timingWindow:
-  - 25 # Minimum timing window
-  - 60 # Maximum timing window
+  - 0 # Minimum timing window
+  - 150 # Maximum timing window
 max_cluster_size: 20 # Directly affects runtime!!!
 sensor_type: "n-in-p" # Sensor Material
 calibrate_gain_to: negative # parameters to calibrate the gain pulses to a specific polarity, options are negative, positive, both
@@ -43,8 +43,9 @@ automasking: True # Tries to find non physical or garbage hits (wrong ADC direct
 charge_cal_polynom: 1 # Degree of poly to fit at charge cal curves
 range_ADC_fit: [50,150] # range in which will be fitted in ADC if you pass an empty list all data will be used
 additional_analysis:
-    - Langau
+    #- Langau
     #- ChargeSharing
+    #- CCE
     #- PositionResolution
 
 Langau:

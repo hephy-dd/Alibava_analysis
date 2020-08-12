@@ -88,5 +88,5 @@ Timing2Dhist:
 
 Efficiency_plot:
     aim_eff: 0.95 # Target efficiency
-    max_range: 250 # Upper bound of efficiency bound in electrons
+    max_range: 100000 # Upper bound of efficiency bound in electrons
     step_size: 1 # Granularity of the plot in electrons
