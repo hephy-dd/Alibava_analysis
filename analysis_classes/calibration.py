@@ -249,9 +249,9 @@ class Calibration:
                                 std_ok = True
                                 break
 
-                        self.channel_coeff[i] = np.append(np.polyfit(mean_sig[xminarg:xmaxarg],
+                        self.channel_coeff[i] = np.polyfit(mean_sig[xminarg:xmaxarg],
                                                             self.pulses[xminarg:xmaxarg],
-                                                            deg=self.degpoly, full=False)[:-1], [0])
+                                                            deg=self.degpoly, full=False)
                     except Exception as err:
                         if "SVD did not converge" in str(err):
                             self.log.error("SVD did not converge in Linear Least Squares for channel {}"

@@ -24,7 +24,7 @@ Gain_params: [220, 0] # if use_charge_cal == False then these parameters will be
 
 # Event analysis parameters
 Processes: 1 # High numbers of processes causes huge memory overhead, only use when more than 100G are available for large files!!!
-SN_cut: 7 # Minimum height of hit
+SN_cut: 6 # Minimum height of hit
 SN_ratio: 0.5 # Ratio at which the program searches for nearby hits below the SN cut
 SN_cluster: 5 # SN what the whole cluster must have at minimum to be considered, values great then 7 are useless
 Noise_cut: 2 # Here the unit is ADC over median of all strips. This discriminates noisy strips.
@@ -33,8 +33,8 @@ Manual_mask: [38,39,40,41,42]
 Chips: [1] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
 numChan: 256
 timingWindow:
-  - 0 # Minimum timing window
-  - 150 # Maximum timing window
+  - 25 # Minimum timing window
+  - 60 # Maximum timing window
 max_cluster_size: 20 # Directly affects runtime!!!
 sensor_type: "n-in-p" # Sensor Material
 calibrate_gain_to: negative # parameters to calibrate the gain pulses to a specific polarity, options are negative, positive, both
@@ -43,7 +43,7 @@ automasking: True # Tries to find non physical or garbage hits (wrong ADC direct
 charge_cal_polynom: 1 # Degree of poly to fit at charge cal curves
 range_ADC_fit: [50,150] # range in which will be fitted in ADC if you pass an empty list all data will be used
 additional_analysis:
-    #- Langau
+    - Langau
     #- ChargeSharing
     #- CCE
     #- PositionResolution
