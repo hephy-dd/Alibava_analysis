@@ -302,8 +302,20 @@ class PlotData:
         clusters_plot.set_xlabel('Clustersize [#]')
         clusters_plot.set_ylabel('Occurance [#]')
         clusters_plot.set_title('Clustersizes')
-        # clusters_plot.set_yscale("log", nonposy='clip')
 
+        textstr = ""
+        for i, bin in enumerate(counts):
+            textstr += "Size {}: {}\n".format(i, bin)
+
+        clusters_plot.text(0.8, 0.85, textstr.strip(), transform=clusters_plot.transAxes,
+                       fontsize=10,
+                       verticalalignment='top',
+                       bbox=dict(boxstyle='round',
+                                 facecolor='white',
+                                 alpha=0.5))
+
+
+        # clusters_plot.set_yscale("log", nonposy='clip')
         # fig.tight_layout()
         # fig.subplots_adjust(top=0.88)
         return clusters_plot
