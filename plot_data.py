@@ -69,6 +69,7 @@ class PlotData:
         noise_plot.set_ylabel('Noise [ADC]')
         noise_plot.set_title('Noise levels per Channel (CMC)')
         noise_plot.legend(loc='upper right')
+        noise_plot.set_ylim(0,10)
         return noise_plot
 
     def plot_rawnoise_ch(self, cfg, obj, fig=None):
@@ -95,6 +96,7 @@ class PlotData:
         noise_plot.set_ylabel('Noise [ADC]')
         noise_plot.set_title('Raw Noise levels per Channel (CMC)')
         noise_plot.legend(loc='upper right')
+        noise_plot.set_ylim(0,10)
         return noise_plot
 
     def plot_pedestal(self, cfg, obj, fig=None):
@@ -109,6 +111,7 @@ class PlotData:
         pede_plot.set_title('Pedestal levels per Channel with noise (only non-masked)')
         pede_plot.set_ylim(bottom=min(data.pedestal) - 50.)
         pede_plot.legend(loc='upper right')
+        #pede_plot.set_ylim(0, 10)
         return pede_plot
 
     def plot_noiseNonCMCorr_ch(self, cfg, obj, fig=None):
@@ -129,6 +132,7 @@ class PlotData:
         noise_plot.set_ylabel('Noise with common-mode [ADC]')
         noise_plot.set_title('Noise level per Channel non-common-mode corrected')
         noise_plot.legend(loc='upper right')
+        noise_plot.set_ylim(0,10)
         return noise_plot
 
     def plot_rawnoiseNonCMCorr_ch(self, cfg, obj, fig=None):
@@ -445,8 +449,13 @@ class PlotData:
     def plot_seed_signal_e(self, cfg, obj, fig=None):
         """Plots seed signal and langau distribution"""
         data = obj["MainAnalysis"]["Langau"]
-        seed_cut = self.cfg["Plot_seed_cut"]
-        fit_langau = self.cfg["Fit_langau"]
+        seed_cut = self.cfg.get("Plot_seed_cut", True)
+        seed_cut_langau = self.cfg.get("Plot_seed_cut_langau", False)
+        if seed_cut_langau:
+            fit_langau = self.cfg.get("Fit_langau", None)
+        else:
+            fit_langau = None
+
         if seed_cut:
             # fig = plt.figure("Seed cut langau from file: {!s}".format(file))
             # Plot Seed cut langau
