@@ -34,7 +34,7 @@ automasking: True # Tries to find non physical or garbage hits (wrong ADC direct
 charge_cal_polynom: 2 # Degree of poly to fit at charge cal curves
 range_ADC_fit: [50,150] # range in which will be fitted in ADC if you pass an empty list all data will be used
 additional_analysis:
-    - Langau
+    #- Langau
     #- ChargeSharing
     #- PositionResolution
 

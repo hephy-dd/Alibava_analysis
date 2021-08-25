@@ -10,6 +10,7 @@
 .idea/**
 Alibava_examples/**
 Example_Data/**
+Example_Config/**
 old/**
 test.py
 *.nbi
