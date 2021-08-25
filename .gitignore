@@ -9,6 +9,7 @@
 # Ignore the content of some folders
 .idea/**
 Alibava_examples/**
+Example_Data/**
 old/**
 test.py
 *.nbi
