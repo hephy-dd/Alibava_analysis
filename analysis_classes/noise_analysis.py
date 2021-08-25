@@ -1,6 +1,7 @@
 """Noise analysis of ALiBaVa files"""
 # pylint: disable=C0103,R0902,C0301,R0914,R0913
 import logging
+import pdb
 from time import time
 import numpy as np
 from tqdm import tqdm
@@ -111,7 +112,7 @@ class NoiseAnalysis:
         self.median_noise = np.median(Noise)
         high_noise_strips = np.nonzero(Noise > self.median_noise + Noise_cut)[0]
         high_noise_strips = np.append(high_noise_strips, self.mask)
-        good_strips = np.delete(good_strips, high_noise_strips)
+        good_strips = np.delete(good_strips, [int(item) for item in high_noise_strips])
 
         return high_noise_strips.astype(np.int64), good_strips.astype(np.int64)
 
