@@ -5,6 +5,8 @@ HEPHY Vienna. It is intended to analyse Alibava Systems hdf5 files.
 It feautures a basic clustering analysis as well as Langau fitting to the
 energy deposition of events
 
+- 31.08.2021: merged from https://github.com/Chilldose/Alibava_analysis and http://git01.hephy.internal/detector-development/pyalibavaanlysis
+
 ### Getting Started
 
 
@@ -35,19 +37,6 @@ this will also automatically install all required modules for the program to
 run. If you don't have Anaconda installed and don't want to use it, you can
 check the "requirements.yml" file to see what dependencies the program needs.
 
-### Running The Program
-
-Adjust the "default_config.yml" file in "Examples" to uýour needs and add the
-respective file paths of pedestal, calibration and main measurement run. Now it
-should be possible to run the program by:
-
-```
-python main.py --config <path_to_config YAML file>
-```
-
-### How to Use
-
-In the future here will be a Link to the docs or something else
 
 ### What you need
 
@@ -103,7 +92,7 @@ Output_folder: <path_to_outputfolder file HDF5 file>
 
 Now it should be possible to run the program by:
 
-pyAlibavaAnalysis.py --config <path_to_config YAML file>
+AliSys.py --config <path_to_config YAML file>
 
 
 ## Authors
