@@ -1,25 +1,31 @@
 Render:
+    Praktikum:
+        Plots:
+            - plot_langau_per_clustersize
+            - plot_seed_signal_e
+            - plot_hitmap
+            - plot_rawnoise_ch
+        arrangement:
+            - 221
+            - 223
+            - 222
+            - 224
+            
     Pedestal, Noise and Common Mode:
         Plots:
-            - plot_noise_ch
+            - plot_rawnoise_ch
+            - plot_MaskedChannelNoise_ch
             - plot_pedestal
             - plot_cm
             - plot_noise_hist
+            - plot_noiseNonCMCorr_ch
         arrangement:
-            - 221
-            - 222
-            - 223
-            - 224
-
-    #Common Mode:
-    #    Plots:
-    #        - plot_cm
-   #         - plot_cm_ch
-    #        - plot_cmsig_ch
-    #    arrangement:
-    #        - 221
-    #        - 222
-    #        - 223
+            - 321
+            - 322
+            - 323
+            - 324
+            - 325
+            - 326
     Calibration:
         Plots:
             - plot_signal_conversion_fit
@@ -77,8 +83,10 @@ Render:
             - 223
             - 222
 
-Plot_single_event: 1000
+Plot_single_event: 10000
 Plot_seed_cut: True
+Plot_seed_cut_langau: True
+RS_RUN: True
 Gain_cut: 1.5
 hitmap_max_clustersize: 3
 Upper_limits_conversion:
@@ -93,5 +101,5 @@ Timing2Dhist:
 
 Efficiency_plot:
     aim_eff: 0.95 # Target efficiency
-    max_range: 100000 # Upper bound of efficiency bound in electrons
-    step_size: 100 # Granularity of the plot in electrons
+    max_range: 70000 # Upper bound of efficiency bound in electrons
+    step_size: 1 # Granularity of the plot in electrons
