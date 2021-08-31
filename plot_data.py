@@ -5,8 +5,10 @@ import logging
 from scipy.stats import norm, rv_continuous
 import matplotlib.pyplot as plt
 import logging
+import matplotlib.mlab as mlab
+from scipy import optimize
 # import pylandau
-from analysis_classes.utilities import handle_sub_plots, gaussian
+from analysis_classes.utilities import handle_sub_plots, gaussian, save_all_plots
 from analysis_classes.utilities import create_dictionary
 
 class PlotData:
@@ -181,6 +183,7 @@ class PlotData:
         n, bins, _ = plot.hist(data.total_noise, bins=500, density=False,
                                alpha=0.4, color="b", label="Noise")
         plot.set_yscale("log", nonposy='clip')
+
         plot.set_ylim(1.)
 
         # Cut off "ungaussian" noise
@@ -363,8 +366,32 @@ class PlotData:
                         1.,
                         alpha=0.4,
                         color="b")
+        
+        def gaussian(x, a, mu, sig):
+            return a*np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+
+        #some channels signal/noise is to high, therefore they are dumped and set to zero. 
+        # For the gauss fit these dumped values interfere with the mu and std so that no actual fit can be made. 
+        # This algorithm takes care of that.
+        gaussian_data = []
+        i = 0
+        for value in data["Hitmap"][len(data["Hitmap"]) - 1]:
+            if float(value) > 0:
+                gaussian_data.append(value)
+            else:
+                if i > 0:
+                    gaussian_data.append(gaussian_data[i-1])
+                else:
+                    gaussian_data.append(0.)
+            i += 1
+        #print(gaussian_data, len(gaussian_data))
+        params, params_covariance = optimize.curve_fit(gaussian, np.arange(len(gaussian_data)), gaussian_data)
+        #print(params)
+        plt.plot(np.arange(len(data["Hitmap"][0])), gaussian(np.arange(len(data["Hitmap"][0])), *params), "--", color = "g", label = "Fit")
         hitmap_plot.set_xlabel('channel [#]')
         hitmap_plot.set_ylabel('Hits [#]')
+        plt.legend(loc = "best")
+
         if fig is None:
             hitmap_plot.set_title('Hitmap')
         return hitmap_plot
@@ -406,7 +433,7 @@ class PlotData:
         plot = handle_sub_plots(fig, cfg)
         plot.set_title("Signals of different cluster sizes")
         # hist, edges = np.histogram(data["signal"], bins=data.bins)
-        plot.hist(data["signal"], bins=data["bins"], density=False,
+        hist_plot_y, hist_plot_x, _ = plot.hist(data["signal"], bins=data["bins"], density=False,
                   alpha=0.4, color="b", label="All clusters")
         #plot.errorbar(edges[:-1], hist, xerr=data["data_error"], fmt='o', markersize=1, color="red")
         if fit_langau:
@@ -448,6 +475,12 @@ class PlotData:
             "sigma = %.2f" % (data["langau_coeff"][2]),
             "A = %.2f" % (data["langau_coeff"][3])))
         # "entries = %.f" %(len(gain_lst))))
+
+        file_max_signal = open("signal.txt", "a")
+        #file_max_signal.write(str(data["langau_coeff"][0]) + "\n")
+        file_max_signal.write(str(hist_plot_x[np.where(hist_plot_y == hist_plot_y.max())]).strip("[]") + "\n")
+        file_max_signal.close()
+
         plot.text(0.6, 0.7, textstr, transform=plot.transAxes,
                   fontsize=10,
                   verticalalignment='top',
@@ -455,7 +488,7 @@ class PlotData:
                             facecolor='white',
                             alpha=0.5))
 
-        plot.legend()
+        plot.legend(loc = "lower right")
         return plot
 
     def plot_seed_signal_e(self, cfg, obj, fig=None):
@@ -473,19 +506,56 @@ class PlotData:
             # Plot Seed cut langau
             plot = handle_sub_plots(fig, cfg)
             # indizes = np.nonzero(data["signal_SC"] > 0)[0]
-            plot.hist(data["signal_SC"],
+            hist_plot_y, hist_plot_x, _ = plot.hist(data["signal_SC"],
                       bins=data["bins"], density=False,
                       alpha=0.4, color="b", label="Signals")
             if fit_langau:
                 plot.plot(data["langau_data_SC"][0], data["langau_data_SC"][1],
                           "r--", color="g",
                           label="Fit")
-                textstr = '\n'.join((
-                    "mpv = %.f" %(data["langau_coeff_SC"][0]),
-                    "eta = %.2f" %(data["langau_coeff_SC"][1]),
-                    "sigma = %.2f" %(data["langau_coeff_SC"][2]),
-                    "A = %.2f" %(data["langau_coeff_SC"][3])))
                                      # "entries = %.f" %(len(gain_lst))))
+
+                sum = 0
+                for value in data["langau_data_SC"][1]:
+                    sum += value
+                mean = sum/len(data["langau_data_SC"][0])
+                #print(mean)
+                anteil = 1
+                RS_RUN = self.cfg.get("RS_RUN", False)
+                print(RS_RUN)
+                if RS_RUN:
+                    for value in data["langau_data_SC"][1]:
+                        if mean-10 < value < mean+10:
+                            if abs(1-value/mean) < anteil:
+                                i = np.where(data["langau_data_SC"][1]==value)
+                                anteil = abs(1-value/mean)
+
+                    plot.vlines(data["langau_data_SC"][0][i],0,data["langau_coeff_SC"][3], label = "mean", linestyle = "dashed", color = "b")
+                    plot.vlines(data["langau_coeff_SC"][0],0,data["langau_coeff_SC"][3], label = "mpv", linestyle = "dashed", color ="r")
+
+                    textstr = '\n'.join((
+                        "mpv = %.f" %(data["langau_coeff_SC"][0]),
+                        "mean = %.f" %(data["langau_data_SC"][0][i]),
+                        "eta = %.2f" %(data["langau_coeff_SC"][1]),
+                        "sigma = %.2f" %(data["langau_coeff_SC"][2]),
+                        "A = %.2f" %(data["langau_coeff_SC"][3])))
+                else:
+                    textstr = '\n'.join((
+                        "mpv = %.f" %(data["langau_coeff_SC"][0]),
+                        "eta = %.2f" %(data["langau_coeff_SC"][1]),
+                        "sigma = %.2f" %(data["langau_coeff_SC"][2]),
+                        "A = %.2f" %(data["langau_coeff_SC"][3])))
+                    def gaussian(x, a, mu, sig):
+                        return a*np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+                    mu, sigma = norm.fit(data["signal_SC"])
+                    plot.plot(data["langau_data_SC"][0],gaussian(data["langau_data_SC"][0], hist_plot_y.max(), mu,sigma),"r--", color="g",
+                          label="Fit")
+                #print(mu,sigma)
+                #file_max_signal = open("signal.txt", "a")
+                #file_max_signal.write(str(hist_plot_x[np.where(hist_plot_y == hist_plot_y.max())]).strip("[]") + "\n")
+                #file_max_signal.write(str(mu) + "\t" + str(data["langau_coeff_SC"][0]) + "\t" + str(hist_plot_y.max()) + "\n")
+                #file_max_signal.close()
+
                 plot.text(0.6, 0.7, textstr, transform=plot.transAxes,
                           fontsize=10,
                           verticalalignment='top',
@@ -505,7 +575,7 @@ class PlotData:
             plot.set_ylabel('Events [#]')
             # if fig is None:
             plot.set_title('Seed Signal in e')
-            plot.legend()
+            plot.legend(loc = "lower right")
             return plot
 
     def plot_timing_profile(self, cfg, obj, fig=None):

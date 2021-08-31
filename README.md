@@ -7,6 +7,7 @@ energy deposition of events
 
 ### Getting Started
 
+
 In order to run this program you need a Python Anaconda distribution. For
 more information on versions see Chapter "What you need". Anaconda will install
 its own python environment, which is called "base". You can run Anaconda from
@@ -66,6 +67,43 @@ In the future here will be a Link to the docs or something else
     * [SciPy](https://www.scipy.org/) - For numerical operations
     * [Matplotlib](https://matplotlib.org/) - For the plots
     * [PyLandau](https://github.com/SiLab-Bonn/pylandau) - For Langau fitting
+=======
+In order to run this program several modules must be installed via
+
+apt-get install python3 <module_name>:
+
+h5py
+llvmlite
+markupsafe
+matplotlib
+numba
+numpy
+scipy
+tqdm
+yaml
+
+pip3 install <module_name>
+
+pylandau
+
+
+### Running The Program
+
+Adjust the "config.yml" file and add the respective file paths of pedestal, calibration 
+and main measurement run. Therefore open the "config.yml" and add the corresponding file paths after:
+
+Pedestal_file: <path_to_pedestal file HDF5 file>
+
+Charge_scan: <path_to_chargescan file HDF5 file>
+
+Measurement_file: <path_to_measurement file HDF5 file>
+
+Output_folder: <path_to_outputfolder file HDF5 file>
+
+
+Now it should be possible to run the program by:
+
+pyAlibavaAnalysis.py --config <path_to_config YAML file>
 
 
 ## Authors

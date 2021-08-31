@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Wrapper for full alibava analysis via console"""
 import os, sys
 from argparse import ArgumentParser
