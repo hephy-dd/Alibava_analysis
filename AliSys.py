@@ -9,6 +9,8 @@ from analysis_classes import NoiseAnalysis
 from analysis_classes import MainAnalysis
 from analysis_classes.utilities import save_all_plots, save_dict, read_meas_files
 import matplotlib.pyplot as plt
+from analysis_classes import scribblingpad
+import pdb
 
 def main(args):
     """Start analysis"""
@@ -40,6 +42,9 @@ def main(args):
         if run:
             run_data = MainAnalysis(run, configs=cfg)
             results["MainAnalysis"] = run_data.results
+            
+        #use data for further analysis..
+        if cfg.get('run_scribblingpad'): scribblingpad.main(ped, cal, run, results)
 
         # Start plotting all results
         if it > 1:  # Closing the old files

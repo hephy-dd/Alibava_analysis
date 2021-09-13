@@ -13,6 +13,7 @@ isBinary: False # If the files provided are Alibava binaries (True) or hdf5 (Fal
 use_charge_cal: True
 #Gain_params: [220, 0] # if use_charge_cal == False then these parameters will be used for the gain calc
 plot_config_file: plot_cfg.yml # relative path to the plot config file
+run_scribblingpad: True # this executes scribblingpad.py for each set of ped,cal,run files
 
 # Event analysis parameters
 Charge_scale: True # Convert ADC to electrons
