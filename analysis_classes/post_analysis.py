@@ -3,11 +3,17 @@
 import pdb
 
 def main(ped, cal, run, results):
+    #This is executed for each set of files
     print('### Scribbling Pad ###')
     print('Keys in \'results\'',results.keys())
     for i in [ped, cal, run]: print(i)
 
     ## put some code here
-    #pdb.set_trace()
+    results=[]
+    pdb.set_trace()
     
     print('##########################')
+    return results
+
+def final(results):
+    #This is executed at the end of the analysis

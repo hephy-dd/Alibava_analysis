@@ -9,7 +9,7 @@ from analysis_classes import NoiseAnalysis
 from analysis_classes import MainAnalysis
 from analysis_classes.utilities import save_all_plots, save_dict, read_meas_files
 import matplotlib.pyplot as plt
-from analysis_classes import scribblingpad
+from analysis_classes import post_analysis
 import pdb
 
 def main(args):
@@ -22,6 +22,7 @@ def main(args):
         sys.exit(0)
     plot = PlotData(os.path.join(os.getcwd(),ext,cfg.get("plot_config_file", "plot_cfg.yml")))
     results = {}
+    post_analysis_results=[]
 
     meas_files = read_meas_files(cfg)
     it = 0
@@ -44,7 +45,7 @@ def main(args):
             results["MainAnalysis"] = run_data.results
             
         #use data for further analysis..
-        if cfg.get('run_scribblingpad'): scribblingpad.main(ped, cal, run, results)
+        if cfg.get('run_post_analysis'): post_analysis_results.append(post_analysis.main(ped, cal, run, results))
 
         # Start plotting all results
         if it > 1:  # Closing the old files
@@ -63,7 +64,7 @@ def main(args):
                           cfg["Output_name"],
                           cfg["Pickle_output"])
 
-
+    if cfg.get('run_post_analysis'): post_analysis.final(post_analysis_results)
     if args.show_plots and it==1:
         plot.show_plots()
 
