@@ -3,7 +3,9 @@
 Pedestal_file: Example_Data/Pedestal.hdf5
 Delay_scan: ''
 Charge_scan: Example_Data/charge.hdf5
-Measurement_file: Example_Data/350V.hdf5
+Measurement_file:
+- Example_Data/350V.hdf5
+- Example_Data/330V.hdf5
 
 Save_output: False # General flag for saving the plots and so on
 Output_folder: ""
