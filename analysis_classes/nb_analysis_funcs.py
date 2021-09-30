@@ -152,7 +152,7 @@ def parallel_event_processing(goodtiming, timings, events, pedestal, meanCMN, me
                                          max_clustersize, masking, material, noisy_strips, eventiming)
         return np.array(prodata), automasked
 
-@jit(nopython = True, cache=True, nogil=gil, fastmath=Fast)
+#@jit(nopython = True, cache=True, nogil=gil, fastmath=Fast)
 def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5,
                   masking=True, material=1):
     """
@@ -195,15 +195,13 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
     if masking:
         if material:
             # So only negative values are considered aka. p-type sensors
-            # masked strips (event == 0.) are considered valid here, but skipped in cluster assignment
             masked_ind = np.nonzero(np.take(event, channels) > 0)[0]
-            valid_ind = np.nonzero(event <= 0)[0]
+            valid_ind = np.nonzero(event < 0)[0]
             automasked_hit += len(masked_ind)
         else:
             # So only positive values are considered aka. n-type sensors
-            # masked strips (event == 0.) are considered valid here, but skipped in cluster assignment
             masked_ind = np.nonzero(np.take(event, channels) < 0)[0]
-            valid_ind = np.nonzero(event >= 0)[0]
+            valid_ind = np.nonzero(event > 0)[0]
             automasked_hit += len(masked_ind)
     else:
         # If none is selected then all will be used
@@ -215,54 +213,54 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
     #channels = np.delete(channels, masked_ind) delete not supported by numba
     #Todo: misinterpretation of two very close clusters
     for ch in channels:  # Loop over all left channels which are a hit, here from "left" to "right"
-            # Check if the channel has not been used so far
-            if not used_channels[ch]:
-                used_channels[ch] = 1  # Now the channel is used
-                cluster = [ch]  # Size we have no a cluster init it with the channel
-                size = 1 # The size of the cluster
+        # Check if the channel has not been used so far
+        if not used_channels[ch]:
+            used_channels[ch] = 1  # Now the channel is used
+            cluster = [ch]  # Size we have no a cluster init it with the channel
+            size = 1 # The size of the cluster
 
-                # Now make a loop to find neighbouring hits of cluster, we must go into both directions
-                right_stop = 0
-                left_stop = 0
-                for i in range(1, offset+1):  # Search plus minus the channel found Todo: first entry useless
-                    # Define bounderis of the chip, so we do not count outside
-                    if 0 < ch-i and ch+i < numchan:
-                        chp = ch+i # Right side of channel
-                        chm = ch-i # Left side of channel
-
-                        # Look if the right neighbour is above the SN_ratio from the SN_cut
-                        # If absSN is nan (masked strip) loop continues
-                        if not right_stop and not np.isnan(absSN[chp]):
-                            if absSN[chp] > SNval:
-                                if not used_channels[chp]:
-                                    cluster.append(chp)
-                                    used_channels[chp] = 1
-                                    size += 1
-                                else:
-                                    right_stop = 1
+            # Now make a loop to find neighbouring hits of cluster, we must go into both directions
+            right_stop = 0
+            left_stop = 0
+            for i in range(1, offset+1):  # Search plus minus the channel found Todo: first entry useless
+                # Define bounderis of the chip, so we do not count outside
+                if 0 < ch-i and ch+i < numchan:
+                    chp = ch+i # Right side of channel
+                    chm = ch-i # Left side of channel
+                    
+                    # Look if the right neighbour is above the SN_ratio from the SN_cut
+                    # If absSN is nan (masked strip) loop continues
+                    if not right_stop and not np.isnan(absSN[chp]):
+                        if absSN[chp] > SNval:
+                            if not used_channels[chp]:
+                                cluster.append(chp)
+                                used_channels[chp] = 1
+                                size += 1
                             else:
-                                right_stop = 1 # Prohibits search for to long clusters or already used channels
+                                right_stop = 1
+                        else:
+                            right_stop = 1 # Prohibits search for to long clusters or already used channels
 
-                        # Look if the left neighbour is above the SN_ratio from the SN_cut
-                        if not left_stop and not np.isnan(absSN[chm]):
-                            if absSN[chm] > SNval:
-                                if not used_channels[chm]:
-                                    cluster.append(chm)
-                                    used_channels[chm] = 1
-                                    size += 1
-                                else:
-                                    left_stop = 1
+                    # Look if the left neighbour is above the SN_ratio from the SN_cut
+                    if not left_stop and not np.isnan(absSN[chm]):
+                        if absSN[chm] > SNval:
+                            if not used_channels[chm]:
+                                cluster.append(chm)
+                                used_channels[chm] = 1
+                                size += 1
                             else:
-                                left_stop = 1 # Prohibits search for to long clusters or already used channels
+                                left_stop = 1
+                        else:
+                            left_stop = 1 # Prohibits search for to long clusters or already used channels
 
-                # Look if the cluster SN is big enough to be counted as clusters
-                Scluster = np.abs(np.sum(np.take(event, cluster))) # Signal
-                Ncluster = np.sqrt(np.abs(np.sum(np.take(noise, cluster)))) # Noise
-                SNcluster = np.divide(Scluster,Ncluster)  # Actual signal to noise of cluster
-                if SNcluster > SN_cluster:
-                    numclus = numclus+1
-                    clusters_list.append(cluster)
-                    clustersize.append(size)
+            # Look if the cluster SN is big enough to be counted as clusters
+            Scluster = np.abs(np.sum(np.take(event, cluster))) # Signal
+            Ncluster = np.sqrt(np.abs(np.sum(np.take(noise, cluster)))) # Noise
+            SNcluster = np.divide(Scluster,Ncluster)  # Actual signal to noise of cluster
+            if SNcluster > SN_cluster:
+                numclus = numclus+1
+                clusters_list.append(cluster)
+                clustersize.append(size)
                     
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
