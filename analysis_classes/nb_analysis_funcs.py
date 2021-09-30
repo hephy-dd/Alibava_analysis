@@ -2,6 +2,7 @@
 #pylint: disable=E1111,C0103
 from numba import jit, prange
 import numpy as np
+import pdb
 
 # Some numba settings
 gil = True # Use gil or not
@@ -194,13 +195,15 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
     if masking:
         if material:
             # So only negative values are considered aka. p-type sensors
+            # masked strips (event == 0.) are considered valid here, but skipped in cluster assignment
             masked_ind = np.nonzero(np.take(event, channels) > 0)[0]
-            valid_ind = np.nonzero(event < 0)[0]
+            valid_ind = np.nonzero(event <= 0)[0]
             automasked_hit += len(masked_ind)
         else:
             # So only positive values are considered aka. n-type sensors
+            # masked strips (event == 0.) are considered valid here, but skipped in cluster assignment
             masked_ind = np.nonzero(np.take(event, channels) < 0)[0]
-            valid_ind = np.nonzero(event > 0)[0]
+            valid_ind = np.nonzero(event >= 0)[0]
             automasked_hit += len(masked_ind)
     else:
         # If none is selected then all will be used
@@ -260,7 +263,7 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
                     numclus = numclus+1
                     clusters_list.append(cluster)
                     clustersize.append(size)
-
+                    
     return channels, clusters_list, numclus, np.array(clustersize), automasked_hit
 
 
