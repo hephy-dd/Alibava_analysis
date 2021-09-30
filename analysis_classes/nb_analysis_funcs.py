@@ -2,7 +2,6 @@
 #pylint: disable=E1111,C0103
 from numba import jit, prange
 import numpy as np
-import pdb
 
 # Some numba settings
 gil = True # Use gil or not
@@ -152,7 +151,7 @@ def parallel_event_processing(goodtiming, timings, events, pedestal, meanCMN, me
                                          max_clustersize, masking, material, noisy_strips, eventiming)
         return np.array(prodata), automasked
 
-#@jit(nopython = True, cache=True, nogil=gil, fastmath=Fast)
+@jit(nopython = True, cache=True, nogil=gil, fastmath=Fast)
 def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_clustersize = 5,
                   masking=True, material=1):
     """
@@ -211,7 +210,6 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
     used_channels[valid_ind] = 0
     # Update the hitted channels #TODO: delete the ones which are automasked, delte not working with numba
     #channels = np.delete(channels, masked_ind) delete not supported by numba
-    pdb.set_trace()
     #Todo: misinterpretation of two very close clusters
     for ch in channels:  # Loop over all left channels which are a hit, here from "left" to "right"
             # Check if the channel has not been used so far
