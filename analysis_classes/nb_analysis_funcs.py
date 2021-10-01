@@ -227,7 +227,7 @@ def nb_clustering(event, SN, noise, SN_cut, SN_ratio, SN_cluster, numchan, max_c
                 if 0 < ch-i and ch+i < numchan:
                     chp = ch+i # Right side of channel
                     chm = ch-i # Left side of channel
-                    
+                 #some additional code...   
                     # Look if the right neighbour is above the SN_ratio from the SN_cut
                     # If absSN is nan (masked strip) loop continues
                     if not right_stop and not np.isnan(absSN[chp]):
