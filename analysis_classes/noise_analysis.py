@@ -5,7 +5,6 @@ import pdb
 from time import time
 import numpy as np
 from tqdm import tqdm
-from analysis_classes.nb_analysis_funcs import nb_noise_calc
 from analysis_classes.utilities import import_h5, read_binary_Alibava
 
 class NoiseAnalysis:
@@ -58,7 +57,7 @@ class NoiseAnalysis:
 
             # First Noise calculation without masking to get an idea of the data
             self.noise_raw, self.noiseNCM_raw, self.CMnoise_raw, self.CMsig_raw = \
-                    nb_noise_calc(self.signal, self.pedestal)
+                    self.noise_calc(self.signal, self.pedestal)
             self.noisy_strips, self.good_strips = \
                         self.detect_noisy_strips(self.noise_raw, self.noise_cut)
             # Mask chips of alibava
@@ -68,7 +67,7 @@ class NoiseAnalysis:
             self.good_strips = np.intersect1d(self.chip_selection, self.good_strips)
             self.noisy_strips = np.append(self.noisy_strips,self.masked_channels)
             noise_corr, noiseNCM_corr, self.CMnoise, self.CMsig, self.total_noise = \
-                        nb_noise_calc(self.signal[:, self.good_strips],
+                        self.noise_calc(self.signal[:, self.good_strips],
                                       self.pedestal[self.good_strips], True)
 
             # self.noise is only the non masked strips long. Make it to the full 256 strips long array so we can use it
@@ -116,37 +115,36 @@ class NoiseAnalysis:
 
         return high_noise_strips.astype(np.int64), good_strips.astype(np.int64)
 
-    def noise_calc(self, events, pedestal, numevents,
-                   numchannels, tot_noise=False):
-        """Noise calculation of normal noise (NN) and common mode noise (CMN).
-        Uses numpy, can be further optimized by reducing memory access to member variables.
-        But got 36k events per second.
-        So fuck it.
-        This function is not numba optimized!!!"""
-        score = np.zeros((numevents, numchannels), dtype=np.float32)
-        noise = score
-        CMnoise = np.zeros(numevents, dtype=np.float32)
-        CMsig = np.zeros(numevents, dtype=np.float32)
-
-        # Loop over all good events
-        for event in tqdm(range(self.goodevents[0].shape[0]), desc="Events processed:"):
-            # Calculate the common mode noise for every channel
-            cm = events[event][:] - pedestal  # Get the signal from event and subtract pedestal
-            CMNsig = np.std(cm)  # Calculate the standard deviation
-            CMN = np.mean(cm)  # Now calculate the mean from the cm to get the actual common mode noise
-
-            # Calculate the noise of channels
-            # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
-            cn = cm - CMN
-            score[event] = cn
-            # Append the common mode values per event to the data arrays
-            CMnoise[event] = CMN
-            CMsig[event] = CMNsig
-
-        # get noise per channel from score value per channel
+    def noise_calc(self, events, pedestal, tot_noise=False):
+        """
+        Noise calculation, normal noise (NN) and common mode noise (CMN)
+        Uses numpy black magic
+        :param events: the events
+        :param pedestal: the pedestal
+        :param tot_noise: bool if you want the tot_noise
+        :return:
+        
+        Written by Dominic Bloech
+        """
+        # Calculate the common mode noise for every channel
+        # Get the signal from event and subtract pedestal
+        cm = np.subtract(events, pedestal, dtype=np.float32)
+        # Calculate the common mode
+        keep = np.array(list(range(0,len(events))))
+        for i in range(3): # Go over 3 times to get even the less dominant outliers
+            CMsig = np.std(cm[keep], axis=1)
+            # Now calculate the mean from the cm to get the actual common mode noise
+            CMnoise = np.mean(cm[keep], axis=1)
+            # Find common mode which is lower/higher than 1 sigma
+            keep = np.where(np.logical_and(CMnoise<(CMnoise+2.5*CMsig), CMnoise>(CMnoise-2.5*CMsig)))[0]
+        # Calculate the noise of channels
+        # Subtract the common mode noise --> Signal[arraylike] - pedestal[arraylike] - Common mode
+        score = np.subtract(cm[keep], CMnoise[keep][:,None], dtype=np.float32)
+        # This is a trick with the dimensions of ndarrays, score = shape[ (x,y) - x,1 ]
+        # is possible otherwise a loop is the only way
         noise = np.std(score, axis=0)
-
+        noiseNC = np.std(cm[keep], axis=0)
         if tot_noise is False:
-            return noise, CMnoise, CMsig
+            return noise, noiseNC, CMnoise, CMsig
         # convert score matrix into an 1-d array --> np.concatenate(score, axis=0))
-        return noise, CMnoise, CMsig, np.concatenate(score, axis=0)
+        return noise, noiseNC, CMnoise, CMsig, np.concatenate(score, axis=0)
