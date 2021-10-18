@@ -1,0 +1,9 @@
+---
+Pedestal_file:
+- /path/to/noise/file.hdf5
+
+isBinary: False # If the files provided are Alibava binaries (True) or hdf5 (False) file types
+Noise_cut: 100 # Here the unit is ADC over median of all strips. This discriminates noisy strips.
+Manual_mask: [] # Manual channel masking
+Chips: [1,2] # Alibava Chip selection (Alibava has 2 chips with each 128 channels)
+numChan: 256
