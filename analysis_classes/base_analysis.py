@@ -1,8 +1,11 @@
 """This file contains the basis analysis class for the ALiBaVa analysis"""
-#pylint: disable=C0103
+# pylint: disable=C0103
 import logging
 import numpy as np
-from analysis_classes.nb_analysis_funcs import parallel_event_processing
+
+# from analysis_classes.nb_analysis_funcs import parallel_event_processing
+from nb_analysis_funcs import parallel_event_processing
+
 
 class BaseAnalysis:
     """BaseAnalysis handles the basic clustering analysis of all passed events.
@@ -75,7 +78,7 @@ class BaseAnalysis:
 
     """
 
-    def __init__(self, main, events, timing, logger = None):
+    def __init__(self, main, events, timing, logger=None):
         """
 
         :param main: MainAnalysis instance for additional paramerters if needed
@@ -90,38 +93,42 @@ class BaseAnalysis:
         self.eventtiming = timing
         self.prodata = None
 
-
-
     def run(self):
         """Does the actual event analysis and clustering in optimized python"""
 
         # Get events with good timing and only process these events
-        gtime = np.nonzero(np.logical_and(self.eventtiming >= self.main.timingWindow[0],
-                                          self.eventtiming <= self.main.timingWindow[1]))
-        #self.eventtiming = self.eventtiming[gtime]
+        gtime = np.nonzero(
+            np.logical_and(
+                self.eventtiming >= self.main.timingWindow[0],
+                self.eventtiming <= self.main.timingWindow[1],
+            )
+        )
+        # self.eventtiming = self.eventtiming[gtime]
 
         # Warning: If you have a RS and pulseshape recognition enabled the
         # timing window has to be set accordingly
 
         # This should, in theory, use parallelization of the loop over event
         # but i did not see any performance boost, maybe you can find the bug =)?
-        data, automasked_hits = parallel_event_processing(gtime,
-                                                              self.eventtiming,
-                                                              self.events,
-                                                              self.main.pedestal,
-                                                              np.mean(self.main.CMN),
-                                                              np.mean(self.main.CMsig),
-                                                              self.main.noise,
-                                                              self.main.numChan,
-                                                              self.main.SN_cut,
-                                                              self.main.SN_ratio,
-                                                              self.main.SN_cluster,
-                                                              max_clustersize=self.main.max_cluster_size,
-                                                              masking=self.main.automasking,
-                                                              material=self.main.material,
-                                                              poolsize=self.main.process_pool,
-                                                              Pool=self.main.Pool,
-                                                              noisy_strips=self.main.noise_analysis.noisy_strips)
+        data, automasked_hits = parallel_event_processing(
+            gtime,
+            self.eventtiming,
+            self.events,
+            self.main.pedestal,
+            np.mean(self.main.CMN),
+            np.mean(self.main.CMsig),
+            self.main.noise,
+            self.main.numChan,
+            self.main.SN_cut,
+            self.main.SN_ratio,
+            self.main.SN_cluster,
+            max_clustersize=self.main.max_cluster_size,
+            masking=self.main.automasking,
+            material=self.main.material,
+            poolsize=self.main.process_pool,
+            Pool=self.main.Pool,
+            noisy_strips=self.main.noise_analysis.noisy_strips,
+        )
         self.prodata = data
         self.main.automasked_hit = automasked_hits
 

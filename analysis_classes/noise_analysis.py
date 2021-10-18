@@ -1,11 +1,22 @@
 """Noise analysis of ALiBaVa files"""
 # pylint: disable=C0103,R0902,C0301,R0914,R0913
+import sys
+import os
 import logging
 import pdb
 from time import time
 import numpy as np
 from tqdm import tqdm
-from analysis_classes.utilities import import_h5, read_binary_Alibava
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
+try:
+    from analysis_classes import utilities
+except ModuleNotFoundError:
+    # import Alibava_analysis.analysis_classes.utilities
+    import utilities
+
+    # from Alibava_analysis.analysis_classes import utilities
 
 
 class NoiseAnalysis:
@@ -20,9 +31,9 @@ class NoiseAnalysis:
 
         self.log.info("Loading pedestal file: %s", path)
         if not configs["isBinary"]:
-            self.data = import_h5(path)
+            self.data = utilities.import_h5(path)
         else:
-            self.data = read_binary_Alibava(path)
+            self.data = utilities.read_binary_Alibava(path)
 
         if self.data:
             # Some of the declaration may seem unecessary but it clears things
@@ -104,14 +115,14 @@ class NoiseAnalysis:
 
     def mask_alibava_chips(self, chips_to_keep=(1, 2), max_channels=256):
         """Defines which chips should be considered"""
-        final_channels = np.array([], dtype=np.int)
+        final_channels = np.array([], dtype=int)
         for chip in chips_to_keep:
             start = (chip - 1) * 128
-            to_keep = np.arange(start, start + 128, dtype=np.int)
+            to_keep = np.arange(start, start + 128, dtype=int)
             final_channels = np.append(final_channels, to_keep)
 
         # No find the masked channels
-        channels = np.arange(max_channels, dtype=np.int)
+        channels = np.arange(max_channels, dtype=int)
         return final_channels, np.setdiff1d(channels, final_channels)
 
     def detect_noisy_strips(self, Noise, Noise_cut):
@@ -165,3 +176,24 @@ class NoiseAnalysis:
             return noise, noiseNC, CMnoise, CMsig
         # convert score matrix into an 1-d array --> np.concatenate(score, axis=0))
         return noise, noiseNC, CMnoise, CMsig, np.concatenate(score, axis=0)
+
+
+def run_noise_analysis(path_to_config):
+    cfg = utilities.create_dictionary(path_to_config)
+    ext = os.path.dirname(path_to_config)
+
+    ped_files, cal_files, run_files = utilities.read_meas_files(cfg, match_files=False)
+
+    noise_analysis = [NoiseAnalysis(ped, configs=cfg) for ped in ped_files]
+    return noise_analysis
+
+
+if __name__ == "__main__":
+    PARSER = utilities.load_parser()
+    args = PARSER.parse_args()
+
+    if not args.config:
+        print("Need at least the --config parameter.")
+        sys.exit(0)
+
+    noise_analysis = run_noise_analysis(args.config)
